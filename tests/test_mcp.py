@@ -19,7 +19,7 @@ class McpSession:
         return resp
 
     def close(self):
-        self.p.stdin.close(); self.p.wait(timeout=5)
+        self.p.stdin.close(); self.p.wait(timeout=5); self.p.stdout.close()
 
 
 class TestMcp(unittest.TestCase):
