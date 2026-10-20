@@ -1,6 +1,6 @@
 # How to check an attested NEAR Books snapshot
 
-An **attested** snapshot holds NEAR mainnet numbers read by a pinned WASM worker inside an Intel TDX enclave run by OutLayer. The worker's output reached the `nearbooks` contract through OutLayer's on-chain yield/resume, so no reporter key is involved. This page shows how anyone can check a snapshot, and it marks which steps were actually executed. The deployment itself (contract, hashes, transactions) is listed in the README under "Testnet deployment", generated from `contract/deployment.json`.
+An **attested** snapshot holds NEAR mainnet numbers read by a pinned WASM worker inside an Intel TDX enclave run by OutLayer. The worker's output reached the `nearbooks` contract through OutLayer's on-chain yield/resume, so no reporter key is involved. This page shows how anyone can check a snapshot, and it marks which steps were actually executed. The deployment itself (contract, hashes, transactions) is listed in `docs/deployment.md`, generated from `contract/deployment.json`.
 
 ## What is claimed
 
@@ -42,6 +42,33 @@ The chain of custody:
 python3 -I contract/scripts/verify_attestation.py nearbooks-v6.okf-kill-1792497882.testnet 2026-10-20 \
     --wasm worker/res/nearbooks-worker.wasm --dcap "$(command -v dcap-qvl)"   # cargo install dcap-qvl-cli
 ```
+
+Recorded output without `--wasm` and `--dcap` (network, about 20 s; long hashes shortened to their first and last characters (`bbed939a…7963`), the script prints them in full):
+
+```
+$ python3 -I contract/scripts/verify_attestation.py nearbooks-v6.okf-kill-1792497882.testnet 2026-10-20
+snapshot 2026-10-20: nonce 0, OutLayer request 5240, mainnet block 220726930 (ts 1792454400548428142)
+attestation: https://testnet-api.outlayer.ai/attestations/by-request/5240
+PASS  snapshot's attestation link == the allowlisted URL for its request id
+PASS  attestation.request_id == snapshot request_id  5240
+PASS  attestation.wasm_hash == snapshot wasm_hash  bbed939a…7963
+PASS  attestation.executed_wasm_sha256 == wasm_hash
+PASS  snapshot wasm_hash == the contract's pin for that date  outlayer.testnet
+PASS  wasm_hash is a worker this repo vouches for (contract/known_workers.json)  format 3 (28-day lookback), commit 422a4e6
+INFO  current pin: bbed939a…7963 (same); waiting proposal: None
+PASS  attestation.input_hash == sha256(contract input)  {"n":"0","d":"2026-10-20","b":"220726930","b28":"216696053"}
+PASS  attestation.output_hash == snapshot output_sha256  99a4cf8c…7251
+PASS  transaction calls this contract's request_snapshot or keeper_request_snapshot  BWso6e2mQR5Qmj8tCvxbF9J8SHkoqgVnbV3rWXLFfyi4 (keeper_request_snapshot)
+PASS  OutLayer receipt returned bytes hashing to output_hash
+PASS  stored metrics == attested output (all 13, incl. the 28-day ones recomputed here)  {"bb":"2022180087915366303354191622511",...}
+INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 f6c4087e601b4300... (= worker_measurement)
+PASS  quote report_data == sha256(task fields): the quote is bound to this run  ddecfc90…3bc2
+PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (110 approved sets)
+SKIP  Intel DCAP signature chain (pass --dcap /path/to/dcap-qvl)
+13/13 checks pass
+```
+
+Append `--wasm worker/res/nearbooks-worker.wasm` (after `make worker`) to also compare your own build, and `--dcap "$(command -v dcap-qvl)"` (`cargo install dcap-qvl-cli`) for Intel's chain. With both, the run ends with `PASS  local worker build sha256 == wasm_hash`, `PASS  Intel DCAP signature chain verifies (dcap-qvl)  TCB status UpToDate` and `15/15 checks pass` (recorded for the same date on `nearbooks-v5`; on `nearbooks-v6` the `--wasm` run printed `14/14 checks pass`, `contract/testnet-keeper.log`). This snapshot was requested by the keeper (see "Keeper budget" below), so the transaction is `keeper_request_snapshot`, signed by its function-call key. The evidence hash `875a2965…7ec0` is the same as for the v5 run of that date.
 
 The script never fetches a URL taken from contract state. It rebuilds the attestation URL from the allowlisted API base and the numeric request id, and it refuses redirects.
 
@@ -140,6 +167,8 @@ The deployed contract (v6) is `cargo near build reproducible-wasm` output. `cont
 
 `contract/scripts/repro_build.sh` clones the repository into a temporary directory, checks out that commit and builds there, so uncommitted changes and later commits cannot change the result. Two builds of `30d995d` from separate clones gave the same sha256 (`644a8df3…2cae`), and so does each `make verify-deploy`, which compares the result with the on-chain `code_hash`. `make wasm` runs the same build into `contract/res/`.
 
+The worker (`worker/build.sh`) builds byte-identically from another directory with the same toolchain, but it is not built in a pinned image. `make verify` reports a local contract or worker build that differs from `contract/deployment.json`.
+
 The URL in the metadata (`https://github.com/IhorMuliar/nearbooks`) has not been published yet. Until it is, a third party needs a copy of this repository's history to rebuild, and SourceScan-style verification is not possible.
 
 ## What this does not prove
@@ -159,7 +188,7 @@ The URL in the metadata (`https://github.com/IhorMuliar/nearbooks`) has not been
 
 ## Earlier deployments
 
-- **`nearbooks-v5` (still live).** It runs the timelocked contract without the keeper budget, built with `cargo near build non-reproducible-wasm` (`b9343afe…6b18`). It keeps the re-pin timelock demo across 2026-10-21 00:00 UTC and its own copy of predictions 0-6. Its transactions are listed in the README deployment table, and its logs are `contract/testnet-attested.log` and `contract/testnet-resolve.log`. `make verify-deploy` checks that it still runs that code.
+- **`nearbooks-v5` (still live).** It runs the timelocked contract without the keeper budget, built with `cargo near build non-reproducible-wasm` (`b9343afe…6b18`). It keeps the re-pin timelock demo across 2026-10-21 00:00 UTC and its own copy of predictions 0-6. Its transactions are listed in the deployment table in `docs/deployment.md`, and its logs are `contract/testnet-attested.log` and `contract/testnet-resolve.log`. `make verify-deploy` checks that it still runs that code.
 - **Superseded attested designs.** The first design (tx `FgnM1JhaTnuZUuuhDBRwZLKm2CxX5WZk6cC6Lix6Eo7t`), the canonical-block design before the storage fix (tx `D315fRtRDtk4FJfyLPfWUpTCvJVRfxdrwBZt5khcuX1Y`) and the untimelocked v4 contract (`nearbooks-v4…`, request `CmYRyYdp6ZNeoCLe3ecJDs4VD2aDGZvRr7N6r7edSjGe`) were all run end to end on testnet. Their logs are in git history: commits `770990b`, `474734d`, `290311b`. Those accounts were deleted and their balances returned to the funder. For v4 that was tx `BYQQAY8QnDRiPaLEXYQXFe7oTmdWRciytwJzLdwx7LQt`.
 - **Reporter-only prototype.** `nbproto-owner-1696.testnet` (deploy `C3vKYWYEtFPXUgJhX7guN5n1gMFwnsSPr1WG3uDrwUDg`) showed a reporter account holding a function-call key limited to `submit_snapshot`:
   - the reporter's snapshot tx `Fnvem2YpsFJrf6d3vepf16nP38dVa1dQq58jd6aC5bHa` succeeded,
