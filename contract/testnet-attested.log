@@ -1,47 +1,57 @@
-contract: nearbooks-m1-7633.testnet   requester: okf-kill-1792497882.testnet   worker: 746273ae673a657a26f94f5b548c8906d79f2422987e0ffded04e4a83d813eb1
+first mainnet block of 2026-10-20: 220726930   of 2026-10-19: 220581913
+contract: nearbooks-m1-2738.testnet   requester: okf-kill-1792497882.testnet   worker: 20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
 -- create the contract account (faucet-sponsored; falls back to funding it from okf-kill-1792497882.testnet)
 Error: 
    0: The faucet (helper service) server failed with status code <429 Too Many Requests>
-faucet unavailable; using sub-account nearbooks-m1.okf-kill-1792497882.testnet
-NPA8LjzBJQwSi6Jt8YDR6HqkT6cbtF4CV7R7ZC6hRmu
--- deploy + new(owner=nearbooks-m1.okf-kill-1792497882.testnet, reporter=nbproto-rep-1696.testnet)
-E39aUjjMkyBoe3Ho8SgykfY5kKE532PMAB3cdgpAbsJP
+faucet unavailable; using sub-account nearbooks.okf-kill-1792497882.testnet
+Fy9nBt8B8rKZwJnXz4d7kZ5QPn5mYw7se6gsQkZApo9g
+-- deploy + new(owner=nearbooks.okf-kill-1792497882.testnet, reporter=nbproto-rep-1696.testnet)
+MBBim5xsevjy265YqXUHoRfyrq86uodZ9aSN6vbPB5f
 -- owner pins the worker (emits worker_pinned)
-52ijxS7hcy1p7TGPsdC8VVE8mYbKYrPfdRqnZQRNm2jm
-EVENT_JSON:{"standard":"nearbooks","version":"1.1.0","event":"worker_pinned","data":{"outlayer_id":"outlayer.testnet","wasm_hash":"746273ae673a657a26f94f5b548c8906d79f2422987e0ffded04e4a83d813eb1","previous_wasm_hash":null,"wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/746273ae673a657a26f94f5b548c8906d79f2422987e0ffded04e4a83d813eb1.wasm"}}
+8A8Ragi5xxLLcQCoHYx2jfUMSnpw1x3YVqezA2VjHmVq
+EVENT_JSON:{"standard":"nearbooks","version":"1.1.0","event":"worker_pinned","data":{"outlayer_id":"outlayer.testnet","wasm_hash":"20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80","previous_wasm_hash":null,"wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80.wasm"}}
 -- NEGATIVE: a stranger cannot re-pin
 Smart contract panicked: only the owner can pin the worker
 -- NEGATIVE: request_snapshot without a deposit
 Smart contract panicked: attach at least 0.01 NEAR for the OutLayer run (the unused part is refunded)
--- okf-kill-1792497882.testnet calls request_snapshot (0.01 NEAR, 300 Tgas): OutLayer runs the pinned worker in TDX, yield/resume delivers the output
-FgnM1JhaTnuZUuuhDBRwZLKm2CxX5WZk6cC6Lix6Eo7t
-Execution completed successfully. Output: Json(366 bytes), Resources: { instructions: 6871949, time_ms: 3936 }, Cost: 1393600600000000000000 yoctoNEAR, Refund: 8606399400000000000000 yoctoNEAR, Cached WASM from 2026-10-20T14:58:46.145725+00:00
+-- NEGATIVE: a date that has not started
+Smart contract panicked: that date has not started yet
+-- NEGATIVE: a block that is not the first of 2026-10-20 (220726931): OutLayer runs the worker, the worker refuses, the contract stores nothing
+42DsP8ugKQHpfpG3uGZgWfomf6LjCyQix8DPtQyjUi2U
+Execution failed: "nearbooks-worker: block 220726931 is not the first block of 2026-10-20 (prev 1792454400548428142 / block 1792454401216000526 vs midnight 1792454400000000000)\n\nTrap: error while executing at wasm backtrace:\n    0: 0x3e92d - <unknown>!<wasm function 899>\n    1: 0x3f084 - <unknown>!<wasm function 927>\n    2: 0x3f2eb - <unknown>!<wasm function 933>\n    3: 0x35f3c - <unknown>!<wasm function 715>\n    4: 0x10de9 - <unknown>!<wasm function 162>\n    5: 0x9aef - <unknown>!<wasm function 115>\n    6: 0x3b24 - <unknown>!<wasm function 81>\n    7: 0x17a19 - <unknown>!<wasm function 255>\n    8: 0x28a3 - <unknown>!<wasm function 62>". Resources: { instructions: 7236562, time_ms: 1051 }. Refunded 8819999300000000000000 yoctoNEAR
+"rejected: OutLayer reported the run as failed (it refunds the unused deposit to the requester)"
+-- okf-kill-1792497882.testnet calls request_snapshot(2026-10-20, 220726930) with 0.01 NEAR, 300 Tgas: OutLayer runs the pinned worker in TDX, yield/resume delivers the output
+D315fRtRDtk4FJfyLPfWUpTCvJVRfxdrwBZt5khcuX1Y
+Execution completed successfully. Output: Json(383 bytes), Resources: { instructions: 10467694, time_ms: 3740 }, Cost: 1374001000000000000000 yoctoNEAR, Refund: 8625999000000000000000 yoctoNEAR, Cached WASM from 2026-10-20T15:18:19.584811+00:00
 "stored attested snapshot 2026-10-20"
--- NEGATIVE: a second run the same day is executed by OutLayer but rejected by the contract (date order), nothing stored
-BsH5n11RxDaK8GkAELURs3Z3NLt14Dvggv1d3UtD9dKP
-"rejected: snapshot date must be later than the latest stored date"
+-- NEGATIVE: a second request for 2026-10-20 is refused up front (one attested snapshot per date)
+Smart contract panicked: an attested snapshot for that date already exists
 -- NEGATIVE: nobody can call the callback directly
 Smart contract panicked: Method on_snapshot_result is private
+-- backfill the previous day 2026-10-19 (archival read at block 220581913; dates may arrive in any order)
+6SrrvduGTjK1T9wmtMCoXigWXCkj1GGS7NcTtNhUPnKX
+Execution completed successfully. Output: Json(383 bytes), Resources: { instructions: 10390838, time_ms: 3899 }, Cost: 1389901000000000000000 yoctoNEAR, Refund: 8610099000000000000000 yoctoNEAR, Cached WASM from 2026-10-20T15:18:19.584811+00:00
+"stored attested snapshot 2026-10-19"
 -- views
-1
+2
 Function execution return value (printed to stdout):
 {
-  "block_height": 273960664,
-  "block_timestamp_ms": 1792508466523,
+  "block_height": 273962469,
+  "block_timestamp_ms": 1792509517859,
   "date": "2026-10-20",
-  "evidence_hash": "5b75e274d6a25a111f992217b67454a0007976e239a125d4d89d1dc87a065e63",
+  "evidence_hash": "02701f609329428666c42c2ac1054348254954474ddb2f1bfb2feabe4f816dd5",
   "metrics": [
     {
       "key": "supply_total_near",
-      "value": "1309481339692690"
+      "value": "1309428647101414"
     },
     {
       "key": "buyback_wallet_near",
-      "value": "2026233799365"
+      "value": "2022180087915"
     },
     {
       "key": "fefundsadmin_wallet_near",
-      "value": "1917880330900"
+      "value": "1916643242806"
     },
     {
       "key": "onecsfundsadmin_wallet_near",
@@ -61,35 +71,91 @@ Function execution return value (printed to stdout):
     },
     {
       "key": "mainnet_block_height",
-      "value": "220818018000000"
+      "value": "220726930000000"
     }
   ],
   "source": {
     "attested": {
-      "attestation": "https://testnet-api.outlayer.ai/attestations/by-request/5127",
-      "block_height": 220818018,
-      "nonce": 0,
-      "output_sha256": "a7f50b28ef3b83755eb0bc41c8e095e8971b38916f2369552269b36646caaa5c",
-      "request_id": 5127,
-      "wasm_hash": "746273ae673a657a26f94f5b548c8906d79f2422987e0ffded04e4a83d813eb1"
+      "attestation": "https://testnet-api.outlayer.ai/attestations/by-request/5131",
+      "block_height": 220726930,
+      "block_timestamp_ns": "1792454400548428142",
+      "nonce": 1,
+      "output_sha256": "20673d508d14ec77ec05cb19821c6d0895fdd0341f0600c2bfffadcba3952dc4",
+      "request_id": 5131,
+      "wasm_hash": "20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80"
     }
   },
   "submitted_by": "okf-kill-1792497882.testnet"
 }
-Here is your console command if you need to script it or re-run:
-    /tmp/outlayer-kill/ncli/near-cli-rs-x86_64-unknown-linux-gnu/near contract call-function as-read-only nearbooks-m1.okf-kill-1792497882.testnet latest_snapshot json-args {} network-config testnet now
--- third-party verification
-snapshot #0 date 2026-10-20 nonce 0 request_id 5127 mainnet block 220818018
-attestation: https://testnet-api.outlayer.ai/attestations/by-request/5127
-PASS  attestation.request_id == snapshot request_id  5127
-PASS  attestation.wasm_hash == snapshot wasm_hash  746273ae673a657a26f94f5b548c8906d79f2422987e0ffded04e4a83d813eb1
+-- third-party verification of both snapshots
+snapshot 2026-10-20: nonce 1, OutLayer request 5131, mainnet block 220726930 (ts 1792454400548428142)
+attestation: https://testnet-api.outlayer.ai/attestations/by-request/5131
+PASS  attestation.request_id == snapshot request_id  5131
+PASS  attestation.wasm_hash == snapshot wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
 PASS  attestation.executed_wasm_sha256 == wasm_hash
-INFO  hash pinned in contract config now: 746273ae673a657a26f94f5b548c8906d79f2422987e0ffded04e4a83d813eb1 (same)
-PASS  local worker build sha256 == wasm_hash  746273ae673a657a26f94f5b548c8906d79f2422987e0ffded04e4a83d813eb1
-PASS  attestation.input_hash == sha256(contract input)  {"n":"0"}
-PASS  attestation.output_hash == snapshot output_sha256  a7f50b28ef3b83755eb0bc41c8e095e8971b38916f2369552269b36646caaa5c
-PASS  transaction calls this contract's request_snapshot  FgnM1JhaTnuZUuuhDBRwZLKm2CxX5WZk6cC6Lix6Eo7t
+INFO  hash pinned in contract config now: 20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80 (same)
+PASS  local worker build sha256 == wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
+PASS  attestation.input_hash == sha256(contract input)  {"n":"1","d":"2026-10-20","b":"220726930"}
+PASS  attestation.output_hash == snapshot output_sha256  20673d508d14ec77ec05cb19821c6d0895fdd0341f0600c2bfffadcba3952dc4
+PASS  transaction calls this contract's request_snapshot  D315fRtRDtk4FJfyLPfWUpTCvJVRfxdrwBZt5khcuX1Y
 PASS  OutLayer receipt returned bytes hashing to output_hash
-PASS  stored metrics == attested output  {"bb":"2026233799365693115946434570865","cs":"270875891412420848813311023","fb":"0","fe":"1917880330900068990542692568184","h":"220818018","ms":"3186","n":"0","rc":"8","rd":"0","rid":"5127","rk":"8","rm":"0","rt":"","sha":"5b75e274d6a25a111f992217b67454a0007976e239a125d4d89d1dc87a065e63","sup":"1309481339692690421774481571388774","t":"1792508458638894832","v":"1"}
-INFO  TDX quote 5006 bytes, version 4, worker_measurement d42b95f051bb5efccf6436f764018f54b0ccc21e8f24e2169aaf1fb788f27e4dd9d788a9648f020e01c1a68a5a57aed7
-9/9 checks pass
+PASS  stored metrics == attested output  {"bb":"2022180087915366303354191622511","cs":"270875891412420848813311023","d":"2026-10-20","fb":"0","fe":"1916643242806074001541587346866","h":"220726930","ms":"2957","n":"1","rc":"8","rd":"0","rid":"5131","rk":"8","rm":"0","rt":"","sha":"02701f609329428666c42c2ac1054348254954474ddb2f1bfb2feabe4f816dd5","sup":"1309428647101414191323016386004184","t":"1792454400548428142","v":"2"}
+INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 b92bf4e72e3b8608... (= worker_measurement)
+PASS  quote report_data == sha256(task fields): the quote is bound to this run  500cb094c23f15874de47857e4c09ca12e28885e0c7677a7e945fd497829211d
+PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (108 approved sets)
+FAIL  Intel DCAP signature chain verifies (dcap-qvl)  TCB status UpToDate
+11/12 checks pass
+snapshot 2026-10-19: nonce 2, OutLayer request 5132, mainnet block 220581913 (ts 1792368000663476247)
+attestation: https://testnet-api.outlayer.ai/attestations/by-request/5132
+PASS  attestation.request_id == snapshot request_id  5132
+PASS  attestation.wasm_hash == snapshot wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
+PASS  attestation.executed_wasm_sha256 == wasm_hash
+INFO  hash pinned in contract config now: 20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80 (same)
+PASS  attestation.input_hash == sha256(contract input)  {"n":"2","d":"2026-10-19","b":"220581913"}
+PASS  attestation.output_hash == snapshot output_sha256  0dba1a1f75554f2126d163606f82dd2a19ec0fe71170657f05bf0c50d5bef654
+PASS  transaction calls this contract's request_snapshot  6SrrvduGTjK1T9wmtMCoXigWXCkj1GGS7NcTtNhUPnKX
+PASS  OutLayer receipt returned bytes hashing to output_hash
+PASS  stored metrics == attested output  {"bb":"2014526467298357764650388041622","cs":"270875891412420848813311023","d":"2026-10-19","fb":"0","fe":"1913463450661649657631982695779","h":"220581913","ms":"3118","n":"2","rc":"8","rd":"0","rid":"5132","rk":"8","rm":"0","rt":"","sha":"79b36002e660b0eb40fef4e72006ba116e2346d5405a0028b9b63d03a2c5c190","sup":"1309322552850909847424293821976051","t":"1792368000663476247","v":"2"}
+INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 b92bf4e72e3b8608... (= worker_measurement)
+PASS  quote report_data == sha256(task fields): the quote is bound to this run  9a823ad8222f4c2559666dbd4d45eb0f1266143ef56bdd02d43ccfaf4af4d9f6
+PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (108 approved sets)
+FAIL  Intel DCAP signature chain verifies (dcap-qvl)  TCB status UpToDate
+10/11 checks pass
+
+# The two DCAP FAILs above were a verifier bug (dcap-qvl prints 'Quote verified' on stderr); fixed in verify_attestation.py and re-run:
+$ python3 -I contract/scripts/verify_attestation.py nearbooks.okf-kill-1792497882.testnet 2026-10-20 --wasm worker/res/nearbooks-worker.wasm --dcap dcap-qvl
+snapshot 2026-10-20: nonce 1, OutLayer request 5131, mainnet block 220726930 (ts 1792454400548428142)
+attestation: https://testnet-api.outlayer.ai/attestations/by-request/5131
+PASS  attestation.request_id == snapshot request_id  5131
+PASS  attestation.wasm_hash == snapshot wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
+PASS  attestation.executed_wasm_sha256 == wasm_hash
+INFO  hash pinned in contract config now: 20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80 (same)
+PASS  local worker build sha256 == wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
+PASS  attestation.input_hash == sha256(contract input)  {"n":"1","d":"2026-10-20","b":"220726930"}
+PASS  attestation.output_hash == snapshot output_sha256  20673d508d14ec77ec05cb19821c6d0895fdd0341f0600c2bfffadcba3952dc4
+PASS  transaction calls this contract's request_snapshot  D315fRtRDtk4FJfyLPfWUpTCvJVRfxdrwBZt5khcuX1Y
+PASS  OutLayer receipt returned bytes hashing to output_hash
+PASS  stored metrics == attested output  {"bb":"2022180087915366303354191622511","cs":"270875891412420848813311023","d":"2026-10-20","fb":"0","fe":"1916643242806074001541587346866","h":"220726930","ms":"2957","n":"1","rc":"8","rd":"0","rid":"5131","rk":"8","rm":"0","rt":"","sha":"02701f609329428666c42c2ac1054348254954474ddb2f1bfb2feabe4f816dd5","sup":"1309428647101414191323016386004184","t":"1792454400548428142","v":"2"}
+INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 b92bf4e72e3b8608... (= worker_measurement)
+PASS  quote report_data == sha256(task fields): the quote is bound to this run  500cb094c23f15874de47857e4c09ca12e28885e0c7677a7e945fd497829211d
+PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (108 approved sets)
+PASS  Intel DCAP signature chain verifies (dcap-qvl)  TCB status UpToDate
+12/12 checks pass
+$ python3 -I contract/scripts/verify_attestation.py nearbooks.okf-kill-1792497882.testnet 2026-10-19 --wasm worker/res/nearbooks-worker.wasm --dcap dcap-qvl
+snapshot 2026-10-19: nonce 2, OutLayer request 5132, mainnet block 220581913 (ts 1792368000663476247)
+attestation: https://testnet-api.outlayer.ai/attestations/by-request/5132
+PASS  attestation.request_id == snapshot request_id  5132
+PASS  attestation.wasm_hash == snapshot wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
+PASS  attestation.executed_wasm_sha256 == wasm_hash
+INFO  hash pinned in contract config now: 20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80 (same)
+PASS  local worker build sha256 == wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
+PASS  attestation.input_hash == sha256(contract input)  {"n":"2","d":"2026-10-19","b":"220581913"}
+PASS  attestation.output_hash == snapshot output_sha256  0dba1a1f75554f2126d163606f82dd2a19ec0fe71170657f05bf0c50d5bef654
+PASS  transaction calls this contract's request_snapshot  6SrrvduGTjK1T9wmtMCoXigWXCkj1GGS7NcTtNhUPnKX
+PASS  OutLayer receipt returned bytes hashing to output_hash
+PASS  stored metrics == attested output  {"bb":"2014526467298357764650388041622","cs":"270875891412420848813311023","d":"2026-10-19","fb":"0","fe":"1913463450661649657631982695779","h":"220581913","ms":"3118","n":"2","rc":"8","rd":"0","rid":"5132","rk":"8","rm":"0","rt":"","sha":"79b36002e660b0eb40fef4e72006ba116e2346d5405a0028b9b63d03a2c5c190","sup":"1309322552850909847424293821976051","t":"1792368000663476247","v":"2"}
+INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 b92bf4e72e3b8608... (= worker_measurement)
+PASS  quote report_data == sha256(task fields): the quote is bound to this run  9a823ad8222f4c2559666dbd4d45eb0f1266143ef56bdd02d43ccfaf4af4d9f6
+PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (108 approved sets)
+PASS  Intel DCAP signature chain verifies (dcap-qvl)  TCB status UpToDate
+12/12 checks pass

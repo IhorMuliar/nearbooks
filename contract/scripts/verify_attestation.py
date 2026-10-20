@@ -1,19 +1,23 @@
 """Third-party check of an Attested snapshot in the nearbooks contract (stdlib only, network, no keys).
 
-    python3 -I contract/scripts/verify_attestation.py CONTRACT [SNAPSHOT_INDEX] [--wasm worker/res/nearbooks-worker.wasm]
+    python3 -I contract/scripts/verify_attestation.py CONTRACT [DATE] [--wasm worker/res/nearbooks-worker.wasm]
+                                                     [--dcap /path/to/dcap-qvl] [--register worker.outlayer.testnet]
 
-Reads the snapshot and the pinned config from the contract (testnet RPC view calls), fetches the public OutLayer
-attestation it links to, then checks:
-  1. attestation.wasm_hash == snapshot.source.wasm_hash == executed_wasm_sha256 (and == sha256 of a local build if --wasm)
-  2. attestation.input_hash == sha256('{"n":"<nonce>"}')   (the exact input the contract sent)
-  3. attestation.output_hash == snapshot.source.output_sha256   (the contract hashed the bytes it stored)
-  4. the OutLayer receipt in the attestation's transaction returned exactly those output bytes, and the stored
-     metrics are what those bytes say (yocto / 1e18 = micro-NEAR)
-  5. the attestation's request_id matches, and that transaction was sent to this contract's request_snapshot
-It prints the TDX quote size and worker measurement; verifying the quote's Intel DCAP signature chain is a separate
-step (docs/attestation.md). Exit code 0 only if every check passes.
+Reads the attested snapshot (default: the latest to arrive) and the pinned config from the contract (testnet RPC view
+calls), fetches the public OutLayer attestation it links to, then checks:
+  1. attestation.wasm_hash == snapshot wasm_hash == executed_wasm_sha256 (and == sha256 of a local build, --wasm)
+  2. attestation.input_hash == sha256('{"n":"<nonce>","d":"<date>","b":"<block>"}')   (what the contract sent)
+  3. attestation.output_hash == snapshot output_sha256   (the contract hashed the bytes it stored)
+  4. the OutLayer receipt in the attestation's transaction returned exactly those bytes, and the stored metrics are
+     what those bytes say (yocto / 1e18 = micro-NEAR); that transaction called this contract's request_snapshot
+  5. the TDX quote's report_data[0:32] == sha256 of the task fields (task_type, task_id, build_target, wasm_hash,
+     input_hash, output_hash, block_height, caller, timestamp, attached_usd), i.e. the quote is bound to this run
+  6. the quote's MRTD + RTMR0-3 are in OutLayer's on-chain approved list (register contract, --register)
+  7. with --dcap: the quote's Intel DCAP signature chain verifies (Phala's dcap-qvl CLI, `cargo install dcap-qvl-cli`)
+Optionally, independently: the observation block is the first mainnet block of DATE (worker/scripts/first_block.py).
+Exit code 0 only if every check that ran passes.
 """
-import base64, hashlib, json, sys, urllib.request
+import base64, hashlib, json, struct, subprocess, sys, tempfile, urllib.request
 
 RPC = "https://rpc.testnet.near.org"
 
@@ -31,27 +35,54 @@ def view(contract, method, args):
     return json.loads(bytes(r["result"]["result"]))
 
 
+def opt(argv, name, default=None):
+    if name in argv:
+        i = argv.index(name)
+        v = argv[i + 1]
+        del argv[i:i + 2]
+        return v
+    return default
+
+
+def task_hash(att):
+    """report_data binding, as OutLayer's worker computes it (worker/src/tdx_attestation.rs, V1 layout)."""
+    h = hashlib.sha256()
+    h.update(att["task_type"].encode())
+    h.update(struct.pack("<q", att["task_id"]))
+    for k in ("build_target", "wasm_hash", "input_hash"):
+        if att.get(k):
+            h.update(att[k].encode())
+    h.update(att["output_hash"].encode())
+    if att.get("block_height") is not None:
+        h.update(struct.pack("<Q", att["block_height"]))
+    if att.get("caller_account_id"):
+        h.update(att["caller_account_id"].encode())
+    h.update(struct.pack("<q", att["timestamp"]))
+    if att.get("attached_usd"):
+        h.update(att["attached_usd"].encode())
+    return h.hexdigest()
+
+
 def main(argv):
-    wasm = None
-    if "--wasm" in argv:
-        i = argv.index("--wasm"); wasm = argv[i + 1]; del argv[i:i + 2]
+    wasm, dcap = opt(argv, "--wasm"), opt(argv, "--dcap")
+    register = opt(argv, "--register", "worker.outlayer.testnet")
     contract = argv[1]
-    count = view(contract, "snapshot_count", {})
-    idx = int(argv[2]) if len(argv) > 2 else count - 1
-    snap = view(contract, "list_snapshots", {"from_index": idx, "limit": 1})[0]
-    src = snap["source"]
-    if not isinstance(src, dict) or "attested" not in src:
-        sys.exit(f"snapshot {idx} ({snap['date']}) is {src!r}, not attested")
-    a = src["attested"]
+    if len(argv) > 2:
+        snap = view(contract, "get_attested_snapshot", {"date": argv[2]})
+    else:
+        snap = view(contract, "list_attested_snapshots", {"from_index": view(contract, "attested_count", {}) - 1, "limit": 1})[0]
+    if not snap or "attested" not in (snap["source"] if isinstance(snap["source"], dict) else {}):
+        sys.exit("no attested snapshot found")
+    a = snap["source"]["attested"]
     cfg = view(contract, "get_outlayer_config", {})
-    print(f"snapshot #{idx} date {snap['date']} nonce {a['nonce']} request_id {a['request_id']} mainnet block {a['block_height']}")
+    print(f"snapshot {snap['date']}: nonce {a['nonce']}, OutLayer request {a['request_id']}, mainnet block {a['block_height']} (ts {a['block_timestamp_ns']})")
     print(f"attestation: {a['attestation']}")
     with urllib.request.urlopen(a["attestation"], timeout=30) as r:
         att = json.load(r)
 
     checks = []
     def check(name, ok, detail=""):
-        checks.append(ok)
+        checks.append(bool(ok))
         print(f"{'PASS' if ok else 'FAIL'}  {name}{('  ' + detail) if detail else ''}")
 
     check("attestation.request_id == snapshot request_id", att.get("request_id") == a["request_id"], str(att.get("request_id")))
@@ -61,7 +92,7 @@ def main(argv):
     if wasm:
         local = hashlib.sha256(open(wasm, "rb").read()).hexdigest()
         check("local worker build sha256 == wasm_hash", local == a["wasm_hash"], local)
-    inp = '{"n":"%d"}' % a["nonce"]
+    inp = '{"n":"%d","d":"%s","b":"%d"}' % (a["nonce"], snap["date"], a["block_height"])
     check("attestation.input_hash == sha256(contract input)", att.get("input_hash") == hashlib.sha256(inp.encode()).hexdigest(), inp)
     check("attestation.output_hash == snapshot output_sha256", att.get("output_hash") == a["output_sha256"], a["output_sha256"])
 
@@ -84,10 +115,27 @@ def main(argv):
         m = {x["key"]: int(x["value"]) for x in snap["metrics"]}
         same = (m["supply_total_near"] == int(o["sup"]) // 10**18 and m["buyback_wallet_near"] == int(o["bb"]) // 10**18
                 and m["fefundsadmin_wallet_near"] == int(o["fe"]) // 10**18 and m["onecsfundsadmin_wallet_near"] == int(o["cs"]) // 10**18
-                and int(o["h"]) == a["block_height"] and o["sha"] == snap["evidence_hash"] and o["n"] == str(a["nonce"]))
+                and int(o["h"]) == a["block_height"] and o["d"] == snap["date"] and o["sha"] == snap["evidence_hash"] and o["n"] == str(a["nonce"]))
         check("stored metrics == attested output", same, out.decode())
+
     q = base64.b64decode(att.get("tdx_quote", ""))
-    print(f"INFO  TDX quote {len(q)} bytes, version {int.from_bytes(q[:2], 'little') if q else '-'}, worker_measurement {att.get('worker_measurement')}")
+    body = q[48:48 + 584]  # TDX v4 quote: 48-byte header, then the TD report body
+    rd, mrtd = body[520:552].hex(), body[136:184].hex()
+    rtmr = [body[328 + 48 * i:376 + 48 * i].hex() for i in range(4)]
+    print(f"INFO  TDX quote {len(q)} bytes, version {int.from_bytes(q[:2], 'little') if q else '-'}, MRTD {mrtd[:16]}..., RTMR3 {rtmr[3][:16]}... (= worker_measurement)")
+    check("quote report_data == sha256(task fields): the quote is bound to this run", rd == task_hash(att), rd)
+    approved = view(register, "get_approved_measurements", {})
+    tup = {"mrtd": mrtd, "rtmr0": rtmr[0], "rtmr1": rtmr[1], "rtmr2": rtmr[2], "rtmr3": rtmr[3]}
+    check(f"quote MRTD+RTMR0-3 are in {register} approved measurements", tup in approved, f"({len(approved)} approved sets)")
+    if dcap:
+        with tempfile.NamedTemporaryFile(suffix=".quote") as f:
+            f.write(q)
+            f.flush()
+            r = subprocess.run([dcap, "verify", f.name], capture_output=True, text=True, timeout=120)
+        status = next((json.loads(line).get("status") for line in r.stdout.splitlines() if line.startswith("{")), None)
+        check("Intel DCAP signature chain verifies (dcap-qvl)", r.returncode == 0 and "Quote verified" in r.stdout + r.stderr, f"TCB status {status}")
+    else:
+        print("SKIP  Intel DCAP signature chain (pass --dcap /path/to/dcap-qvl)")
     print(f"{sum(checks)}/{len(checks)} checks pass")
     return 0 if all(checks) else 1
 

@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# M1 end-to-end on NEAR TESTNET only: deploy nearbooks, pin the OutLayer worker, request an attested snapshot,
-# exercise the rejection paths, then verify the attestation like a third party would.
+# M1 end-to-end on NEAR TESTNET only: deploy nearbooks, pin the OutLayer worker, request the attested snapshot of a
+# UTC day (observed at that day's first mainnet block), exercise the rejection paths, backfill the previous day, then
+# verify the attestation like a third party would.
 # Needs: near-cli-rs (`near` or $NEAR), python3, contract/res/nearbooks.wasm (./build.sh),
 #        worker/res/nearbooks-worker.wasm uploaded to FastFS (WASM_URL), and a funded testnet account FUNDER whose
 #        key is in $NEAR_HOME/.near-credentials (it pays for the runs: ~0.0015 NEAR each).
-# Prints every transaction id. Usage: FUNDER=you.testnet WASM_URL=https://test.fastfs.io/... ./testnet_attested.sh
+# Prints every transaction id. Usage: FUNDER=you.testnet WASM_URL=https://test.fastfs.io/... [DATE=YYYY-MM-DD] [DCAP=path/to/dcap-qvl] ./testnet_attested.sh
 set -uo pipefail
 cd "$(dirname "$0")/../.."
 NEAR=${NEAR:-near}
@@ -18,6 +19,9 @@ OUTLAYER=${OUTLAYER:-outlayer.testnet}
 API=${API:-https://testnet-api.outlayer.ai}
 REPORTER=${REPORTER:-nbproto-rep-1696.testnet}
 C=${CONTRACT:-nearbooks-m1-$RANDOM.testnet}
+DATE=${DATE:-$(date -u +%F)}; PREV=$(date -u -d "$DATE -1 day" +%F)
+B=$(python3 -I worker/scripts/first_block.py $DATE); BP=$(python3 -I worker/scripts/first_block.py $PREV)
+echo "first mainnet block of $DATE: $B   of $PREV: $BP"
 echo "contract: $C   requester: $FUNDER   worker: $WASM_HASH"
 [ "$(case $WASM_URL in *$WASM_HASH.wasm) echo ok;; esac)" = ok ] || { echo "WASM_URL does not end in the local build's hash"; exit 1; }
 
@@ -26,7 +30,7 @@ if [ "${SKIP_CREATE:-0}" != 1 ]; then
   OUT=$(n account create-account sponsor-by-faucet-service $C autogenerate-new-keypair save-to-legacy-keychain network-config testnet create)
   echo "$OUT" | grep -q "successfully created" || {
     echo "$OUT" | grep -iE "error|429" | head -3
-    C=nearbooks-m1.$FUNDER; echo "faucet unavailable; using sub-account $C"
+    C=${SUB:-nearbooks-m1}.$FUNDER; echo "faucet unavailable; using sub-account $C"
     n account create-account fund-myself $C '3 NEAR' autogenerate-new-keypair save-to-legacy-keychain sign-as $FUNDER network-config testnet sign-with-legacy-keychain send | tx
   }
   echo "-- deploy + new(owner=$C, reporter=$REPORTER)"
@@ -43,21 +47,31 @@ echo "$OUT" | tx; echo "$OUT" | grep -o 'EVENT_JSON:.*worker_pinned[^│]*' | he
 echo "-- NEGATIVE: a stranger cannot re-pin"
 call pin_worker "{\"outlayer_id\":\"$OUTLAYER\",\"wasm_url\":\"$WASM_URL\",\"wasm_hash\":\"$WASM_HASH\",\"attestation_api\":\"$API\"}" '30 Tgas' '0 NEAR' $FUNDER | grep -o 'Smart contract panicked: [^"│]*' | head -1
 echo "-- NEGATIVE: request_snapshot without a deposit"
-call request_snapshot '{}' '300 Tgas' '0 NEAR' $FUNDER | grep -o 'Smart contract panicked: [^"│]*' | head -1
+call request_snapshot "{\"date\":\"$DATE\",\"block_height\":$B}" '300 Tgas' '0 NEAR' $FUNDER | grep -o 'Smart contract panicked: [^"│]*' | head -1
+echo "-- NEGATIVE: a date that has not started"
+call request_snapshot "{\"date\":\"$(date -u -d "$DATE +2 day" +%F)\",\"block_height\":$B}" '300 Tgas' '0.01 NEAR' $FUNDER | grep -o 'Smart contract panicked: [^"│]*' | head -1
 
-echo "-- $FUNDER calls request_snapshot (0.01 NEAR, 300 Tgas): OutLayer runs the pinned worker in TDX, yield/resume delivers the output"
-OUT=$(call request_snapshot '{}' '300 Tgas' '0.01 NEAR' $FUNDER)
+echo "-- NEGATIVE: a block that is not the first of $DATE ($((B+1))): OutLayer runs the worker, the worker refuses, the contract stores nothing"
+OUT=$(call request_snapshot "{\"date\":\"$DATE\",\"block_height\":$((B+1))}" '300 Tgas' '0.01 NEAR' $FUNDER)
+echo "$OUT" | tx; echo "$OUT" | grep -o 'Execution failed[^│]*' | head -1; echo "$OUT" | ret
+
+echo "-- $FUNDER calls request_snapshot($DATE, $B) with 0.01 NEAR, 300 Tgas: OutLayer runs the pinned worker in TDX, yield/resume delivers the output"
+OUT=$(call request_snapshot "{\"date\":\"$DATE\",\"block_height\":$B}" '300 Tgas' '0.01 NEAR' $FUNDER)
 echo "$OUT" | tx; echo "$OUT" | grep -o 'Execution completed successfully[^│]*' | head -1; echo "$OUT" | ret
 
-echo "-- NEGATIVE: a second run the same day is executed by OutLayer but rejected by the contract (date order), nothing stored"
-OUT=$(call request_snapshot '{}' '300 Tgas' '0.01 NEAR' $FUNDER)
-echo "$OUT" | tx; echo "$OUT" | ret
+echo "-- NEGATIVE: a second request for $DATE is refused up front (one attested snapshot per date)"
+call request_snapshot "{\"date\":\"$DATE\",\"block_height\":$B}" '300 Tgas' '0.01 NEAR' $FUNDER | grep -o 'Smart contract panicked: [^"│]*' | head -1
 echo "-- NEGATIVE: nobody can call the callback directly"
 call on_snapshot_result '{"nonce":1}' '30 Tgas' '0 NEAR' $FUNDER | grep -o 'Smart contract panicked: [^"│]*' | head -1
 
-echo "-- views"
-n contract call-function as-read-only $C snapshot_count json-args '{}' network-config testnet now | ret
-n contract call-function as-read-only $C latest_snapshot json-args '{}' network-config testnet now | sed -n '/return value/,$p' | grep -vE '^\s*$' | head -60
+echo "-- backfill the previous day $PREV (archival read at block $BP; dates may arrive in any order)"
+OUT=$(call request_snapshot "{\"date\":\"$PREV\",\"block_height\":$BP}" '300 Tgas' '0.01 NEAR' $FUNDER)
+echo "$OUT" | tx; echo "$OUT" | grep -o 'Execution completed successfully[^│]*' | head -1; echo "$OUT" | ret
 
-echo "-- third-party verification"
-python3 -I contract/scripts/verify_attestation.py $C --wasm worker/res/nearbooks-worker.wasm
+echo "-- views"
+n contract call-function as-read-only $C attested_count json-args '{}' network-config testnet now | ret
+n contract call-function as-read-only $C get_attested_snapshot json-args "{\"date\":\"$DATE\"}" network-config testnet now | sed -n '/return value/,/^Here is/p' | grep -vE '^\s*$|^Here is' | head -60
+
+echo "-- third-party verification of both snapshots"
+python3 -I contract/scripts/verify_attestation.py $C $DATE --wasm worker/res/nearbooks-worker.wasm ${DCAP:+--dcap $DCAP}
+python3 -I contract/scripts/verify_attestation.py $C $PREV ${DCAP:+--dcap $DCAP}
