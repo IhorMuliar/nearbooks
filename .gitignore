@@ -8,3 +8,5 @@ __pycache__/
 .env
 *.key
 .near-credentials/
+worker/target/
+worker/res/

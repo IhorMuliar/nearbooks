@@ -1,0 +1,22 @@
+[package]
+name = "nearbooks-worker"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "OutLayer WASM job: reads live NEAR mainnet state over JSON-RPC and prints a compact attested snapshot"
+rust-version = "1.86"
+
+[dependencies]
+serde_json = "1"
+sha2 = "0.10"
+
+# The HTTP client only exists for the wasm32-wasip2 build; the logic in lib.rs is tested natively.
+[target.'cfg(target_os = "wasi")'.dependencies]
+wasi-http-client = "0.2"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
