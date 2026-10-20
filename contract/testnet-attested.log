@@ -1,57 +1,55 @@
-first mainnet block of 2026-10-20: 220726930   of 2026-10-19: 220581913
-contract: nearbooks-m1-183.testnet   requester: okf-kill-1792497882.testnet   worker: 20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
--- create the contract account (faucet-sponsored; falls back to funding it from okf-kill-1792497882.testnet)
-Error: 
-   0: The faucet (helper service) server failed with status code <429 Too Many Requests>
-faucet unavailable; using sub-account nearbooks-v4.okf-kill-1792497882.testnet
-DTBMh9rZnBFCVeaDE1nTF7zKLpmmgXS7t19JpMdMBmbV
--- deploy + new(owner=nearbooks-v4.okf-kill-1792497882.testnet, reporter=nbproto-rep-1696.testnet)
-4E9iJrxbhqtci5jupCVZg4kdPxi2sEg5xNFmjZGMe98Q
--- owner pins the worker (emits worker_pinned)
-2RGJqpXMAHe8y2gQPNmdvYHTmvMKJnuXaK18eQW7ZUhQ
-EVENT_JSON:{"standard":"nearbooks","version":"1.1.0","event":"worker_pinned","data":{"outlayer_id":"outlayer.testnet","wasm_hash":"20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80","previous_wasm_hash":null,"wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80.wasm"}}
--- NEGATIVE: a stranger cannot re-pin
+first mainnet block of 2026-10-20: 220726930   of 2026-10-20 minus 28 days: 216696053
+contract: nearbooks-v5.okf-kill-1792497882.testnet   requester: okf-kill-1792497882.testnet   worker: bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963   pin delay: 3600s
+contract wasm sha256: b9343afe68017cd5853e31a8550b7a021d172ec21704ca078fae998659206b18
+-- create nearbooks-v5.okf-kill-1792497882.testnet (funded by okf-kill-1792497882.testnet: the code needs ~2.6 NEAR of storage)
+2vtwcPHrCLoBGoqGQTaUou8xvhhbm5nHgCNxtYAQoXdj
+-- deploy + new(owner=nearbooks-v5.okf-kill-1792497882.testnet, reporter=nbproto-rep-1696.testnet, pin_delay_secs=3600)
+3q8BoMC36HdWW3ceEXanBzoCt5BBzYpaDkqW2Pfp41Si
+contract balance 2747974114133880700000000 yocto, storage 255205 bytes, free 195924114133880700000000 yocto, code_hash DTxcnSTHU5SvA3ZRjJvMKrGMP5ErTRpPJhxJ9Kew6nJb
+-- owner pins the worker: the first pin applies at once (event worker_pinned)
+E926APVGKKTqtLAuToUvNwsCEUWJD8S8pKg24UPAaut1
+EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"worker_pinned","data":{"outlayer_id":"outlayer.testnet","wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm","previous_wasm_hash":null,"previous_outlayer_id":null,"from_ns":"0"}}
+-- NEGATIVE: a stranger cannot pin
 Smart contract panicked: only the owner can pin the worker
--- min_request_deposit (yoctoNEAR)
-"30000000000000000000000"
+-- owner registers P1..P4 (pipeline/predictions.json via make_args.py) and the demo predictions resolving on 2026-10-21
+P1 AyJyrAcFDdp1vF4LAm7cwPaMm6yJNzG7vSCy6riKzufg id 0
+P2 2v1rLYevSWs1wWpUBpWaWSH9JNJu4pfUiQimtZFiu3pS id 1
+P3 EFWxCqCsbzmdprfqq81WFHqRLLgWpHYYAjt8pABpwEPH id 2
+P4 3XP6epQd9BLJaxFDRVQERLhUv9PNvQQYH812EcGkau8L id 3
+demo 0 58Ecj4BJjYoKChBTtd8we5bzUVTeaYboiYW8raVP7HdL id 4
+demo 1 6XBikgFVCS15oQ1MFL21tfUqTd1xaUM1ErnqxP6bdLne id 5
+demo 2 EMxWSSqbtgE95DK9tD6usL5sPUqTvdp6h5cY3ebRJwa8 id 6
+-- NEGATIVE: a prediction whose answer is already knowable (resolve_after = today)
+Smart contract panicked: resolve_after must be in the future
 -- NEGATIVE: 0.01 NEAR covers OutLayer but not the storage reserve
 Smart contract panicked: attach at least min_request_deposit(): 0.01 NEAR for the OutLayer run plus the storage reserve (unused parts are refunded)
--- NEGATIVE: a date that has not started
-Smart contract panicked: that date has not started yet
--- NEGATIVE: a block that is not the first of 2026-10-20 (220726931): OutLayer runs the worker, the worker refuses, the contract stores nothing
-Kwnry9cjDk76NwMqQ83q2kGS4oBC5gHYvKakCZAnQtW
-Execution failed: "nearbooks-worker: block 220726931 is not the first block of 2026-10-20 
-EVENT_JSON:{"standard":"nearbooks","version":"1.1.0","event":"storage_settled","data":{"nonce":0,"bytes":0,"kept":"0","refunded":"20000000000000000000000"}}
+-- NEGATIVE: a 28-day block that is not the first of its day (216696054): the worker refuses, nothing stored, full reserve refunded
+EDyJbhSRc7m4dyV619TwpfqtUg3ueoQ5Yr3quC2csU6S
+Execution failed: "nearbooks-worker: block 216696054 is not the first block of 2026-10-20 minus 28 days 
+EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"storage_settled","data":{"nonce":0,"bytes":0,"kept":"0","refunded":"20000000000000000000000"}}
 "rejected: OutLayer reported the run as failed (it refunds the unused deposit to the requester)"
--- okf-kill-1792497882.testnet calls request_snapshot(2026-10-20, 220726930) with 0.03 NEAR, 300 Tgas: OutLayer runs the pinned worker in TDX, yield/resume delivers the output
-contract balance 2997916342860654700000000 yocto, storage 236855 bytes, free 629366342860654700000000 yocto
-CmYRyYdp6ZNeoCLe3ecJDs4VD2aDGZvRr7N6r7edSjGe
-Execution completed successfully. Output: Json(383 bytes), Resources: { instructions: 10469135, time_ms: 3107 }, Cost: 1310701000000000000000 yoctoNEAR, Refund: 8689299000000000000000 yoctoNEAR, Cached WASM from 2026-10-20T15:18:19.584811+00:00
-EVENT_JSON:{"standard":"nearbooks","version":"1.1.0","event":"storage_settled","data":{"nonce":1,"bytes":844,"kept":"8440000000000000000000","refunded":"11560000000000000000000"}}
+-- okf-kill-1792497882.testnet calls request_snapshot(2026-10-20, 220726930, 216696053) with 0.03 NEAR, 300 Tgas
+contract balance 2746055695853803200000000 yocto, storage 257671 bytes, free 169345695853803200000000 yocto, code_hash DTxcnSTHU5SvA3ZRjJvMKrGMP5ErTRpPJhxJ9Kew6nJb
+8s6bbc6aU84jgk3eAS8qq1a3ra6Kr8oguw2gHpNf7pMz
+Execution completed successfully. Output: Json(565 bytes), Resources: { instructions: 17845678, time_ms: 3905 }, Cost: 1390501700000000000000 yoctoNEAR, Refund: 8609498300000000000000 yoctoNEAR, Cached WASM from 2026-10-20T15:59:10.928501+00:00
+EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"storage_settled","data":{"nonce":1,"bytes":1085,"kept":"10850000000000000000000","refunded":"9150000000000000000000"}}
 "stored attested snapshot 2026-10-20"
-contract balance 3006356342860654700000000 yocto, storage 237699 bytes, free 629366342860654700000000 yocto
+contract balance 2756905695853803200000000 yocto, storage 258756 bytes, free 169345695853803200000000 yocto, code_hash DTxcnSTHU5SvA3ZRjJvMKrGMP5ErTRpPJhxJ9Kew6nJb
 -- NEGATIVE: a second request for 2026-10-20 is refused up front (one attested snapshot per date)
 Smart contract panicked: an attested snapshot for that date already exists
--- NEGATIVE: nobody can call the callback directly
-Smart contract panicked: Method on_snapshot_result is private
--- NEGATIVE: 2026-10-19 is before earliest_date (default: deployment date), so backfill is bounded
-Smart contract panicked: date is before earliest_date
--- owner moves earliest_date to 2026-10-19 (event earliest_date_set)
-DzBN63Ce5oDG9y5Kvb4PfYk6irjCnFfSrw2tLkdoQQoZ
--- NEGATIVE: earliest_date can never move forward again (it could otherwise shut out a prediction's date)
-Smart contract panicked: earliest_date can only move earlier
--- backfill the previous day 2026-10-19 (archival read at block 220581913; dates may arrive in any order)
-4iXCYdwZ8TfVeC6Buw1bYodcj2M972f273b1gvgodGsd
-Execution completed successfully. Output: Json(383 bytes), Resources: { instructions: 10389455, time_ms: 3100 }, Cost: 1310001000000000000000 yoctoNEAR, Refund: 8689999000000000000000 yoctoNEAR, Cached WASM from 2026-10-20T15:18:19.584811+00:00
-"stored attested snapshot 2026-10-19"
+-- re-pin timelock: propose (event pin_proposed), an immediate apply is refused, then cancel (event pin_proposal_cancelled)
+DBLitSRh6xKdpfCF5MA91okLpWygGoj3nKeQD2eAWczD
+EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"pin_proposed","data":{"outlayer_id":"outlayer.testnet","wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm","previous_wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","previous_outlayer_id":"outlayer.testnet","apply_after_ns":"1792515587628170483","replaces_wasm_hash":null}}
+Smart contract panicked: timelock: the proposed pin can be applied from 1792515587628170483 ns (now 1792511990842244612)
+Fu7RF4rxjrbveQrbyzdhdy7eS8TAiDeJmLP6NciASfn8
+EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"pin_proposal_cancelled","data":{"wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","outlayer_id":"outlayer.testnet"}}
 -- views
-2
-Function execution return value (printed to stdout):
+attested_count: 1   pin_delay_secs: 3600   predictions: 7
 {
-  "block_height": 273964124,
-  "block_timestamp_ms": 1792510466746,
+  "block_height": 273966704,
+  "block_timestamp_ms": 1792511973570,
   "date": "2026-10-20",
-  "evidence_hash": "02701f609329428666c42c2ac1054348254954474ddb2f1bfb2feabe4f816dd5",
+  "evidence_hash": "875a2965057e9b6d4c6f153b05186aedd30f5025109721b75f42c138dc247ec0",
   "metrics": [
     {
       "key": "supply_total_near",
@@ -84,52 +82,57 @@ Function execution return value (printed to stdout):
     {
       "key": "mainnet_block_height",
       "value": "220726930000000"
+    },
+    {
+      "key": "supply_total_near_28d_ago",
+      "value": "1306946432063617"
+    },
+    {
+      "key": "mainnet_block_height_28d",
+      "value": "216696053000000"
+    },
+    {
+      "key": "net_issuance_near_per_day",
+      "value": "88650537064"
+    },
+    {
+      "key": "revenue_wallets_gain_near_28d",
+      "value": "434174324518"
+    },
+    {
+      "key": "revenue_wallets_gain_over_net_issuance",
+      "value": "174914"
     }
   ],
   "source": {
     "attested": {
-      "attestation": "https://testnet-api.outlayer.ai/attestations/by-request/5137",
+      "attestation": "https://testnet-api.outlayer.ai/attestations/by-request/5168",
       "block_height": 220726930,
       "block_timestamp_ns": "1792454400548428142",
       "nonce": 1,
-      "output_sha256": "4e4e928a3455f8e862fb64ed915b7ad0b98c7fd7f0afea8aed3ca02636002b76",
-      "request_id": 5137,
-      "wasm_hash": "20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80"
+      "output_sha256": "e6ca46c3fe6da075ed2304e9808e610ff78f76059c54d96dd8f167856da8cab6",
+      "request_id": 5168,
+      "wasm_hash": "bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963"
     }
   },
   "submitted_by": "okf-kill-1792497882.testnet"
 }
--- third-party verification of both snapshots
-snapshot 2026-10-20: nonce 1, OutLayer request 5137, mainnet block 220726930 (ts 1792454400548428142)
-attestation: https://testnet-api.outlayer.ai/attestations/by-request/5137
-PASS  attestation.request_id == snapshot request_id  5137
-PASS  attestation.wasm_hash == snapshot wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
+-- third-party verification
+snapshot 2026-10-20: nonce 1, OutLayer request 5168, mainnet block 220726930 (ts 1792454400548428142)
+attestation: https://testnet-api.outlayer.ai/attestations/by-request/5168
+PASS  attestation.request_id == snapshot request_id  5168
+PASS  attestation.wasm_hash == snapshot wasm_hash  bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963
 PASS  attestation.executed_wasm_sha256 == wasm_hash
-INFO  hash pinned in contract config now: 20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80 (same)
-PASS  local worker build sha256 == wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
-PASS  attestation.input_hash == sha256(contract input)  {"n":"1","d":"2026-10-20","b":"220726930"}
-PASS  attestation.output_hash == snapshot output_sha256  4e4e928a3455f8e862fb64ed915b7ad0b98c7fd7f0afea8aed3ca02636002b76
-PASS  transaction calls this contract's request_snapshot  CmYRyYdp6ZNeoCLe3ecJDs4VD2aDGZvRr7N6r7edSjGe
+PASS  snapshot wasm_hash == the contract's pin for that date  outlayer.testnet
+INFO  current pin: bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963 (same); waiting proposal: None
+PASS  local worker build sha256 == wasm_hash  bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963
+PASS  attestation.input_hash == sha256(contract input)  {"n":"1","d":"2026-10-20","b":"220726930","b28":"216696053"}
+PASS  attestation.output_hash == snapshot output_sha256  e6ca46c3fe6da075ed2304e9808e610ff78f76059c54d96dd8f167856da8cab6
+PASS  transaction calls this contract's request_snapshot  8s6bbc6aU84jgk3eAS8qq1a3ra6Kr8oguw2gHpNf7pMz
 PASS  OutLayer receipt returned bytes hashing to output_hash
-PASS  stored metrics == attested output  {"bb":"2022180087915366303354191622511","cs":"270875891412420848813311023","d":"2026-10-20","fb":"0","fe":"1916643242806074001541587346866","h":"220726930","ms":"2335","n":"1","rc":"8","rd":"0","rid":"5137","rk":"8","rm":"0","rt":"","sha":"02701f609329428666c42c2ac1054348254954474ddb2f1bfb2feabe4f816dd5","sup":"1309428647101414191323016386004184","t":"1792454400548428142","v":"2"}
+PASS  stored metrics == attested output (all 13, incl. the 28-day ones recomputed here)  {"bb":"2022180087915366303354191622511","bb28":"1742992598429748746718610202638","cs":"270875891412420848813311023","cs28":"270776835252430877653311023","d":"2026-10-20","fb":"0","fe":"1916643242806074001541587346866","fe28":"1761656506829824773977686937425","h":"220726930","h28":"216696053","ms":"3240","n":"1","rc":"8","rd":"0","rid":"5168","rk":"8","rm":"0","rt":"","sha":"875a2965057e9b6d4c6f153b05186aedd30f5025109721b75f42c138dc247ec0","sup":"1309428647101414191323016386004184","sup28":"1306946432063617123518596881337035","t":"1792454400548428142","v":"3"}
 INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 b92bf4e72e3b8608... (= worker_measurement)
-PASS  quote report_data == sha256(task fields): the quote is bound to this run  573ccec0c426416eac0b3fce8266b2a6565c546fa6ba40e3f9cb914ae0a5ebfe
+PASS  quote report_data == sha256(task fields): the quote is bound to this run  53fe7390fff6cac2332888ba3d5ac9f5a0cce356eacdaf9088f33dce9687fb01
 PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (108 approved sets)
 PASS  Intel DCAP signature chain verifies (dcap-qvl)  TCB status UpToDate
-12/12 checks pass
-snapshot 2026-10-19: nonce 2, OutLayer request 5138, mainnet block 220581913 (ts 1792368000663476247)
-attestation: https://testnet-api.outlayer.ai/attestations/by-request/5138
-PASS  attestation.request_id == snapshot request_id  5138
-PASS  attestation.wasm_hash == snapshot wasm_hash  20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80
-PASS  attestation.executed_wasm_sha256 == wasm_hash
-INFO  hash pinned in contract config now: 20102fb3000a8c78ac93389d8f5be759e18b2e34bce5a9f1686854d15abd1e80 (same)
-PASS  attestation.input_hash == sha256(contract input)  {"n":"2","d":"2026-10-19","b":"220581913"}
-PASS  attestation.output_hash == snapshot output_sha256  977a41f4e104e108a1a2bbe6eb9d320ec010f6d393e20824bcb358a2d4ed96b3
-PASS  transaction calls this contract's request_snapshot  4iXCYdwZ8TfVeC6Buw1bYodcj2M972f273b1gvgodGsd
-PASS  OutLayer receipt returned bytes hashing to output_hash
-PASS  stored metrics == attested output  {"bb":"2014526467298357764650388041622","cs":"270875891412420848813311023","d":"2026-10-19","fb":"0","fe":"1913463450661649657631982695779","h":"220581913","ms":"2342","n":"2","rc":"8","rd":"0","rid":"5138","rk":"8","rm":"0","rt":"","sha":"79b36002e660b0eb40fef4e72006ba116e2346d5405a0028b9b63d03a2c5c190","sup":"1309322552850909847424293821976051","t":"1792368000663476247","v":"2"}
-INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 b92bf4e72e3b8608... (= worker_measurement)
-PASS  quote report_data == sha256(task fields): the quote is bound to this run  22e6d152b0070db9c3e5c382bc2502dea2056afa46dfac08f7f8d9d279e47032
-PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (108 approved sets)
-PASS  Intel DCAP signature chain verifies (dcap-qvl)  TCB status UpToDate
-11/11 checks pass
+13/13 checks pass

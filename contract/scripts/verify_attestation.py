@@ -6,10 +6,12 @@
 Reads the attested snapshot (default: the latest to arrive) and the pinned config from the contract (testnet RPC view
 calls), fetches the public OutLayer attestation it links to, then checks:
   1. attestation.wasm_hash == snapshot wasm_hash == executed_wasm_sha256 (and == sha256 of a local build, --wasm)
-  2. attestation.input_hash == sha256('{"n":"<nonce>","d":"<date>","b":"<block>"}')   (what the contract sent)
+  2. attestation.input_hash == sha256('{"n":"<nonce>","d":"<date>","b":"<block>","b28":"<block 28 days earlier>"}')
+     (what the contract sent)
   3. attestation.output_hash == snapshot output_sha256   (the contract hashed the bytes it stored)
   4. the OutLayer receipt in the attestation's transaction returned exactly those bytes, and the stored metrics are
-     what those bytes say (yocto / 1e18 = micro-NEAR); that transaction called this contract's request_snapshot
+     what those bytes say (yocto / 1e18 = micro-NEAR, and the 28-day metrics recomputed from the two observations);
+     that transaction called this contract's request_snapshot
   5. the TDX quote's report_data[0:32] == sha256 of the task fields (task_type, task_id, build_target, wasm_hash,
      input_hash, output_hash, block_height, caller, timestamp, attached_usd), i.e. the quote is bound to this run
   6. the quote's MRTD + RTMR0-3 are in OutLayer's on-chain approved list (register contract, --register)
@@ -74,7 +76,7 @@ def main(argv):
     if not snap or "attested" not in (snap["source"] if isinstance(snap["source"], dict) else {}):
         sys.exit("no attested snapshot found")
     a = snap["source"]["attested"]
-    cfg = view(contract, "get_outlayer_config", {})
+    cfg = view(contract, "get_pin_for_date", {"date": snap["date"]})
     print(f"snapshot {snap['date']}: nonce {a['nonce']}, OutLayer request {a['request_id']}, mainnet block {a['block_height']} (ts {a['block_timestamp_ns']})")
     print(f"attestation: {a['attestation']}")
     with urllib.request.urlopen(a["attestation"], timeout=30) as r:
@@ -88,11 +90,16 @@ def main(argv):
     check("attestation.request_id == snapshot request_id", att.get("request_id") == a["request_id"], str(att.get("request_id")))
     check("attestation.wasm_hash == snapshot wasm_hash", att.get("wasm_hash") == a["wasm_hash"], a["wasm_hash"])
     check("attestation.executed_wasm_sha256 == wasm_hash", att.get("executed_wasm_sha256") == a["wasm_hash"])
-    print(f"INFO  hash pinned in contract config now: {cfg['wasm_hash']} ({'same' if cfg['wasm_hash'] == a['wasm_hash'] else 're-pinned since'})")
+    check("snapshot wasm_hash == the contract's pin for that date", cfg["wasm_hash"] == a["wasm_hash"], cfg["outlayer_id"])
+    now = view(contract, "get_outlayer_config", {})
+    print(f"INFO  current pin: {now['wasm_hash']} ({'same' if now['wasm_hash'] == a['wasm_hash'] else 're-pinned for later dates'}); "
+          f"waiting proposal: {view(contract, 'get_pin_proposal', {})}")
     if wasm:
         local = hashlib.sha256(open(wasm, "rb").read()).hexdigest()
         check("local worker build sha256 == wasm_hash", local == a["wasm_hash"], local)
-    inp = '{"n":"%d","d":"%s","b":"%d"}' % (a["nonce"], snap["date"], a["block_height"])
+    m = {x["key"]: int(x["value"]) for x in snap["metrics"]}
+    b28 = m["mainnet_block_height_28d"] // 10**6
+    inp = '{"n":"%d","d":"%s","b":"%d","b28":"%d"}' % (a["nonce"], snap["date"], a["block_height"], b28)
     check("attestation.input_hash == sha256(contract input)", att.get("input_hash") == hashlib.sha256(inp.encode()).hexdigest(), inp)
     check("attestation.output_hash == snapshot output_sha256", att.get("output_hash") == a["output_sha256"], a["output_sha256"])
 
@@ -112,11 +119,19 @@ def main(argv):
     check("OutLayer receipt returned bytes hashing to output_hash", out is not None)
     if out is not None:
         o = json.loads(out)
-        m = {x["key"]: int(x["value"]) for x in snap["metrics"]}
-        same = (m["supply_total_near"] == int(o["sup"]) // 10**18 and m["buyback_wallet_near"] == int(o["bb"]) // 10**18
-                and m["fefundsadmin_wallet_near"] == int(o["fe"]) // 10**18 and m["onecsfundsadmin_wallet_near"] == int(o["cs"]) // 10**18
-                and int(o["h"]) == a["block_height"] and o["d"] == snap["date"] and o["sha"] == snap["evidence_hash"] and o["n"] == str(a["nonce"]))
-        check("stored metrics == attested output", same, out.decode())
+        y = lambda k: int(o[k])
+        q = lambda num, den: -((-num) // den) if num < 0 else num // den  # Rust's integer division truncates toward zero
+        iss = y("sup") - y("sup28")
+        gain = (y("fe") + y("bb") + y("cs")) - (y("fe28") + y("bb28") + y("cs28"))
+        want = {"supply_total_near": y("sup") // 10**18, "buyback_wallet_near": y("bb") // 10**18, "fefundsadmin_wallet_near": y("fe") // 10**18,
+                "onecsfundsadmin_wallet_near": y("cs") // 10**18, "supply_total_near_28d_ago": y("sup28") // 10**18,
+                "intents_reserves_tokens_checked": y("rc") * 10**6, "intents_reserves_tokens_in_deficit": y("rd") * 10**6,
+                "intents_reserves_max_deficit_ppm": y("rm") * 10**6, "mainnet_block_height": y("h") * 10**6, "mainnet_block_height_28d": y("h28") * 10**6,
+                "net_issuance_near_per_day": q(iss, 10**18 * 28), "revenue_wallets_gain_near_28d": q(gain, 10**18)}
+        if iss > 0:
+            want["revenue_wallets_gain_over_net_issuance"] = q(gain * 10**6, iss)
+        same = (m == want and int(o["h"]) == a["block_height"] and o["d"] == snap["date"] and o["sha"] == snap["evidence_hash"] and o["n"] == str(a["nonce"]))
+        check("stored metrics == attested output (all 13, incl. the 28-day ones recomputed here)" if iss > 0 else "stored metrics == attested output", same, out.decode())
 
     q = base64.b64decode(att.get("tdx_quote", ""))
     body = q[48:48 + 584]  # TDX v4 quote: 48-byte header, then the TD report body

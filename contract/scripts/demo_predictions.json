@@ -1,0 +1,11 @@
+{
+  "_comment": "Short-dated predictions registered only to show resolution end to end on testnet: one per outcome. The resolve date is filled in by make_args.py (the day after registration). Thresholds are in natural units; make_args.py converts them to micro-units.",
+  "predictions": [
+    {"claim": "Net issuance over the 28 days to the first block of the resolve date is above 80,000 NEAR/day (demo of a resolution; expected confirmed).",
+     "metric": "net_issuance_near_per_day", "comparator": "gt", "threshold": 80000},
+    {"claim": "The buyback wallet holds less than 2,000,000 NEAR at the first block of the resolve date (demo of a resolution; expected refuted).",
+     "metric": "buyback_wallet_near", "comparator": "lt", "threshold": 2000000},
+    {"claim": "Volume needed for net deflation exceeds 2x current volume at the first block of the resolve date (the old P4 metric, which the worker does not compute; expected void).",
+     "metric": "breakeven_over_current_volume", "comparator": "gt", "threshold": 2}
+  ]
+}
