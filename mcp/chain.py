@@ -147,11 +147,11 @@ def rpc(method, params, timeout=10, urls=None):
 
 
 def tx_targets(tx_hash, sender, contract):
-    """True if the transaction is `sender` calling `contract`.request_snapshot (read from the chain, not the attestation)."""
+    """True if the transaction is `sender` calling `contract`.request_snapshot or keeper_request_snapshot (read from the chain, not the attestation)."""
     t = rpc("EXPERIMENTAL_tx_status", {"tx_hash": tx_hash, "sender_account_id": sender, "wait_until": "FINAL"}, urls=ARCHIVAL_RPCS)["transaction"]
     acts = t.get("actions") or []
     fc = acts[0].get("FunctionCall", {}) if acts and isinstance(acts[0], dict) else {}
-    return t.get("receiver_id") == contract and fc.get("method_name") == "request_snapshot"
+    return t.get("receiver_id") == contract and fc.get("method_name") in ("request_snapshot", "keeper_request_snapshot")
 
 
 def attestation_checks(snap, contract=None, timeout=15):

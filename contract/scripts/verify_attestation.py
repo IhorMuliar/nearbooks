@@ -11,7 +11,7 @@ calls), fetches the public OutLayer attestation it links to, then checks:
   3. attestation.output_hash == snapshot output_sha256   (the contract hashed the bytes it stored)
   4. the OutLayer receipt in the attestation's transaction returned exactly those bytes, and the stored metrics are
      what those bytes say (yocto / 1e18 = micro-NEAR, and the 28-day metrics recomputed from the two observations);
-     that transaction called this contract's request_snapshot
+     that transaction called this contract's request_snapshot (or keeper_request_snapshot)
   5. the TDX quote's report_data[0:32] == sha256 of the task fields (task_type, task_id, build_target, wasm_hash,
      input_hash, output_hash, block_height, caller, timestamp, attached_usd), i.e. the quote is bound to this run
   6. the quote's MRTD + RTMR0-3 are in OutLayer's on-chain approved list (register contract, --register)
@@ -130,7 +130,7 @@ def main(argv):
     tx = post(ARCHIVAL_RPC, {"jsonrpc": "2.0", "id": 1, "method": "EXPERIMENTAL_tx_status",
                     "params": {"tx_hash": txh, "sender_account_id": signer, "wait_until": "FINAL"}})["result"]
     fc = tx["transaction"]["actions"][0].get("FunctionCall", {})
-    check("transaction calls this contract's request_snapshot", tx["transaction"]["receiver_id"] == contract and fc.get("method_name") == "request_snapshot", txh)
+    check("transaction calls this contract's request_snapshot or keeper_request_snapshot", tx["transaction"]["receiver_id"] == contract and fc.get("method_name") in ("request_snapshot", "keeper_request_snapshot"), f"{txh} ({fc.get('method_name')})")
     out = None
     for ro in tx["receipts_outcome"]:
         sv = ro["outcome"]["status"].get("SuccessValue")

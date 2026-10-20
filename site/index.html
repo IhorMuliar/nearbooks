@@ -209,7 +209,7 @@ async function checkAttestation(s) {
   if (typeof att.transaction_hash === "string" && typeof att.caller_account_id === "string") {
     const t = (await rpc("EXPERIMENTAL_tx_status", { tx_hash: att.transaction_hash, sender_account_id: att.caller_account_id, wait_until: "FINAL" }, (r) => r.transaction, ARCHIVAL_RPCS)).result.transaction;
     const fc = (t.actions || [])[0] && t.actions[0].FunctionCall;
-    txOk = t.receiver_id === CONTRACT && !!fc && fc.method_name === "request_snapshot";
+    txOk = t.receiver_id === CONTRACT && !!fc && (fc.method_name === "request_snapshot" || fc.method_name === "keeper_request_snapshot");
   }
   const c = { transaction_hash: att.transaction_hash, known_worker: KNOWN_WORKERS.includes(a.wasm_hash), pin_for_date_matches: pin.wasm_hash === a.wasm_hash,
     tx_targets_contract: txOk, attestation_url_matches: a.attestation === url, wasm_hash_matches: att.wasm_hash === a.wasm_hash && att.executed_wasm_sha256 === a.wasm_hash,
