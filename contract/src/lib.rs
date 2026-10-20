@@ -23,7 +23,9 @@
 //! What the contract does NOT do: it cannot verify a reported number, and it cannot verify the TDX quote on-chain.
 //! For attested snapshots it guarantees that the bytes came back from the configured OutLayer contract for a run of
 //! the pinned wasm hash, answer this request's nonce, date and block, and parse strictly; the quote itself is checked
-//! off-chain (docs/attestation.md). The contract never pays refunds out of its own balance.
+//! off-chain (docs/attestation.md). Requesters pay for the storage their snapshot uses (a reserve kept from their
+//! deposit, settled by measured `storage_usage` growth), backfill is bounded by `earliest_date`, and the contract
+//! never refunds anything beyond the unused part of a request's own reserve.
 //! Metric values are signed integers in micro-units (value x 1e6) so no floats are needed on-chain.
 
 use near_sdk::json_types::{I128, U64};
@@ -36,9 +38,13 @@ pub const MAX_METRICS_PER_SNAPSHOT: usize = 32;
 pub const MAX_KEY_LEN: usize = 64;
 pub const MAX_CLAIM_LEN: usize = 280;
 
-/// OutLayer's estimate for the default limits below is about 0.007 NEAR (a real run cost about 0.0015); OutLayer
-/// refunds the unused part straight to the caller (`payer_account_id`).
-pub const MIN_REQUEST_DEPOSIT: NearToken = NearToken::from_millinear(10);
+/// Part of the deposit forwarded to OutLayer. Its estimate for the default limits below is about 0.007 NEAR (a real
+/// run cost about 0.0015); OutLayer refunds the unused part straight to the caller (`payer_account_id`).
+pub const MIN_OUTLAYER_DEPOSIT: NearToken = NearToken::from_millinear(10);
+/// Storage the requester pre-pays: the pending entry while in flight, then one attested snapshot (measured at about
+/// 830 bytes in the test `storage_is_paid_by_the_requester`). Kept by the contract; whatever the
+/// stored snapshot does not use is refunded to the requester by the callback.
+pub const STORAGE_RESERVE_BYTES: u64 = 2_000;
 pub const MIN_REQUEST_GAS: Gas = Gas::from_tgas(250);
 pub const OUTLAYER_GAS: Gas = Gas::from_tgas(150);
 pub const CALLBACK_GAS: Gas = Gas::from_tgas(40);
@@ -146,6 +152,10 @@ pub struct PendingRequest {
     pub mainnet_block_height: u64,
     /// Block (this chain) the request was made in.
     pub block_height: u64,
+    /// Kept by this contract from the requester's deposit to pay for storage; the unused part is refunded.
+    pub storage_reserve: NearToken,
+    /// Bytes this pending entry itself occupies (freed by the callback).
+    pub pending_bytes: u64,
 }
 
 /// What the pinned worker prints (worker/src/lib.rs). Every value is a string; unknown keys are refused.
@@ -246,6 +256,8 @@ pub struct NearBooks {
     attested: LookupMap<String, Snapshot>,
     /// Dates of `attested` in arrival order (for listing).
     attested_dates: Vector<String>,
+    /// No attested snapshot may be requested for a date before this (bounds backfill). Default: deployment date.
+    earliest_date: String,
 }
 
 #[near]
@@ -262,6 +274,7 @@ impl NearBooks {
             next_nonce: 0,
             attested: LookupMap::new(b"a"),
             attested_dates: Vector::new(b"d"),
+            earliest_date: today(),
         }
     }
 
@@ -304,6 +317,23 @@ impl NearBooks {
         self.outlayer = Some(cfg);
     }
 
+    /// Owner only. Moves the earliest date an attested snapshot may be requested for (default: deployment date).
+    pub fn set_earliest_date(&mut self, date: String) {
+        require!(env::predecessor_account_id() == self.owner_id, "only the owner can set earliest_date");
+        require!(valid_date(&date), "date must be YYYY-MM-DD");
+        emit("earliest_date_set", json!({"earliest_date": date, "previous": self.earliest_date}));
+        self.earliest_date = date;
+    }
+
+    pub fn get_earliest_date(&self) -> String {
+        self.earliest_date.clone()
+    }
+
+    /// Deposit `request_snapshot` needs: the OutLayer part plus the storage reserve, in yoctoNEAR.
+    pub fn min_request_deposit(&self) -> NearToken {
+        MIN_OUTLAYER_DEPOSIT.saturating_add(storage_reserve())
+    }
+
     pub fn get_outlayer_config(&self) -> Option<OutlayerConfig> {
         self.outlayer.clone()
     }
@@ -314,39 +344,50 @@ impl NearBooks {
 
     // ------------------------------------------------------ attested (OutLayer)
 
-    /// Anyone. Asks for the attested snapshot of `date` (UTC), observed at `block_height`, which must be the first
-    /// NEAR mainnet block of that date (`worker/scripts/first_block.py` finds it; the worker refuses any other).
-    /// Attach >= 0.01 NEAR and >= 250 Tgas. The whole deposit goes to OutLayer with the caller as
-    /// `payer_account_id`, so OutLayer refunds the unused part to the caller. The result lands in
-    /// `on_snapshot_result`; the transaction's final value says whether it was stored.
+    /// Anyone. Asks for the attested snapshot of `date` (UTC, not before `earliest_date`), observed at
+    /// `block_height`, which must be the first NEAR mainnet block of that date (`worker/scripts/first_block.py`
+    /// finds it; the worker refuses any other). Attach >= `min_request_deposit()` (0.01 NEAR for OutLayer plus a
+    /// 0.02 NEAR storage reserve) and >= 250 Tgas. The storage reserve stays here; the rest goes to OutLayer with
+    /// the caller as `payer_account_id`, so OutLayer refunds its unused part to the caller. The callback refunds
+    /// the unused storage reserve. The transaction's final value says whether the snapshot was stored.
     #[payable]
     pub fn request_snapshot(&mut self, date: String, block_height: u64) -> Promise {
         let cfg = self.outlayer.clone().unwrap_or_else(|| env::panic_str("the OutLayer worker is not configured"));
         require!(valid_date(&date), "date must be YYYY-MM-DD");
         require!(date <= today(), "that date has not started yet");
+        require!(date >= self.earliest_date, "date is before earliest_date");
         require!(!self.attested.contains_key(&date), "an attested snapshot for that date already exists");
         require!(block_height > 0, "block_height required");
         let deposit = env::attached_deposit();
-        require!(deposit >= MIN_REQUEST_DEPOSIT, "attach at least 0.01 NEAR for the OutLayer run (the unused part is refunded)");
+        let reserve = storage_reserve();
+        require!(
+            deposit >= MIN_OUTLAYER_DEPOSIT.saturating_add(reserve),
+            "attach at least min_request_deposit(): 0.01 NEAR for the OutLayer run plus the storage reserve (unused parts are refunded)"
+        );
+        let to_outlayer = deposit.saturating_sub(reserve);
         require!(env::prepaid_gas() >= MIN_REQUEST_GAS, "attach at least 250 Tgas");
         let requester = env::predecessor_account_id();
         let nonce = self.next_nonce;
         self.next_nonce += 1;
         let input = worker_input(nonce, &date, block_height);
-        self.pending.insert(
-            nonce,
-            PendingRequest {
-                requester: requester.clone(),
-                outlayer_id: cfg.outlayer_id.clone(),
-                wasm_hash: cfg.wasm_hash.clone(),
-                date: date.clone(),
-                mainnet_block_height: block_height,
-                block_height: env::block_height(),
-            },
-        );
-        emit("snapshot_requested", json!({"nonce": nonce, "date": date, "mainnet_block_height": block_height, "wasm_hash": cfg.wasm_hash, "requester": requester, "deposit": deposit}));
+        let mut pending = PendingRequest {
+            requester: requester.clone(),
+            outlayer_id: cfg.outlayer_id.clone(),
+            wasm_hash: cfg.wasm_hash.clone(),
+            date: date.clone(),
+            mainnet_block_height: block_height,
+            block_height: env::block_height(),
+            storage_reserve: reserve,
+            pending_bytes: 0,
+        };
+        let before = env::storage_usage();
+        self.pending.insert(nonce, pending.clone());
+        self.pending.flush();
+        pending.pending_bytes = env::storage_usage().saturating_sub(before);
+        self.pending.insert(nonce, pending); // same width (u64), so the measured size is unchanged
+        emit("snapshot_requested", json!({"nonce": nonce, "date": date, "mainnet_block_height": block_height, "wasm_hash": cfg.wasm_hash, "requester": requester, "to_outlayer": to_outlayer, "storage_reserve": reserve}));
         ext_outlayer::ext(cfg.outlayer_id.clone())
-            .with_attached_deposit(deposit)
+            .with_attached_deposit(to_outlayer)
             .with_static_gas(OUTLAYER_GAS)
             .with_unused_gas_weight(1)
             .request_execution(
@@ -364,12 +405,15 @@ impl NearBooks {
     /// Callback of `request_snapshot` (private: only this contract can invoke it, and the promise result it reads is
     /// the one returned by the OutLayer contract the request was sent to). Never panics after the pending entry is
     /// removed, so a rejected or failed run leaves no trace except the event; returns what happened.
-    /// It never sends NEAR: refunds are OutLayer's (to `payer_account_id`).
+    /// The only NEAR it sends is the unused part of this request's own storage reserve, measured as the storage this
+    /// request leaves behind (0 bytes when nothing is stored). OutLayer refunds the run deposit itself.
     #[private]
     pub fn on_snapshot_result(&mut self, nonce: u64) -> String {
         // Same check `#[private]` generates for the wasm export, repeated so it also holds in unit tests.
         require!(env::predecessor_account_id() == env::current_account_id(), "only this contract can deliver OutLayer results");
+        let usage_with_pending = env::storage_usage();
         let p = self.pending.remove(&nonce).unwrap_or_else(|| env::panic_str("unknown request nonce"));
+        self.pending.flush();
         let outcome = match env::promise_result_checked(0, MAX_WORKER_OUTPUT) {
             // request_execution itself was refused, so no run happened. The protocol returns the attached deposit to
             // this contract; how much arrived cannot be proven here, so nothing is sent from the contract's balance.
@@ -378,6 +422,14 @@ impl NearBooks {
             Err(_) => Err("unreadable OutLayer result".to_string()),
             Ok(bytes) => self.accept_attested(nonce, &p, &bytes),
         };
+        // Bytes this request leaves behind = now - (before callback - its pending entry).
+        let left = env::storage_usage().saturating_sub(usage_with_pending.saturating_sub(p.pending_bytes));
+        let used = env::storage_byte_cost().saturating_mul(left as u128);
+        let refund = p.storage_reserve.saturating_sub(used);
+        if !refund.is_zero() {
+            Promise::new(p.requester.clone()).transfer(refund).detach();
+        }
+        emit("storage_settled", json!({"nonce": nonce, "bytes": left, "kept": used, "refunded": refund}));
         match outcome {
             Ok(date) => {
                 emit("snapshot", json!({"date": date, "source": "attested", "nonce": nonce}));
@@ -573,6 +625,7 @@ impl NearBooks {
         if self.attested.contains_key(&p.date) {
             return Err("an attested snapshot for that date already exists".into());
         }
+        let before = env::storage_usage();
         self.attested_dates.push(p.date.clone());
         self.attested.insert(
             p.date.clone(),
@@ -594,6 +647,17 @@ impl NearBooks {
                 },
             },
         );
+        self.attested.flush();
+        self.attested_dates.flush();
+        let grown = env::storage_usage().saturating_sub(before);
+        if env::storage_byte_cost().saturating_mul(grown as u128) > p.storage_reserve {
+            // Never stake more than the requester reserved: undo.
+            self.attested.remove(&p.date);
+            self.attested_dates.pop();
+            self.attested.flush();
+            self.attested_dates.flush();
+            return Err(format!("snapshot needs {} bytes, more than the storage reserve covers", grown));
+        }
         Ok(p.date.clone())
     }
 
@@ -610,6 +674,11 @@ impl NearBooks {
         }
         (lo < self.snapshots.len()).then_some(lo)
     }
+}
+
+/// The storage reserve every `request_snapshot` keeps: `STORAGE_RESERVE_BYTES` at the current byte cost.
+pub fn storage_reserve() -> NearToken {
+    env::storage_byte_cost().saturating_mul(STORAGE_RESERVE_BYTES as u128)
 }
 
 /// Shared by both series: date format, not in the future, metric keys, evidence hash.

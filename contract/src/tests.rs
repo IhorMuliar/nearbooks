@@ -15,13 +15,18 @@ const HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789ab
 /// 2026-10-20T12:00:00Z
 const T_2026_10_20: u64 = 1_792_497_600;
 
+/// The mock resets `storage_usage` with every new context; carry it over so cross-call measurements match the chain.
+fn carried_usage() -> u64 {
+    env::storage_usage()
+}
+
 fn acct(s: &str) -> AccountId {
     s.parse().unwrap()
 }
 
 /// Sets the caller and the block time (unix seconds).
 fn ctx(caller: &str, unix_secs: u64) {
-    testing_env!(VMContextBuilder::new().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(caller)).block_timestamp(unix_secs * 1_000_000_000).build());
+    testing_env!(VMContextBuilder::new().storage_usage(carried_usage()).clone().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(caller)).block_timestamp(unix_secs * 1_000_000_000).build());
 }
 
 fn fresh() -> NearBooks {
@@ -209,13 +214,19 @@ fn pin(c: &mut NearBooks, hash: &str) {
     c.pin_worker(acct(OUTLAYER), format!("https://test.fastfs.io/x/outlayer.testnet/{}.wasm", hash), hash.into(), "https://testnet-api.outlayer.ai".into(), None, None);
 }
 
-/// `caller` calls request_snapshot(date, height) at unix time `now` with a deposit (milliNEAR) and 300 Tgas.
+/// 0.02 NEAR at the test VM's byte cost (1e19 yocto per byte).
+fn reserve() -> NearToken {
+    NearToken::from_yoctonear(10u128.pow(19) * STORAGE_RESERVE_BYTES as u128)
+}
+
+/// `caller` calls request_snapshot(date, height) at unix time `now` with `millinear` for OutLayer on top of the
+/// storage reserve, and 300 Tgas.
 fn request_at(c: &mut NearBooks, caller: &str, millinear: u128, date: &str, height: u64, now: u64) -> u64 {
-    testing_env!(VMContextBuilder::new()
+    testing_env!(VMContextBuilder::new().storage_usage(carried_usage()).clone()
         .current_account_id(acct(CONTRACT))
         .predecessor_account_id(acct(caller))
         .signer_account_id(acct(caller))
-        .attached_deposit(NearToken::from_millinear(millinear))
+        .attached_deposit(NearToken::from_millinear(millinear).saturating_add(reserve()))
         .prepaid_gas(Gas::from_tgas(300))
         .block_timestamp(now * 1_000_000_000)
         .build());
@@ -230,7 +241,7 @@ fn request(c: &mut NearBooks, caller: &str, millinear: u128) -> u64 {
 /// The callback as the runtime delivers it: predecessor = this contract, one promise result.
 fn deliver_at(c: &mut NearBooks, caller: &str, nonce: u64, result: PromiseResult, now: u64) -> String {
     testing_env!(
-        VMContextBuilder::new().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(caller)).block_timestamp(now * 1_000_000_000).build(),
+        VMContextBuilder::new().storage_usage(carried_usage()).clone().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(caller)).block_timestamp(now * 1_000_000_000).build(),
         near_sdk::test_vm_config(),
         near_sdk::RuntimeFeesConfig::test(),
         Default::default(),
@@ -275,7 +286,8 @@ fn request_snapshot_calls_outlayer_with_the_pinned_hash_date_and_block() {
     let to_outlayer = receipts.iter().find(|r| r.receiver_id == acct(OUTLAYER)).expect("a receipt to OutLayer");
     let MockAction::FunctionCallWeight { method_name, args, attached_deposit, .. } = &to_outlayer.actions[0] else { panic!("not a function call") };
     assert_eq!(method_name, b"request_execution");
-    assert_eq!(*attached_deposit, NearToken::from_millinear(10));
+    assert_eq!(*attached_deposit, NearToken::from_millinear(10), "the storage reserve stays in the contract");
+    assert_eq!(c.get_pending(0).unwrap().storage_reserve, reserve());
     let a: Value = serde_json::from_slice(args).unwrap();
     assert_eq!(a["source"]["WasmUrl"]["hash"], WASM);
     assert_eq!(a["source"]["WasmUrl"]["build_target"], "wasm32-wasip2");
@@ -424,8 +436,22 @@ fn oversized_output_is_rejected() {
     assert_eq!(c.attested_count(), 0);
 }
 
+/// Transfers the callback created: (receiver, amount).
+fn transfers() -> Vec<(AccountId, NearToken)> {
+    get_created_receipts()
+        .into_iter()
+        .flat_map(|r| {
+            let to = r.receiver_id.clone();
+            r.actions.into_iter().filter_map(move |a| match a {
+                MockAction::Transfer { deposit, .. } => Some((to.clone(), deposit)),
+                _ => None,
+            })
+        })
+        .collect()
+}
+
 #[test]
-fn failed_outlayer_call_stores_nothing_and_sends_no_contract_funds() {
+fn failed_outlayer_call_stores_nothing_and_returns_only_the_reserve() {
     let mut c = fresh();
     pin(&mut c, WASM);
     let nonce = request(&mut c, STRANGER, 25);
@@ -433,23 +459,91 @@ fn failed_outlayer_call_stores_nothing_and_sends_no_contract_funds() {
     assert_eq!(r, "rejected: the OutLayer call failed before running; nothing stored");
     assert_eq!(c.attested_count(), 0);
     assert!(c.get_pending(nonce).is_none());
-    // the callback creates no receipt at all: no transfer out of the contract's own balance
-    assert!(get_created_receipts().is_empty(), "{:?}", get_created_receipts().iter().map(|r| r.receiver_id.to_string()).collect::<Vec<_>>());
+    // the OutLayer part (25 milliNEAR) is NOT re-sent from contract funds; only this request's untouched reserve is
+    assert_eq!(transfers(), vec![(acct(STRANGER), reserve())]);
 }
 
 #[test]
-fn no_callback_outcome_ever_transfers_funds() {
+fn callback_never_sends_more_than_the_requests_own_unused_reserve() {
     // every callback outcome on one contract; the storing one goes last because it fills the only date used
     let mut c = fresh();
     pin(&mut c, WASM);
     for result in [ok_bytes("null"), ok_bytes("garbage"), PromiseResult::Failed, ok_bytes("{}")] {
         let nonce = request(&mut c, STRANGER, 10);
         deliver(&mut c, nonce, result);
-        assert!(get_created_receipts().is_empty());
+        assert_eq!(transfers(), vec![(acct(STRANGER), reserve())], "nothing stored: the full reserve and nothing else");
     }
     let nonce = request(&mut c, STRANGER, 10);
     assert!(deliver(&mut c, nonce, ok_bytes(&worker_output(nonce))).starts_with("stored"));
-    assert!(get_created_receipts().is_empty());
+    let t = transfers();
+    assert_eq!(t.len(), 1);
+    assert!(t[0].0 == acct(STRANGER) && t[0].1 < reserve(), "{:?}", t);
+}
+
+#[test]
+fn storage_is_paid_by_the_requester() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    ctx(STRANGER, T_2026_10_20);
+    let before = env::storage_usage();
+    let nonce = request(&mut c, STRANGER, 10);
+    assert!(deliver(&mut c, nonce, ok_bytes(&worker_output(nonce))).starts_with("stored"));
+    let grown = env::storage_usage() - before;
+    println!("attested snapshot storage: {} bytes", grown);
+    let staked = NearToken::from_yoctonear(10u128.pow(19) * grown as u128);
+    let refunded = transfers()[0].1;
+    // the contract kept exactly what the new snapshot stakes, so its free balance is unchanged by the snapshot
+    assert_eq!(reserve().saturating_sub(refunded), staked);
+    assert!(grown > 500 && grown < STORAGE_RESERVE_BYTES, "snapshot uses {} bytes", grown);
+    assert!(get_logs().iter().any(|l| l.contains("storage_settled") && l.contains(&format!(r#""bytes":{}"#, grown))));
+}
+
+#[test]
+#[should_panic(expected = "attach at least min_request_deposit()")]
+fn deposit_without_the_storage_reserve_is_refused() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    testing_env!(VMContextBuilder::new().storage_usage(carried_usage()).clone()
+        .current_account_id(acct(CONTRACT))
+        .predecessor_account_id(acct(STRANGER))
+        .attached_deposit(NearToken::from_millinear(10)) // enough for OutLayer, nothing for storage
+        .prepaid_gas(Gas::from_tgas(300))
+        .block_timestamp(T_2026_10_20 * 1_000_000_000)
+        .build());
+    let _ = c.request_snapshot("2026-10-20".into(), B_1020);
+}
+
+#[test]
+fn min_request_deposit_is_outlayer_part_plus_reserve() {
+    let c = fresh();
+    assert_eq!(c.min_request_deposit(), NearToken::from_millinear(10).saturating_add(reserve()));
+}
+
+#[test]
+#[should_panic(expected = "date is before earliest_date")]
+fn date_before_earliest_date_is_refused() {
+    let mut c = fresh(); // deployed 2026-10-20: that is the default earliest_date
+    assert_eq!(c.get_earliest_date(), "2026-10-20");
+    pin(&mut c, WASM);
+    request_at(&mut c, STRANGER, 10, "2026-10-19", B_1020 - 1_000, T_2026_10_20);
+}
+
+#[test]
+fn owner_can_move_earliest_date() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    ctx(OWNER, T_2026_10_20);
+    c.set_earliest_date("2026-10-19".into());
+    let n = request_at(&mut c, STRANGER, 10, "2026-10-19", B_1020 - 1_000, T_2026_10_20);
+    assert_eq!(c.get_pending(n).unwrap().date, "2026-10-19");
+}
+
+#[test]
+#[should_panic(expected = "only the owner can set earliest_date")]
+fn only_owner_moves_earliest_date() {
+    let mut c = fresh();
+    ctx(STRANGER, T_2026_10_20);
+    c.set_earliest_date("2000-01-01".into());
 }
 
 #[test]
@@ -546,7 +640,7 @@ fn request_needs_a_pinned_worker() {
 }
 
 #[test]
-#[should_panic(expected = "attach at least 0.01 NEAR")]
+#[should_panic(expected = "attach at least min_request_deposit()")]
 fn request_needs_a_deposit() {
     let mut c = fresh();
     pin(&mut c, WASM);
