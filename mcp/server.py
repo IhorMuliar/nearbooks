@@ -3,10 +3,15 @@
 
     python3 mcp/server.py [path/to/metrics.json]      # default: $NEARBOOKS_METRICS, else newest data/*/metrics.json
 
-Tools: get_metrics, get_reconciliation, list_predictions. It serves what pipeline/compute.py wrote; it does not
-fetch anything and does not talk to the chain.
+Pipeline tools (historical, from metrics.json): get_metrics, get_reconciliation, list_predictions.
+Contract tools (live, NEAR testnet JSON-RPC view calls; no keys): get_attested_snapshots, get_predictions,
+get_contract_config. They fall back to the committed cache (site/contract-cache.json) when the RPC cannot be
+reached, and every answer says which one it used ("mode": "live" or "offline"). Env: NEARBOOKS_CONTRACT,
+NEARBOOKS_RPC (comma-separated), NEARBOOKS_CACHE.
 """
 import glob, json, os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import chain
 
 SUPPORTED = ("2025-06-18", "2025-03-26", "2024-11-05")
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -59,15 +64,61 @@ def tool_list_predictions(args):
     p = load()["predictions"]
     if args.get("metric"):
         p = [x for x in p if x["metric"] == args["metric"]]
-    return {"note": "Predictions are resolved on-chain by the nearbooks contract (anyone may call resolve_prediction); this server only lists them.", "predictions": p}
+    return {"note": "The pipeline's list with each metric's value in the 2026-10-20 snapshot. Live on-chain status: get_predictions.", "predictions": p}
+
+
+def _source(state, mode):
+    if mode == "live":
+        return {"mode": "live", "contract": state["contract"], "network": "testnet", "rpc": state["rpc"], "block_height": state["block_height"]}
+    return {"mode": "offline", "contract": state["contract"], "network": "testnet", "cache_fetched_at": state["fetched_at"],
+            "cache_block_height": state["block_height"], "reason": state.get("offline_reason")}
+
+
+def _state(args, with_attestations=False):
+    if args.get("offline"):
+        return chain.load_cache(), "offline"
+    return chain.state_or_cache(with_attestations=with_attestations)
+
+
+def tool_get_attested_snapshots(args):
+    state, mode = _state(args, with_attestations=bool(args.get("verify")))
+    snaps = state["attested"]
+    if args.get("date"):
+        snaps = [x for x in snaps if x["date"] == args["date"]]
+    return {**_source(state, mode),
+            "note": "Each snapshot is NEAR mainnet state at the first block of its UTC date (and 28 days earlier), read by the pinned worker in OutLayer's TDX enclave. "
+                    "verify=true fetches the public attestation and compares its wasm/input/output hashes; the TDX quote is checked by contract/scripts/verify_attestation.py.",
+            "snapshots": [chain.snapshot_view(x) for x in sorted(snaps, key=lambda x: x["date"])]}
+
+
+def tool_get_predictions(args):
+    state, mode = _state(args)
+    preds = [chain.prediction_view(p) for p in state["predictions"]]
+    if args.get("status"):
+        preds = [p for p in preds if p["status"] == args["status"]]
+    return {**_source(state, mode), "rule": "Only the attested snapshot for exactly resolve_after decides; a metric it lacks makes the prediction void. Anyone may call resolve_prediction.",
+            "predictions": preds}
+
+
+def tool_get_contract_config(args):
+    state, mode = _state(args)
+    keys = ("owner_id", "reporter_id", "pin_delay_secs", "pins", "pin_proposal", "earliest_date")
+    return {**_source(state, mode), **{k: state[k] for k in keys},
+            "note": "A re-pin is proposed, waits pin_delay_secs, then governs only dates that start after it is applied (pins[i].from_ns)."}
 
 
 TOOLS = {
     "get_metrics": (tool_get_metrics, "Headline NEAR Intents revenue / buyback / supply / deflation metrics as of the latest verified snapshot. Optional `section` returns a full section (revenue, reconciliation, buyback, supply, hsp029, deflation, snapshot).",
                     {"type": "object", "properties": {"section": {"type": "string"}}}),
     "get_reconciliation": (tool_get_reconciliation, "On-chain-rebuilt revenue vs DefiLlama: summary rows, monthly deltas and correlation by lag.", {"type": "object", "properties": {}}),
-    "list_predictions": (tool_list_predictions, "Dated, falsifiable predictions (claim, metric, comparator, threshold, resolve_after) with the current value of each metric.",
+    "list_predictions": (tool_list_predictions, "Pipeline view of the dated, falsifiable predictions P1-P4 (claim, metric, comparator, threshold, resolve_after) with each metric's value in the 2026-10-20 snapshot.",
                          {"type": "object", "properties": {"metric": {"type": "string"}}}),
+    "get_attested_snapshots": (tool_get_attested_snapshots, "Attested NEAR mainnet snapshots stored in the nearbooks testnet contract, read live over RPC (falls back to a committed cache, flagged mode=offline). Optional `date` (YYYY-MM-DD), `verify` (fetch the OutLayer attestation and compare hashes), `offline` (use the cache only).",
+                               {"type": "object", "properties": {"date": {"type": "string"}, "verify": {"type": "boolean"}, "offline": {"type": "boolean"}}}),
+    "get_predictions": (tool_get_predictions, "Every prediction registered in the nearbooks testnet contract with its on-chain status (pending, confirmed, refuted, void) and the observed value that decided it, read live over RPC (cache fallback, flagged). Optional `status`, `offline`.",
+                        {"type": "object", "properties": {"status": {"type": "string", "enum": ["pending", "confirmed", "refuted", "void"]}, "offline": {"type": "boolean"}}}),
+    "get_contract_config": (tool_get_contract_config, "Owner, reporter, pin history, waiting pin proposal, timelock and earliest_date of the nearbooks testnet contract, read live (cache fallback, flagged).",
+                            {"type": "object", "properties": {"offline": {"type": "boolean"}}}),
 }
 
 
@@ -84,7 +135,7 @@ def handle(req):
     if method == "initialize":
         v = params.get("protocolVersion")
         reply(id_, {"protocolVersion": v if v in SUPPORTED else SUPPORTED[0], "capabilities": {"tools": {}},
-                    "serverInfo": {"name": "nearbooks", "version": "0.1.0"}})
+                    "serverInfo": {"name": "nearbooks", "version": "0.2.0"}})
     elif method == "ping":
         reply(id_, {})
     elif method == "tools/list":
