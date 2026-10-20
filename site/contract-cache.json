@@ -1,9 +1,9 @@
 {
  "contract": "nearbooks-v5.okf-kill-1792497882.testnet",
  "network": "testnet",
- "rpc": "https://rpc.testnet.near.org",
- "block_height": 273967031,
- "fetched_at": "2026-10-20T16:02:39Z",
+ "rpc": "https://rpc.testnet.fastnear.com",
+ "block_height": 273968340,
+ "fetched_at": "2026-10-20T16:14:54Z",
  "owner_id": "nearbooks-v5.okf-kill-1792497882.testnet",
  "reporter_id": "nbproto-rep-1696.testnet",
  "pin_delay_secs": 3600,
@@ -108,6 +108,7 @@
    },
    "attestation_checks": {
     "transaction_hash": "8s6bbc6aU84jgk3eAS8qq1a3ra6Kr8oguw2gHpNf7pMz",
+    "attestation_url_matches": true,
     "wasm_hash_matches": true,
     "input_hash_matches": true,
     "output_hash_matches": true,
