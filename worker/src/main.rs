@@ -1,4 +1,4 @@
-//! OutLayer entrypoint (wasm32-wasip2): stdin = `{"n":"<nonce>"}`, stdout = the snapshot JSON (see lib.rs).
+//! OutLayer entrypoint (wasm32-wasip2): stdin = `{"n":"<nonce>","d":"YYYY-MM-DD","b":"<height>"}`, stdout = the snapshot JSON (see lib.rs).
 #[cfg(target_os = "wasi")]
 struct Wasi;
 
@@ -28,6 +28,7 @@ fn main() {
         input,
         request_id: std::env::var("NEAR_REQUEST_ID").unwrap_or_default(),
         elapsed_ms: Box::new(move || start.elapsed().as_millis() as u64),
+        sleep: Box::new(|ms| std::thread::sleep(std::time::Duration::from_millis(ms))),
     };
     match nearbooks_worker::run(&mut Wasi, &ctx) {
         Ok(out) => {
