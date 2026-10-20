@@ -1,0 +1,52 @@
+# Daily NEAR Books keeper (NEAR testnet). The only secret is NEARBOOKS_KEEPER_KEY: the private half of a function-call
+# access key on the keeper account, limited to the nearbooks contract's keeper_request_snapshot and resolve_prediction
+# with a 0.5 NEAR gas allowance. It cannot attach a deposit or transfer funds; each snapshot's deposit comes from the
+# contract's prepaid keeper budget under its per-day cap (docs/attestation.md, "Keeper").
+name: keeper
+
+on:
+  schedule:
+    - cron: "20 0 * * *"   # 00:20 UTC: the day's first mainnet block is long final and archived
+  workflow_dispatch:
+    inputs:
+      date:
+        description: "UTC date YYYY-MM-DD (default: today)"
+        required: false
+      dry_run:
+        description: "plan only, sign nothing"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: keeper
+  cancel-in-progress: false
+
+jobs:
+  keeper:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run the keeper
+        env:
+          NEARBOOKS_KEEPER_KEY: ${{ secrets.NEARBOOKS_KEEPER_KEY }}
+          NEARBOOKS_CONTRACT: nearbooks-v6.okf-kill-1792497882.testnet
+          NEARBOOKS_KEEPER_ACCOUNT: nearbooks-keeper.okf-kill-1792497882.testnet
+          DATE: ${{ inputs.date }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        shell: bash   # -eo pipefail: the keeper's exit status survives the tee
+        run: |
+          python3 -I keeper/keeper.py ${DATE:+--date "$DATE"} $([ "$DRY_RUN" = true ] && echo --dry-run) | tee keeper.jsonl
+      - name: Keep the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: keeper-log
+          path: keeper.jsonl
+          if-no-files-found: ignore
