@@ -46,7 +46,7 @@ def verify_block(m, findings):
              *[f"{'PASS' if f['ok'] else 'FAIL'} {f['id']}  {f['claim']}" for f in findings],
              f"as_of {m['as_of']}: {sum(f['ok'] for f in findings)}/{len(findings)} findings hold -> " + ("ALL PASS" if all(f["ok"] for f in findings) else "SOME FAILED"),
              "python3 -I pipeline/verify.py data/snapshot-2026-10-20/metrics.json --check-readme README.md",
-             "README generated blocks match the verified output; local builds match contract/deployment.json"]
+             "README generated blocks match the verified output, no template placeholders left; local builds match contract/deployment.json"]
     return "```\n" + "\n".join(lines) + "\n```"
 
 
