@@ -24,8 +24,9 @@
 //! For attested snapshots it guarantees that the bytes came back from the configured OutLayer contract for a run of
 //! the pinned wasm hash, answer this request's nonce, date and block, and parse strictly; the quote itself is checked
 //! off-chain (docs/attestation.md). Requesters pay for the storage their snapshot uses (a reserve kept from their
-//! deposit, settled by measured `storage_usage` growth), backfill is bounded by `earliest_date`, and the contract
-//! never refunds anything beyond the unused part of a request's own reserve.
+//! deposit, settled by measured `storage_usage` growth), backfill is bounded by `earliest_date` (which only moves
+//! earlier and never blocks a Pending prediction's date), and the contract never refunds anything beyond the
+//! unused part of a request's own reserve. The owner's remaining powers are listed in docs/attestation.md.
 //! Metric values are signed integers in micro-units (value x 1e6) so no floats are needed on-chain.
 
 use near_sdk::json_types::{I128, U64};
@@ -256,8 +257,11 @@ pub struct NearBooks {
     attested: LookupMap<String, Snapshot>,
     /// Dates of `attested` in arrival order (for listing).
     attested_dates: Vector<String>,
-    /// No attested snapshot may be requested for a date before this (bounds backfill). Default: deployment date.
+    /// No attested snapshot may be requested for a date before this (bounds backfill), except a pending
+    /// prediction's resolve_after. Deployment date at init; the owner can only move it earlier.
     earliest_date: String,
+    /// Number of Pending predictions per resolve_after date: those dates are always requestable.
+    pending_resolve_dates: LookupMap<String, u32>,
 }
 
 #[near]
@@ -275,19 +279,24 @@ impl NearBooks {
             attested: LookupMap::new(b"a"),
             attested_dates: Vector::new(b"d"),
             earliest_date: today(),
+            pending_resolve_dates: LookupMap::new(b"r"),
         }
     }
 
     // ---------------------------------------------------------------- admin
 
-    /// Owner only. Rotates the reporter (e.g. when its function-call key is replaced by another worker).
+    /// Owner only. Rotates the reporter (e.g. when its function-call key is replaced by another worker). Reported
+    /// snapshots never resolve predictions, so this cannot affect any outcome.
     pub fn set_reporter(&mut self, reporter_id: AccountId) {
         require!(env::predecessor_account_id() == self.owner_id, "only the owner can set the reporter");
+        emit("reporter_set", json!({"reporter_id": reporter_id, "previous": self.reporter_id}));
         self.reporter_id = reporter_id;
     }
 
-    /// Owner only. Sets the OutLayer contract and pins the worker WASM by sha256. Runs requested before a re-pin are
-    /// rejected when they come back (the callback compares against the pin at answer time).
+    /// Owner only. Sets the OutLayer contract and pins the worker WASM by sha256 (event `worker_pinned` with the
+    /// previous hash). Runs requested before a re-pin are rejected when they come back (the callback compares against
+    /// the pin at answer time). Stored attested snapshots are immutable and keep the wasm hash that produced them;
+    /// a re-pin never touches them or the predictions they resolve.
     pub fn pin_worker(
         &mut self,
         outlayer_id: AccountId,
@@ -317,10 +326,12 @@ impl NearBooks {
         self.outlayer = Some(cfg);
     }
 
-    /// Owner only. Moves the earliest date an attested snapshot may be requested for (default: deployment date).
+    /// Owner only. Moves the earliest date an attested snapshot may be requested for EARLIER (it starts at the
+    /// deployment date). It can never move forward, so it can never shut out a date that was requestable.
     pub fn set_earliest_date(&mut self, date: String) {
         require!(env::predecessor_account_id() == self.owner_id, "only the owner can set earliest_date");
         require!(valid_date(&date), "date must be YYYY-MM-DD");
+        require!(date < self.earliest_date, "earliest_date can only move earlier");
         emit("earliest_date_set", json!({"earliest_date": date, "previous": self.earliest_date}));
         self.earliest_date = date;
     }
@@ -344,7 +355,8 @@ impl NearBooks {
 
     // ------------------------------------------------------ attested (OutLayer)
 
-    /// Anyone. Asks for the attested snapshot of `date` (UTC, not before `earliest_date`), observed at
+    /// Anyone. Asks for the attested snapshot of `date` (UTC; not before `earliest_date` unless a Pending
+    /// prediction resolves on that date), observed at
     /// `block_height`, which must be the first NEAR mainnet block of that date (`worker/scripts/first_block.py`
     /// finds it; the worker refuses any other). Attach >= `min_request_deposit()` (0.01 NEAR for OutLayer plus a
     /// 0.02 NEAR storage reserve) and >= 250 Tgas. The storage reserve stays here; the rest goes to OutLayer with
@@ -355,7 +367,10 @@ impl NearBooks {
         let cfg = self.outlayer.clone().unwrap_or_else(|| env::panic_str("the OutLayer worker is not configured"));
         require!(valid_date(&date), "date must be YYYY-MM-DD");
         require!(date <= today(), "that date has not started yet");
-        require!(date >= self.earliest_date, "date is before earliest_date");
+        require!(
+            date >= self.earliest_date || self.pending_resolve_dates.contains_key(&date),
+            "date is before earliest_date"
+        );
         require!(!self.attested.contains_key(&date), "an attested snapshot for that date already exists");
         require!(block_height > 0, "block_height required");
         let deposit = env::attached_deposit();
@@ -517,6 +532,8 @@ impl NearBooks {
         let created = today();
         require!(resolve_after > created, "resolve_after must be in the future");
         let id = self.predictions.len() as u64;
+        let n = self.pending_resolve_dates.get(&resolve_after).copied().unwrap_or(0);
+        self.pending_resolve_dates.insert(resolve_after.clone(), n + 1);
         self.predictions.push(Prediction {
             id,
             claim,
@@ -550,6 +567,14 @@ impl NearBooks {
             Some(_) => Status::Refuted,
         };
         p.resolution = Some(Resolution { snapshot_date: snap.date.clone(), observed, resolved_by: env::predecessor_account_id(), block_height: env::block_height() });
+        match self.pending_resolve_dates.get(&p.resolve_after).copied() {
+            Some(n) if n > 1 => {
+                self.pending_resolve_dates.insert(p.resolve_after.clone(), n - 1);
+            }
+            _ => {
+                self.pending_resolve_dates.remove(&p.resolve_after);
+            }
+        }
         self.predictions.replace(idx, p.clone());
         emit("prediction_resolved", json!({"id": id, "status": p.status}));
         p

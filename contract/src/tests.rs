@@ -529,13 +529,86 @@ fn date_before_earliest_date_is_refused() {
 }
 
 #[test]
-fn owner_can_move_earliest_date() {
+fn owner_can_move_earliest_date_earlier() {
     let mut c = fresh();
     pin(&mut c, WASM);
     ctx(OWNER, T_2026_10_20);
     c.set_earliest_date("2026-10-19".into());
     let n = request_at(&mut c, STRANGER, 10, "2026-10-19", B_1020 - 1_000, T_2026_10_20);
     assert_eq!(c.get_pending(n).unwrap().date, "2026-10-19");
+}
+
+#[test]
+#[should_panic(expected = "earliest_date can only move earlier")]
+fn earliest_date_cannot_move_forward() {
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20 + 100 * 86_400);
+    // moving it past a prediction's resolve_after would block that prediction; refused outright
+    c.set_earliest_date("2027-01-01".into());
+}
+
+#[test]
+#[should_panic(expected = "earliest_date can only move earlier")]
+fn earliest_date_cannot_be_reset_to_the_same_day() {
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20);
+    c.set_earliest_date("2026-10-20".into());
+}
+
+#[test]
+fn pending_resolve_date_is_requestable_even_before_earliest_date() {
+    // Construct the state directly (impossible through the public API, which keeps resolve_after > earliest_date),
+    // to show the exemption holds on its own: a Pending prediction's date can always be observed.
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20);
+    c.add_prediction("x".into(), "supply_total_near".into(), Comparator::Gt, I128(0), "2026-12-31".into());
+    c.earliest_date = "2027-06-01".into();
+    pin(&mut c, WASM);
+    let noon = T_2026_10_20 + DEC31 * 86_400;
+    let n = request_at(&mut c, STRANGER, 10, "2026-12-31", B_1020 + 72_000, noon);
+    assert_eq!(c.get_pending(n).unwrap().date, "2026-12-31");
+    // a date no prediction waits for is still refused
+    let other = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| request_at(&mut c, STRANGER, 10, "2026-12-30", B_1020 + 71_000, noon)));
+    assert!(other.is_err());
+}
+
+#[test]
+fn resolving_releases_the_resolve_date_exemption() {
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20);
+    c.add_prediction("a".into(), "supply_total_near".into(), Comparator::Gt, I128(0), "2026-12-31".into());
+    c.add_prediction("b".into(), "supply_total_near".into(), Comparator::Gt, I128(0), "2026-12-31".into());
+    assert_eq!(c.pending_resolve_dates.get("2026-12-31").copied(), Some(2));
+    pin(&mut c, WASM);
+    attest(&mut c, DEC31, 5);
+    ctx(STRANGER, T_2026_10_20 + DEC31 * 86_400);
+    c.resolve_prediction(0);
+    assert_eq!(c.pending_resolve_dates.get("2026-12-31").copied(), Some(1));
+    c.resolve_prediction(1);
+    assert!(c.pending_resolve_dates.get("2026-12-31").is_none());
+}
+
+#[test]
+fn repin_does_not_touch_stored_snapshots_or_their_predictions() {
+    let mut c = fresh();
+    add(&mut c, Comparator::Gt, 1_000, "2026-12-31");
+    pin(&mut c, WASM);
+    attest(&mut c, DEC31, 1_001);
+    let before = c.get_attested_snapshot("2026-12-31".into()).unwrap();
+    ctx(OWNER, T_2026_10_20 + DEC31 * 86_400);
+    c.pin_worker(acct("other-outlayer.testnet"), "https://x.example/w.wasm".into(), WASM2.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+    assert!(get_logs().iter().any(|l| l.contains("worker_pinned") && l.contains(WASM)), "event names the previous hash");
+    let after = c.get_attested_snapshot("2026-12-31".into()).unwrap();
+    assert_eq!(after.source, before.source, "still tagged with the hash that produced it");
+    ctx(STRANGER, T_2026_10_20 + DEC31 * 86_400);
+    assert_eq!(c.resolve_prediction(0).status, Status::Confirmed);
+}
+
+#[test]
+fn reporter_rotation_emits_an_event() {
+    let mut c = fresh();
+    c.set_reporter(acct("worker2.testnet"));
+    assert!(get_logs().iter().any(|l| l.contains("reporter_set") && l.contains("worker2.testnet")));
 }
 
 #[test]
