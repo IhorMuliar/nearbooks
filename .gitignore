@@ -1,4 +1,5 @@
 data/live/
+data/live-m2/
 contract/target/
 contract/res/
 .tools/
