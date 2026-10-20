@@ -149,14 +149,23 @@ def markdown(fs):
 
 
 def generated_blocks(m):
-    """(begin marker, end marker, body) for every generated README block."""
-    import report
-    out = [(BEGIN, END, markdown(findings(m)))]
+    """(begin marker, end marker, body) for every generated block in README.md and docs/findings.md."""
+    import report, readme_facts
+    fs = findings(m)
+    out = [(BEGIN, END, markdown(fs))]
     for key, (b, e, fn) in report.BLOCKS.items():
         if key != "sources" and not m.get("sample"):
             continue
         out.append((b, e, fn(m)))
+    for name, fn in readme_facts.BLOCKS.items():
+        out.append((*readme_facts.marker(name), fn(m, fs)))
     return out
+
+
+def doc_paths(readme):
+    """README plus the docs that carry generated blocks."""
+    extra = os.path.join(os.path.dirname(os.path.abspath(readme)), "docs", "findings.md")
+    return [readme] + ([extra] if os.path.exists(extra) else [])
 
 
 def main(argv):
@@ -165,12 +174,21 @@ def main(argv):
     if "--markdown" in argv:
         print(markdown(fs)); return 0
     if "--check-readme" in argv:
-        with open(argv[argv.index("--check-readme") + 1]) as f:
-            txt = f.read()
-        stale = [b for b, e, body in generated_blocks(m) if b + "\n" + body + "\n" + e not in txt]
-        if not stale:
-            print(f"README generated blocks ({len(generated_blocks(m))}) match the verified output"); return 0
-        print("README blocks stale or missing: " + ", ".join(stale) + " -> run `make readme`"); return 1
+        import readme_facts
+        txt = ""
+        for path in doc_paths(argv[argv.index("--check-readme") + 1]):
+            with open(path) as f:
+                txt += f.read()
+        blocks = generated_blocks(m)
+        stale = [b for b, e, body in blocks if b + "\n" + body + "\n" + e not in txt]
+        builds = readme_facts.check_builds()
+        for problem in builds:
+            print("BUILD MISMATCH: " + problem)
+        if stale:
+            print("README blocks stale or missing: " + ", ".join(stale) + " -> run `make readme`")
+        if stale or builds:
+            return 1
+        print(f"README generated blocks ({len(blocks)}) match the verified output; local builds match contract/deployment.json"); return 0
     print("\n".join(table(fs)))
     ok = all(f["ok"] for f in fs)
     print(f"\nas_of {m['as_of']}: {sum(f['ok'] for f in fs)}/{len(fs)} findings hold -> " + ("ALL PASS" if ok else "SOME FAILED"))

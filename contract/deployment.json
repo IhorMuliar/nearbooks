@@ -1,0 +1,30 @@
+{
+  "_comment": "The live testnet deployment. Every value comes from contract/testnet-attested.log and contract/testnet-resolve.log. `make verify` fails if the README disagrees with this file or if a local `make wasm` / `make worker` build differs from the hashes below; `make verify-deploy` also compares them with the chain.",
+  "network": "testnet",
+  "contract": "nearbooks-v5.okf-kill-1792497882.testnet",
+  "funder": "okf-kill-1792497882.testnet",
+  "code_sha256": "b9343afe68017cd5853e31a8550b7a021d172ec21704ca078fae998659206b18",
+  "code_size_bytes": 254824,
+  "build": "cargo-near 0.22.0, cargo near build non-reproducible-wasm, rustc 1.98.0",
+  "worker_sha256": "bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963",
+  "worker_url": "https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm",
+  "pin_delay_secs": 3600,
+  "transactions": [
+    ["Create the contract account", "2vtwcPHrCLoBGoqGQTaUou8xvhhbm5nHgCNxtYAQoXdj"],
+    ["Deploy + new(owner, reporter, pin_delay_secs = 3600)", "3q8BoMC36HdWW3ceEXanBzoCt5BBzYpaDkqW2Pfp41Si"],
+    ["First pin (applies at once, event worker_pinned)", "E926APVGKKTqtLAuToUvNwsCEUWJD8S8pKg24UPAaut1"],
+    ["add_prediction P1", "AyJyrAcFDdp1vF4LAm7cwPaMm6yJNzG7vSCy6riKzufg"],
+    ["add_prediction P2", "2v1rLYevSWs1wWpUBpWaWSH9JNJu4pfUiQimtZFiu3pS"],
+    ["add_prediction P3", "EFWxCqCsbzmdprfqq81WFHqRLLgWpHYYAjt8pABpwEPH"],
+    ["add_prediction P4", "3XP6epQd9BLJaxFDRVQERLhUv9PNvQQYH812EcGkau8L"],
+    ["add_prediction demo 4 (resolves 2026-10-21)", "58Ecj4BJjYoKChBTtd8we5bzUVTeaYboiYW8raVP7HdL"],
+    ["add_prediction demo 5 (resolves 2026-10-21)", "6XBikgFVCS15oQ1MFL21tfUqTd1xaUM1ErnqxP6bdLne"],
+    ["add_prediction demo 6 (resolves 2026-10-21)", "EMxWSSqbtgE95DK9tD6usL5sPUqTvdp6h5cY3ebRJwa8"],
+    ["request_snapshot with a wrong 28-day block: worker refused, nothing stored, reserve refunded", "EDyJbhSRc7m4dyV619TwpfqtUg3ueoQ5Yr3quC2csU6S"],
+    ["request_snapshot(2026-10-20, 220726930, 216696053): stored, OutLayer request 5168", "8s6bbc6aU84jgk3eAS8qq1a3ra6Kr8oguw2gHpNf7pMz"],
+    ["propose_pin (event pin_proposed); apply_pin right after refused by the timelock", "DBLitSRh6xKdpfCF5MA91okLpWygGoj3nKeQD2eAWczD"],
+    ["cancel_pin_proposal (event pin_proposal_cancelled)", "Fu7RF4rxjrbveQrbyzdhdy7eS8TAiDeJmLP6NciASfn8"],
+    ["propose_pin again (time limit 60 s -> 90 s), applicable after 2026-10-20 17:01 UTC", "Evxxf3CFJZJMyrTqUZHYNnQkc2wadrr2iiZSxGwW2cWC"]
+  ],
+  "superseded_accounts_deleted": [["nearbooks-v4.okf-kill-1792497882.testnet", "BYQQAY8QnDRiPaLEXYQXFe7oTmdWRciytwJzLdwx7LQt"]]
+}

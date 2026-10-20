@@ -128,6 +128,7 @@ class TestMcpContract(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.httpd.shutdown()
+        cls.httpd.server_close()
 
     def ask(self, rpc, name, args=None):
         s = McpSession({"NEARBOOKS_RPC": rpc, "NEARBOOKS_CACHE": CACHE, "NEARBOOKS_RPC_ALLOW_LOOPBACK": "1"})
