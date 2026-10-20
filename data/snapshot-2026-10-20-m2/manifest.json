@@ -1,0 +1,15 @@
+{
+ "as_of": "2026-10-20",
+ "head_height": 220800718,
+ "main_manifest_sha256": "d02d6f6ca34be2d5c380c3cdeba7987e48c7d3577d9c4acc08aa2ad4178889ae",
+ "fetched_unix": 1792509629,
+ "runtime_s": 1656,
+ "neardata_http_429": 60,
+ "sha256": {
+  "neardata_plan.json": "cb1cb10d21d2347c54df45ea0ddaf04f8a4fadd683e4d4a696b083395f25b135",
+  "neardata_sample.jsonl": "2ba93144a1facefebf76e4655ca5ee65da6f10017f5d4c828133e3ec4dfca82b",
+  "transfers_pre_1csfundsadmin.sputnik-dao.near.jsonl": "4614c9fca982dc07ac3512725b589338b9f9a1e91829e141e8a34526a57b5b00",
+  "transfers_pre_buybacks.multisignature.near.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "transfers_pre_fefundsadmin.sputnik-dao.near.jsonl": "9b1fa89ac1ce73825cf00afe7582e447c1568e49bc56c63f020cd7157acb1c18"
+ }
+}
