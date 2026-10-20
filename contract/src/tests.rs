@@ -14,6 +14,8 @@ const WASM2: &str = "11111111111111111111111111111111111111111111111111111111111
 const HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 /// 2026-10-20T12:00:00Z
 const T_2026_10_20: u64 = 1_792_497_600;
+/// Timelock used by `fresh()` (seconds between propose_pin and apply_pin).
+const DELAY: u64 = 3_600;
 
 /// The mock resets `storage_usage` with every new context; carry it over so cross-call measurements match the chain.
 fn carried_usage() -> u64 {
@@ -31,7 +33,7 @@ fn ctx(caller: &str, unix_secs: u64) {
 
 fn fresh() -> NearBooks {
     ctx(OWNER, T_2026_10_20);
-    NearBooks::new(acct(OWNER), acct(REPORTER))
+    NearBooks::new(acct(OWNER), acct(REPORTER), DELAY)
 }
 
 fn m(key: &str, v: i128) -> Metric {
@@ -192,26 +194,51 @@ fn bad_hash_rejected() {
 
 // ------------------------------------------------- attested snapshots (OutLayer)
 
-/// First mainnet block of 2026-10-20 (worker/scripts/first_block.py) and its real worker output (local wasmtime
-/// run against mainnet archival RPC), with `n` and `rid` filled in by `out`.
+/// First mainnet block of 2026-10-20 and of 2026-09-22 (worker/scripts/first_block.py 2026-10-20 --pair) and the
+/// real values the worker reads there (mainnet archival RPC), with `n` and `rid` filled in by `out`.
 const B_1020: u64 = 220_726_930;
+const B_0922: u64 = 216_696_053;
 const TS_1020: u64 = 1_792_454_400_548_428_142;
 const SUP_1020: &str = "1309428647101414191323016386004184";
+const SUP_0922: &str = "1306946432063617123518596881337035";
 
-fn out(nonce: u64, date: &str, height: u64, ts_ns: u64, sup: &str) -> String {
+fn out28(nonce: u64, date: &str, height: u64, ts_ns: u64, sup: &str, height_28: u64, sup_28: &str) -> String {
     format!(
-        r#"{{"bb":"2022180087915366303354191622511","cs":"270875891412420848813311023","d":"{}","fb":"0","fe":"1916643242806074001541587346866","h":"{}","ms":"3768","n":"{}","rc":"8","rd":"0","rid":"5200","rk":"8","rm":"0","rt":"","sha":"02701f609329428666c42c2ac1054348254954474ddb2f1bfb2feabe4f816dd5","sup":"{}","t":"{}","v":"2"}}"#,
-        date, height, nonce, sup, ts_ns
+        r#"{{"bb":"2022180087915366303354191622511","bb28":"1742992598429748746718610202638","cs":"270875891412420848813311023","cs28":"270776835252430877653311023","d":"{}","fb":"0","fe":"1916643242806074001541587346866","fe28":"1761656506829824773977686937425","h":"{}","h28":"{}","ms":"3768","n":"{}","rc":"8","rd":"0","rid":"5200","rk":"8","rm":"0","rt":"","sha":"02701f609329428666c42c2ac1054348254954474ddb2f1bfb2feabe4f816dd5","sup":"{}","sup28":"{}","t":"{}","v":"3"}}"#,
+        date, height, height_28, nonce, sup, sup_28, ts_ns
     )
 }
 
-fn worker_output(nonce: u64) -> String {
-    out(nonce, "2026-10-20", B_1020, TS_1020, SUP_1020)
+/// The 28-day block the helpers use: the real one for B_1020, `height - 4_000_000` for synthetic days.
+fn b28_for(height: u64) -> u64 {
+    if height == B_1020 { B_0922 } else { height - 4_000_000 }
 }
 
+fn out(nonce: u64, date: &str, height: u64, ts_ns: u64, sup: &str) -> String {
+    out28(nonce, date, height, ts_ns, sup, b28_for(height), SUP_0922)
+}
+
+fn worker_output(nonce: u64) -> String {
+    out28(nonce, "2026-10-20", B_1020, TS_1020, SUP_1020, B_0922, SUP_0922)
+}
+
+fn propose_at(c: &mut NearBooks, outlayer: &str, hash: &str, now: u64) {
+    ctx(OWNER, now);
+    c.propose_pin(acct(outlayer), format!("https://test.fastfs.io/x/outlayer.testnet/{}.wasm", hash), hash.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+}
+
+/// The first pin (applies at once).
 fn pin(c: &mut NearBooks, hash: &str) {
-    ctx(OWNER, T_2026_10_20);
-    c.pin_worker(acct(OUTLAYER), format!("https://test.fastfs.io/x/outlayer.testnet/{}.wasm", hash), hash.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+    assert!(c.pins.is_empty(), "use repin() for later pins");
+    propose_at(c, OUTLAYER, hash, T_2026_10_20);
+}
+
+/// A later pin: propose at `now`, apply when the timelock ends. Returns the apply time (unix seconds).
+fn repin(c: &mut NearBooks, outlayer: &str, hash: &str, now: u64) -> u64 {
+    propose_at(c, outlayer, hash, now);
+    ctx(OWNER, now + DELAY);
+    c.apply_pin();
+    now + DELAY
 }
 
 /// 0.02 NEAR at the test VM's byte cost (1e19 yocto per byte).
@@ -230,7 +257,7 @@ fn request_at(c: &mut NearBooks, caller: &str, millinear: u128, date: &str, heig
         .prepaid_gas(Gas::from_tgas(300))
         .block_timestamp(now * 1_000_000_000)
         .build());
-    let _ = c.request_snapshot(date.into(), height);
+    let _ = c.request_snapshot(date.into(), height, b28_for(height));
     c.next_nonce - 1
 }
 
@@ -291,7 +318,7 @@ fn request_snapshot_calls_outlayer_with_the_pinned_hash_date_and_block() {
     let a: Value = serde_json::from_slice(args).unwrap();
     assert_eq!(a["source"]["WasmUrl"]["hash"], WASM);
     assert_eq!(a["source"]["WasmUrl"]["build_target"], "wasm32-wasip2");
-    assert_eq!(a["input_data"], r#"{"n":"0","d":"2026-10-20","b":"220726930"}"#);
+    assert_eq!(a["input_data"], r#"{"n":"0","d":"2026-10-20","b":"220726930","b28":"216696053"}"#);
     assert_eq!(a["response_format"], "Json");
     assert_eq!(a["payer_account_id"], STRANGER, "OutLayer refunds the unused deposit to the caller");
     assert_eq!(a["resource_limits"]["max_instructions"], DEFAULT_MAX_INSTRUCTIONS);
@@ -333,6 +360,13 @@ fn attested_snapshot_is_stored_with_source_tag() {
     assert_eq!(get("intents_reserves_tokens_checked"), Some(8_000_000));
     assert_eq!(get("intents_reserves_tokens_in_deficit"), Some(0));
     assert_eq!(get("mainnet_block_height"), Some(B_1020 as i128 * 1_000_000));
+    // derived from the two observations, 28 days apart
+    assert_eq!(get("mainnet_block_height_28d"), Some(B_0922 as i128 * 1_000_000));
+    assert_eq!(get("supply_total_near_28d_ago"), Some(1_306_946_432_063_617));
+    assert_eq!(get("net_issuance_near_per_day"), Some(88_650_537_064)); // 88,650.5 NEAR/day
+    assert_eq!(get("revenue_wallets_gain_near_28d"), Some(434_174_324_518)); // 434,174 NEAR kept by the three wallets
+    assert_eq!(get("revenue_wallets_gain_over_net_issuance"), Some(174_914)); // 0.1749: wallets kept 17% of new supply
+    assert!(s.metrics.len() <= MAX_METRICS_PER_SNAPSHOT);
     let v = serde_json::to_value(&s).unwrap();
     assert_eq!(v["source"]["attested"]["request_id"], 5200);
     assert_eq!(v["source"]["attested"]["block_timestamp_ns"], TS_1020.to_string());
@@ -371,28 +405,39 @@ fn callback_from_stranger_is_rejected() {
 }
 
 #[test]
-fn wrong_wasm_hash_is_rejected() {
+fn repin_while_in_flight_does_not_change_the_pin_for_that_date() {
+    // The run for 2026-10-20 is in flight when a re-pin to another hash and another OutLayer contract is applied.
+    // 2026-10-20 started before the re-pin, so it stays observed by the old pin and the run is accepted.
     let mut c = fresh();
     pin(&mut c, WASM);
     let nonce = request(&mut c, STRANGER, 10);
-    pin(&mut c, WASM2); // owner re-pins while the run is in flight: the old run no longer matches the pin
-    let r = deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
-    assert_eq!(r, "rejected: the pinned wasm hash changed while the run was in flight");
-    assert_eq!(c.attested_count(), 0);
-    assert!(c.get_pending(nonce).is_none());
-    assert!(get_logs().iter().any(|l| l.contains("snapshot_rejected")));
+    let applied = repin(&mut c, "other-outlayer.testnet", WASM2, T_2026_10_20);
+    assert_eq!(c.get_outlayer_config().unwrap().wasm_hash, WASM2);
+    assert_eq!(c.get_pin_for_date("2026-10-20".into()).unwrap().wasm_hash, WASM);
+    let r = deliver_at(&mut c, CONTRACT, nonce, ok_bytes(&worker_output(nonce)), applied);
+    assert_eq!(r, "stored attested snapshot 2026-10-20");
+    let Source::Attested { wasm_hash, .. } = c.get_attested_snapshot("2026-10-20".into()).unwrap().source else { panic!() };
+    assert_eq!(wasm_hash, WASM);
 }
 
 #[test]
-fn changed_outlayer_contract_is_rejected() {
+fn corrupted_pin_history_is_still_caught_by_the_callback() {
+    // Not reachable through the public API (pins only govern later dates); the callback re-checks anyway.
     let mut c = fresh();
     pin(&mut c, WASM);
     let nonce = request(&mut c, STRANGER, 10);
-    ctx(OWNER, T_2026_10_20);
-    c.pin_worker(acct("evil-outlayer.testnet"), "https://x.example/w.wasm".into(), WASM.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+    let mut e = c.pins.get(0).unwrap().clone();
+    e.config.wasm_hash = WASM2.into();
+    c.pins.replace(0, e.clone());
     let r = deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
-    assert!(r.starts_with("rejected: the configured OutLayer contract changed"), "{}", r);
+    assert_eq!(r, "rejected: the pinned wasm hash for that date changed while the run was in flight");
+    let nonce = request(&mut c, STRANGER, 10);
+    e.config.outlayer_id = acct("evil-outlayer.testnet");
+    c.pins.replace(0, e);
+    let r = deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
+    assert!(r.starts_with("rejected: the OutLayer contract for that date changed"), "{}", r);
     assert_eq!(c.attested_count(), 0);
+    assert!(get_logs().iter().any(|l| l.contains("snapshot_rejected")));
 }
 
 #[test]
@@ -402,9 +447,12 @@ fn malformed_output_is_rejected_and_nothing_is_stored() {
         ("not json".into(), "malformed worker output"),
         ("null".into(), "OutLayer reported the run as failed"),
         (r#""a string""#.into(), "malformed worker output"),
-        (good.replace(r#","v":"2""#, ""), "malformed worker output"),                      // missing field
-        (good.replace(r#""v":"2""#, r#""v":"2","x":"1""#), "malformed worker output"),     // unknown field
-        (good.replace(r#""v":"2""#, r#""v":"1""#), "unsupported worker output version"),
+        (good.replace(r#","v":"3""#, ""), "malformed worker output"),                      // missing field
+        (good.replace(r#","sup28":"1306"#, r#","sux":"1306"#), "malformed worker output"),  // renamed field
+        (good.replace(r#""v":"3""#, r#""v":"3","x":"1""#), "malformed worker output"),     // unknown field
+        (good.replace(r#""v":"3""#, r#""v":"2""#), "unsupported worker output version"),
+        (good.replace(r#""h28":"216696053""#, r#""h28":"216696054""#), "different 28-day block"),
+        (good.replace(r#""sup28":"1306"#, r#""sup28":"0"#).replace(r#""sup28":"0946432063617123518596881337035""#, r#""sup28":"0""#), "total supply is zero"),
         (good.replace(r#""n":"0""#, r#""n":"9""#), "nonce mismatch"),                      // answer for another request
         (good.replace(r#""d":"2026-10-20""#, r#""d":"2026-10-19""#), "different date"),
         (good.replace(r#""h":"220726930""#, r#""h":"220726931""#), "different block"),     // not the block asked for
@@ -510,7 +558,7 @@ fn deposit_without_the_storage_reserve_is_refused() {
         .prepaid_gas(Gas::from_tgas(300))
         .block_timestamp(T_2026_10_20 * 1_000_000_000)
         .build());
-    let _ = c.request_snapshot("2026-10-20".into(), B_1020);
+    let _ = c.request_snapshot("2026-10-20".into(), B_1020, B_0922);
 }
 
 #[test]
@@ -595,8 +643,7 @@ fn repin_does_not_touch_stored_snapshots_or_their_predictions() {
     pin(&mut c, WASM);
     attest(&mut c, DEC31, 1_001);
     let before = c.get_attested_snapshot("2026-12-31".into()).unwrap();
-    ctx(OWNER, T_2026_10_20 + DEC31 * 86_400);
-    c.pin_worker(acct("other-outlayer.testnet"), "https://x.example/w.wasm".into(), WASM2.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+    repin(&mut c, "other-outlayer.testnet", WASM2, T_2026_10_20 + DEC31 * 86_400);
     assert!(get_logs().iter().any(|l| l.contains("worker_pinned") && l.contains(WASM)), "event names the previous hash");
     let after = c.get_attested_snapshot("2026-12-31".into()).unwrap();
     assert_eq!(after.source, before.source, "still tagged with the hash that produced it");
@@ -725,7 +772,7 @@ fn request_needs_a_deposit() {
 fn only_owner_pins_the_worker() {
     let mut c = fresh();
     ctx(REPORTER, T_2026_10_20);
-    c.pin_worker(acct(OUTLAYER), "https://a/b.wasm".into(), WASM.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+    c.propose_pin(acct(OUTLAYER), "https://a/b.wasm".into(), WASM.into(), "https://testnet-api.outlayer.ai".into(), None, None);
 }
 
 #[test]
@@ -733,18 +780,220 @@ fn only_owner_pins_the_worker() {
 fn pin_validates_the_hash() {
     let mut c = fresh();
     ctx(OWNER, T_2026_10_20);
-    c.pin_worker(acct(OUTLAYER), "https://a/b.wasm".into(), "ABC".into(), "https://testnet-api.outlayer.ai".into(), None, None);
+    c.propose_pin(acct(OUTLAYER), "https://a/b.wasm".into(), "ABC".into(), "https://testnet-api.outlayer.ai".into(), None, None);
 }
 
 #[test]
-fn repin_emits_event_with_previous_hash() {
+fn repin_emits_events_with_previous_hash() {
     let mut c = fresh();
     pin(&mut c, WASM);
-    pin(&mut c, WASM2);
-    let logs = get_logs();
-    let ev = logs.iter().find(|l| l.contains("worker_pinned")).unwrap();
+    propose_at(&mut c, OUTLAYER, WASM2, T_2026_10_20);
+    let ev = get_logs().into_iter().find(|l| l.contains("pin_proposed")).unwrap();
     assert!(ev.contains(&format!(r#""previous_wasm_hash":"{}""#, WASM)) && ev.contains(&format!(r#""wasm_hash":"{}""#, WASM2)), "{}", ev);
+    assert!(ev.contains(&format!(r#""apply_after_ns":"{}""#, (T_2026_10_20 + DELAY) * 1_000_000_000)), "{}", ev);
+    ctx(OWNER, T_2026_10_20 + DELAY);
+    c.apply_pin();
+    let ev = get_logs().into_iter().find(|l| l.contains("worker_pinned")).unwrap();
+    assert!(ev.contains(&format!(r#""previous_wasm_hash":"{}""#, WASM)) && ev.contains(&format!(r#""from_ns":"{}""#, (T_2026_10_20 + DELAY) * 1_000_000_000)), "{}", ev);
     assert_eq!(c.get_outlayer_config().unwrap().wasm_hash, WASM2);
+    assert!(c.get_pin_proposal().is_none());
+    assert_eq!(c.list_pins().len(), 2);
+}
+
+// --------------------------------------------------------------- timelock
+
+#[test]
+fn first_pin_applies_at_once_and_covers_earlier_dates() {
+    let mut c = fresh();
+    assert!(c.get_outlayer_config().is_none() && c.get_pin_for_date("2026-10-20".into()).is_none());
+    pin(&mut c, WASM);
+    assert!(c.get_pin_proposal().is_none());
+    let pins = c.list_pins();
+    assert_eq!((pins.len(), pins[0].from_ns), (1, U64(0)));
+    assert_eq!(c.get_pin_for_date("2020-01-01".into()).unwrap().wasm_hash, WASM, "backfill before the first pin uses it");
+    assert!(get_logs().iter().any(|l| l.contains("worker_pinned") && l.contains(r#""previous_wasm_hash":null"#)));
+}
+
+#[test]
+fn delay_is_fixed_at_init() {
+    ctx(OWNER, T_2026_10_20);
+    let c = NearBooks::new(acct(OWNER), acct(REPORTER), 7 * 86_400);
+    assert_eq!(c.get_pin_delay_secs(), 7 * 86_400);
+    assert_eq!(fresh().get_pin_delay_secs(), DELAY);
+}
+
+#[test]
+#[should_panic(expected = "pin_delay_secs must be at most 365 days")]
+fn absurd_delay_is_refused_at_init() {
+    ctx(OWNER, T_2026_10_20);
+    NearBooks::new(acct(OWNER), acct(REPORTER), MAX_PIN_DELAY_SECS + 1);
+}
+
+#[test]
+fn repin_cannot_be_applied_before_the_delay() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    propose_at(&mut c, OUTLAYER, WASM2, T_2026_10_20);
+    assert_eq!(c.get_pin_proposal().unwrap().apply_after_ns, U64((T_2026_10_20 + DELAY) * 1_000_000_000));
+    ctx(OWNER, T_2026_10_20 + DELAY - 1);
+    let early = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.apply_pin()));
+    assert!(early.is_err(), "one second early is refused");
+    assert_eq!(c.get_outlayer_config().unwrap().wasm_hash, WASM, "the old pin stays in force");
+    // a run requested during the window goes to the old worker
+    let n = request_at(&mut c, STRANGER, 10, "2026-10-20", B_1020, T_2026_10_20 + DELAY - 1);
+    assert_eq!(c.get_pending(n).unwrap().wasm_hash, WASM);
+}
+
+#[test]
+#[should_panic(expected = "timelock: the proposed pin can be applied from")]
+fn early_apply_names_the_time() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    propose_at(&mut c, OUTLAYER, WASM2, T_2026_10_20);
+    c.apply_pin();
+}
+
+#[test]
+fn applied_pin_governs_only_dates_that_start_after_it() {
+    // Proposed 2026-10-20 12:00, applied 13:00 (DELAY). 2026-10-20 started before: old pin. 2026-10-21 starts after:
+    // new pin.
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20);
+    c.set_earliest_date("2026-10-01".into());
+    pin(&mut c, WASM);
+    let applied = repin(&mut c, OUTLAYER, WASM2, T_2026_10_20);
+    let day = |d: &str| c.get_pin_for_date(d.into()).unwrap().wasm_hash;
+    assert_eq!((day("2026-10-01"), day("2026-10-20"), day("2026-10-21"), day("2027-05-01")), (WASM.into(), WASM.into(), WASM2.into(), WASM2.into()));
+    // requests after the apply: today and a backfilled day still go to the old worker
+    for date in ["2026-10-20", "2026-10-05"] {
+        let n = request_at(&mut c, STRANGER, 10, date, B_1020, applied);
+        assert_eq!(c.get_pending(n).unwrap().wasm_hash, WASM, "{}", date);
+    }
+    let n = request_at(&mut c, STRANGER, 10, "2026-10-21", B_1020 + 1_000, T_2026_10_20 + 86_400);
+    assert_eq!(c.get_pending(n).unwrap().wasm_hash, WASM2);
+    let receipts = get_created_receipts();
+    let to_outlayer = receipts.iter().find(|r| r.receiver_id == acct(OUTLAYER)).unwrap();
+    let MockAction::FunctionCallWeight { args, .. } = &to_outlayer.actions[0] else { panic!() };
+    assert_eq!(serde_json::from_slice::<Value>(args).unwrap()["source"]["WasmUrl"]["hash"], WASM2);
+}
+
+#[test]
+fn pending_prediction_date_inside_the_window_keeps_the_old_pin() {
+    // A prediction resolves on 2026-10-21. The owner proposes a re-pin at 23:30 on 2026-10-20 with a one-hour
+    // timelock, so the earliest apply is 00:30 on 2026-10-21, after that day started. Even when the deciding snapshot
+    // is requested after the apply, it is observed by the old worker, and the prediction resolves from it.
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20);
+    c.add_prediction("supply up".into(), "supply_total_near".into(), Comparator::Gt, I128(0), "2026-10-21".into());
+    pin(&mut c, WASM);
+    let late = T_2026_10_20 + 11 * 3_600 + 1_800; // 2026-10-20 23:30
+    let applied = repin(&mut c, OUTLAYER, WASM2, late);
+    assert_eq!(date_from_unix_secs(applied), "2026-10-21");
+    assert_eq!(c.get_pin_for_date("2026-10-21".into()).unwrap().wasm_hash, WASM);
+    let noon = T_2026_10_20 + 86_400;
+    let n = request_at(&mut c, STRANGER, 10, "2026-10-21", B_1020 + 1_000, noon);
+    assert_eq!(c.get_pending(n).unwrap().wasm_hash, WASM);
+    let r = deliver_at(&mut c, CONTRACT, n, ok_bytes(&out(n, "2026-10-21", B_1020 + 1_000, (noon - 43_200) * 1_000_000_000 + 7, SUP_1020)), noon);
+    assert!(r.starts_with("stored"), "{}", r);
+    let Source::Attested { wasm_hash, .. } = c.get_attested_snapshot("2026-10-21".into()).unwrap().source else { panic!() };
+    assert_eq!(wasm_hash, WASM);
+    ctx(STRANGER, noon);
+    assert_eq!(c.resolve_prediction(0).status, Status::Confirmed);
+    // the first date that starts after the apply is the first one the new worker observes
+    assert_eq!(c.get_pin_for_date("2026-10-22".into()).unwrap().wasm_hash, WASM2);
+}
+
+#[test]
+fn a_new_proposal_replaces_the_waiting_one_and_restarts_the_clock() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    propose_at(&mut c, OUTLAYER, WASM2, T_2026_10_20);
+    let third = "2222222222222222222222222222222222222222222222222222222222222222";
+    propose_at(&mut c, OUTLAYER, third, T_2026_10_20 + DELAY - 10);
+    assert!(get_logs().iter().any(|l| l.contains("pin_proposed") && l.contains(&format!(r#""replaces_wasm_hash":"{}""#, WASM2))));
+    ctx(OWNER, T_2026_10_20 + DELAY);
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.apply_pin())).is_err(), "the clock restarted");
+    ctx(OWNER, T_2026_10_20 + 2 * DELAY - 10);
+    c.apply_pin();
+    assert_eq!(c.get_outlayer_config().unwrap().wasm_hash, third);
+}
+
+#[test]
+fn owner_can_cancel_a_proposal() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    propose_at(&mut c, OUTLAYER, WASM2, T_2026_10_20);
+    c.cancel_pin_proposal();
+    assert!(c.get_pin_proposal().is_none());
+    assert!(get_logs().iter().any(|l| l.contains("pin_proposal_cancelled")));
+    ctx(OWNER, T_2026_10_20 + DELAY);
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.apply_pin())).is_err(), "nothing to apply");
+    assert_eq!(c.get_outlayer_config().unwrap().wasm_hash, WASM);
+}
+
+#[test]
+fn only_the_owner_applies_or_cancels() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    propose_at(&mut c, OUTLAYER, WASM2, T_2026_10_20);
+    ctx(STRANGER, T_2026_10_20 + DELAY);
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.apply_pin())).is_err());
+    ctx(STRANGER, T_2026_10_20 + DELAY);
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.cancel_pin_proposal())).is_err());
+    assert!(c.get_pin_proposal().is_some());
+}
+
+#[test]
+fn ownership_can_be_handed_over() {
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20);
+    c.transfer_ownership(acct("multisig.testnet"));
+    assert!(get_logs().iter().any(|l| l.contains("owner_transferred") && l.contains("multisig.testnet")));
+    assert_eq!(c.get_config().0, acct("multisig.testnet"));
+    ctx(OWNER, T_2026_10_20);
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.transfer_ownership(acct(OWNER)))).is_err(), "the old owner lost the role");
+    ctx("multisig.testnet", T_2026_10_20);
+    c.propose_pin(acct(OUTLAYER), "https://a/b.wasm".into(), WASM.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+    assert_eq!(c.get_outlayer_config().unwrap().wasm_hash, WASM);
+}
+
+// --------------------------------------------------------- derived metrics
+
+#[test]
+fn ratio_is_omitted_when_supply_did_not_grow() {
+    // supply 28 days ago above today's: net issuance is negative, the wallets-over-issuance ratio is undefined
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let n = request(&mut c, STRANGER, 10);
+    let o = out28(n, "2026-10-20", B_1020, TS_1020, SUP_0922, B_0922, SUP_1020);
+    assert!(deliver(&mut c, n, ok_bytes(&o)).starts_with("stored"));
+    let s = c.get_attested_snapshot("2026-10-20".into()).unwrap();
+    let get = |k: &str| s.metrics.iter().find(|m| m.key == k).map(|m| m.value.0);
+    assert_eq!(get("net_issuance_near_per_day"), Some(-88_650_537_064));
+    assert_eq!(get("revenue_wallets_gain_over_net_issuance"), None);
+}
+
+#[test]
+#[should_panic(expected = "block_height_28d must be below block_height")]
+fn lookback_block_must_be_earlier() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    testing_env!(VMContextBuilder::new().storage_usage(carried_usage()).clone()
+        .current_account_id(acct(CONTRACT)).predecessor_account_id(acct(STRANGER))
+        .attached_deposit(NearToken::from_millinear(10).saturating_add(reserve())).prepaid_gas(Gas::from_tgas(300))
+        .block_timestamp(T_2026_10_20 * 1_000_000_000).build());
+    let _ = c.request_snapshot("2026-10-20".into(), B_1020, B_1020);
+}
+
+#[test]
+fn midnight_matches_the_calendar() {
+    assert_eq!(midnight_ns("2000-01-01"), Some(946_684_800 * 1_000_000_000));
+    assert_eq!(midnight_ns("2026-10-20"), Some(1_792_454_400 * 1_000_000_000));
+    assert_eq!(midnight_ns("2024-02-29"), Some(1_709_164_800 * 1_000_000_000));
+    assert_eq!(midnight_ns("2026-02-29"), None);
+    for d in [10_957u64, 11_016, 11_017, 20_000, 20_746, 40_000] {
+        assert_eq!(midnight_ns(&date_from_unix_secs(d * 86_400)), Some(d * 86_400 * 1_000_000_000));
+    }
 }
 
 // ------------------------------------------------------------ predictions

@@ -4,15 +4,23 @@
 //! * **Attested** (decides predictions). Anyone may call the payable `request_snapshot(date, block_height)`. The
 //!   contract asks OutLayer (`request_execution` on the configured OutLayer contract) to run the owner-PINNED worker
 //!   WASM (sha256 in config) inside an Intel TDX enclave. The worker checks that `block_height` is the FIRST NEAR
-//!   mainnet block of `date` (UTC) and reads every number at that block, so the observation point is canonical:
-//!   whoever triggers it and whenever, the snapshot for a date is the same. OutLayer returns the worker's stdout
+//!   mainnet block of `date` (UTC) and `block_height_28d` the first block 28 days earlier, and reads every number at
+//!   those blocks, so the observation points are canonical: whoever triggers it and whenever, the snapshot for a
+//!   date is the same. OutLayer returns the worker's stdout
 //!   through NEAR yield/resume to `on_snapshot_result`, which stores it tagged `Attested` (nonce, OutLayer request
 //!   id, pinned wasm hash, mainnet block, sha256 of the exact output bytes, link to the public attestation).
 //!   One attested snapshot per date: the first valid one wins, later ones for that date are rejected. Dates may
 //!   arrive in any order (a missed day can be backfilled; it is canonical anyway).
 //! * **Reported** (informational). One `reporter` account (intended to hold only a function-call access key limited
 //!   to `submit_snapshot`) may append one snapshot per date, dates strictly increasing, never in the future. These
-//!   carry metrics the worker does not compute yet (revenue, issuance) and never resolve a prediction.
+//!   carry metrics the worker does not compute (USD revenue, volume) and never resolve a prediction.
+//!
+//! Pins are timelocked. The owner proposes a new worker hash / OutLayer contract (`propose_pin`, event
+//! `pin_proposed`) and can apply it (`apply_pin`, event `worker_pinned`) only `pin_delay_secs` (fixed at init) later.
+//! The pin that governs a date D is the one in force at D 00:00 UTC, so a re-pin applied at time A only affects dates
+//! starting at or after A: every date that started before A, including a Pending prediction's resolve date inside
+//! the proposal window, keeps the old pin even if its snapshot is requested after A. Readers get `pin_delay_secs`
+//! of public notice before any date can be observed by a new worker.
 //!
 //! Predictions: the `owner` registers them (claim, metric, comparator, threshold, resolve_after) only for a future
 //! `resolve_after`; they are never edited or deleted. Anyone can resolve one once the ATTESTED snapshot for
@@ -38,6 +46,7 @@ use near_sdk::{env, ext_contract, near, require, AccountId, Gas, NearToken, Pani
 pub const MAX_METRICS_PER_SNAPSHOT: usize = 32;
 pub const MAX_KEY_LEN: usize = 64;
 pub const MAX_CLAIM_LEN: usize = 280;
+pub const MAX_PIN_DELAY_SECS: u64 = 365 * 86_400;
 
 /// Part of the deposit forwarded to OutLayer. Its estimate for the default limits below is about 0.007 NEAR (a real
 /// run cost about 0.0015); OutLayer refunds the unused part straight to the caller (`payer_account_id`).
@@ -55,7 +64,9 @@ pub const MAX_WORKER_OUTPUT: usize = 1024;
 /// archival RPC rate-limits and the worker backs off.
 pub const DEFAULT_MAX_INSTRUCTIONS: u64 = 200_000_000;
 pub const DEFAULT_MAX_SECONDS: u64 = 60;
-pub const WORKER_FORMAT: &str = "2";
+pub const WORKER_FORMAT: &str = "3";
+/// Days between the two observation points (the worker's `LOOKBACK_DAYS`).
+pub const LOOKBACK_DAYS: i128 = 28;
 const YOCTO_PER_MICRO_NEAR: u128 = 1_000_000_000_000_000_000;
 const MICRO: i128 = 1_000_000;
 
@@ -125,7 +136,8 @@ pub enum Source {
     },
 }
 
-/// OutLayer settings and the pinned worker. Only the owner changes it (`pin_worker`, emits `worker_pinned`).
+/// OutLayer settings and the pinned worker. Only the owner changes it, through the timelock (`propose_pin`, then
+/// `apply_pin` after `pin_delay_secs`).
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug, PartialEq)]
 pub struct OutlayerConfig {
@@ -141,6 +153,27 @@ pub struct OutlayerConfig {
     pub max_execution_seconds: u64,
 }
 
+/// One entry of the pin history (append-only). `from_ns` is the block time it was applied (0 for the first pin, which
+/// covers every earlier date). The entry that governs date D is the last one with `from_ns <= D 00:00 UTC`.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PinEntry {
+    pub config: OutlayerConfig,
+    pub from_ns: U64,
+    /// Block (this chain) in which it was applied.
+    pub applied_block: u64,
+}
+
+/// A re-pin waiting out the timelock.
+#[near(serializers = [json, borsh])]
+#[derive(Clone, Debug, PartialEq)]
+pub struct PinProposal {
+    pub config: OutlayerConfig,
+    pub proposed_at_ns: U64,
+    /// `apply_pin` is refused before this block time.
+    pub apply_after_ns: U64,
+}
+
 /// A run in flight, keyed by nonce. Removed by the callback whatever the outcome.
 #[near(serializers = [json, borsh])]
 #[derive(Clone, Debug)]
@@ -151,6 +184,8 @@ pub struct PendingRequest {
     /// The UTC date asked for and the claimed first mainnet block of that date.
     pub date: String,
     pub mainnet_block_height: u64,
+    /// The claimed first mainnet block of `date` minus 28 days.
+    pub mainnet_block_height_28d: u64,
     /// Block (this chain) the request was made in.
     pub block_height: u64,
     /// Kept by this contract from the requester's deposit to pay for storage; the unused part is refunded.
@@ -164,11 +199,15 @@ pub struct PendingRequest {
 #[serde(crate = "near_sdk::serde", deny_unknown_fields)]
 struct WorkerOutput {
     bb: String,
+    bb28: String,
     cs: String,
+    cs28: String,
     d: String,
     fb: String,
     fe: String,
+    fe28: String,
     h: String,
+    h28: String,
     ms: String,
     n: String,
     rc: String,
@@ -179,6 +218,7 @@ struct WorkerOutput {
     rt: String,
     sha: String,
     sup: String,
+    sup28: String,
     t: String,
     v: String,
 }
@@ -250,7 +290,11 @@ pub struct NearBooks {
     /// Reported series, strictly increasing dates.
     snapshots: Vector<Snapshot>,
     predictions: Vector<Prediction>,
-    outlayer: Option<OutlayerConfig>,
+    /// Pin history, append-only; the last entry is the current pin.
+    pins: Vector<PinEntry>,
+    pin_proposal: Option<PinProposal>,
+    /// Timelock between `propose_pin` and `apply_pin`, fixed at init.
+    pin_delay_secs: u64,
     pending: LookupMap<u64, PendingRequest>,
     next_nonce: u64,
     /// Attested series: one per date, any arrival order.
@@ -266,14 +310,19 @@ pub struct NearBooks {
 
 #[near]
 impl NearBooks {
+    /// `pin_delay_secs`: how long a proposed re-pin must wait before `apply_pin` (public notice). It cannot be changed
+    /// later.
     #[init]
-    pub fn new(owner_id: AccountId, reporter_id: AccountId) -> Self {
+    pub fn new(owner_id: AccountId, reporter_id: AccountId, pin_delay_secs: u64) -> Self {
+        require!(pin_delay_secs <= MAX_PIN_DELAY_SECS, "pin_delay_secs must be at most 365 days");
         Self {
             owner_id,
             reporter_id,
             snapshots: Vector::new(b"s"),
             predictions: Vector::new(b"p"),
-            outlayer: None,
+            pins: Vector::new(b"w"),
+            pin_proposal: None,
+            pin_delay_secs,
             pending: LookupMap::new(b"q"),
             next_nonce: 0,
             attested: LookupMap::new(b"a"),
@@ -293,11 +342,18 @@ impl NearBooks {
         self.reporter_id = reporter_id;
     }
 
-    /// Owner only. Sets the OutLayer contract and pins the worker WASM by sha256 (event `worker_pinned` with the
-    /// previous hash). Runs requested before a re-pin are rejected when they come back (the callback compares against
-    /// the pin at answer time). Stored attested snapshots are immutable and keep the wasm hash that produced them;
-    /// a re-pin never touches them or the predictions they resolve.
-    pub fn pin_worker(
+    /// Owner only. Hands the owner role to another account (for example a multisig). Event `owner_transferred`.
+    pub fn transfer_ownership(&mut self, new_owner_id: AccountId) {
+        require!(env::predecessor_account_id() == self.owner_id, "only the owner can transfer ownership");
+        emit("owner_transferred", json!({"owner_id": new_owner_id, "previous": self.owner_id}));
+        self.owner_id = new_owner_id;
+    }
+
+    /// Owner only. Proposes the OutLayer contract and the worker WASM (by sha256) that observe future dates. The first
+    /// pin applies at once (no snapshot can exist without one, so there is nothing to protect) and covers every date.
+    /// Later ones wait `pin_delay_secs` (event `pin_proposed`), then `apply_pin` makes them govern the dates that start
+    /// after it. A new proposal replaces a waiting one and restarts the clock.
+    pub fn propose_pin(
         &mut self,
         outlayer_id: AccountId,
         wasm_url: String,
@@ -313,7 +369,6 @@ impl NearBooks {
             attestation_api.starts_with("https://") && attestation_api.len() <= 128 && !attestation_api.ends_with('/'),
             "attestation_api must be an https base URL without a trailing slash"
         );
-        let previous = self.outlayer.as_ref().map(|c| c.wasm_hash.clone());
         let cfg = OutlayerConfig {
             outlayer_id,
             wasm_url,
@@ -322,8 +377,60 @@ impl NearBooks {
             max_instructions: max_instructions.unwrap_or(DEFAULT_MAX_INSTRUCTIONS),
             max_execution_seconds: max_execution_seconds.unwrap_or(DEFAULT_MAX_SECONDS),
         };
-        emit("worker_pinned", json!({"outlayer_id": cfg.outlayer_id, "wasm_hash": cfg.wasm_hash, "previous_wasm_hash": previous, "wasm_url": cfg.wasm_url}));
-        self.outlayer = Some(cfg);
+        if self.pins.is_empty() {
+            emit("worker_pinned", json!({"outlayer_id": cfg.outlayer_id, "wasm_hash": cfg.wasm_hash, "wasm_url": cfg.wasm_url, "previous_wasm_hash": null, "previous_outlayer_id": null, "from_ns": U64(0)}));
+            self.pins.push(PinEntry { config: cfg, from_ns: U64(0), applied_block: env::block_height() });
+            return;
+        }
+        let now = env::block_timestamp();
+        let apply_after = now.saturating_add(self.pin_delay_secs.saturating_mul(1_000_000_000));
+        let current = self.current_pin().config.clone();
+        emit("pin_proposed", json!({
+            "outlayer_id": cfg.outlayer_id, "wasm_hash": cfg.wasm_hash, "wasm_url": cfg.wasm_url,
+            "previous_wasm_hash": current.wasm_hash, "previous_outlayer_id": current.outlayer_id,
+            "apply_after_ns": U64(apply_after), "replaces_wasm_hash": self.pin_proposal.as_ref().map(|p| p.config.wasm_hash.clone()),
+        }));
+        self.pin_proposal = Some(PinProposal { config: cfg, proposed_at_ns: U64(now), apply_after_ns: U64(apply_after) });
+    }
+
+    /// Owner only, once the proposal's `apply_after_ns` has passed. The new pin governs every date whose 00:00 UTC is
+    /// at or after this block's time; earlier dates keep the pin they had. Event `worker_pinned`.
+    pub fn apply_pin(&mut self) {
+        require!(env::predecessor_account_id() == self.owner_id, "only the owner can pin the worker");
+        let p = self.pin_proposal.clone().unwrap_or_else(|| env::panic_str("no pin proposal"));
+        let now = env::block_timestamp();
+        if now < p.apply_after_ns.0 {
+            env::panic_str(&format!("timelock: the proposed pin can be applied from {} ns (now {})", p.apply_after_ns.0, now));
+        }
+        let previous = self.current_pin().config.clone();
+        emit("worker_pinned", json!({"outlayer_id": p.config.outlayer_id, "wasm_hash": p.config.wasm_hash, "wasm_url": p.config.wasm_url, "previous_wasm_hash": previous.wasm_hash, "previous_outlayer_id": previous.outlayer_id, "from_ns": U64(now)}));
+        self.pins.push(PinEntry { config: p.config, from_ns: U64(now), applied_block: env::block_height() });
+        self.pin_proposal = None;
+    }
+
+    /// Owner only. Drops a waiting proposal. Event `pin_proposal_cancelled`.
+    pub fn cancel_pin_proposal(&mut self) {
+        require!(env::predecessor_account_id() == self.owner_id, "only the owner can pin the worker");
+        let p = self.pin_proposal.take().unwrap_or_else(|| env::panic_str("no pin proposal"));
+        emit("pin_proposal_cancelled", json!({"wasm_hash": p.config.wasm_hash, "outlayer_id": p.config.outlayer_id}));
+    }
+
+    pub fn get_pin_proposal(&self) -> Option<PinProposal> {
+        self.pin_proposal.clone()
+    }
+
+    pub fn get_pin_delay_secs(&self) -> u64 {
+        self.pin_delay_secs
+    }
+
+    /// The whole pin history, oldest first.
+    pub fn list_pins(&self) -> Vec<PinEntry> {
+        self.pins.iter().cloned().collect()
+    }
+
+    /// The pin that observes `date` (the one in force at its 00:00 UTC).
+    pub fn get_pin_for_date(&self, date: String) -> Option<OutlayerConfig> {
+        self.pin_for(&date).map(|e| e.config.clone())
     }
 
     /// Owner only. Moves the earliest date an attested snapshot may be requested for EARLIER (it starts at the
@@ -345,8 +452,10 @@ impl NearBooks {
         MIN_OUTLAYER_DEPOSIT.saturating_add(storage_reserve())
     }
 
+    /// The current (latest applied) pin. Dates that started before it was applied keep an older one, see
+    /// `get_pin_for_date`.
     pub fn get_outlayer_config(&self) -> Option<OutlayerConfig> {
-        self.outlayer.clone()
+        self.pins.len().checked_sub(1).and_then(|i| self.pins.get(i)).map(|e| e.config.clone())
     }
 
     pub fn get_config(&self) -> (AccountId, AccountId) {
@@ -356,16 +465,16 @@ impl NearBooks {
     // ------------------------------------------------------ attested (OutLayer)
 
     /// Anyone. Asks for the attested snapshot of `date` (UTC; not before `earliest_date` unless a Pending
-    /// prediction resolves on that date), observed at
-    /// `block_height`, which must be the first NEAR mainnet block of that date (`worker/scripts/first_block.py`
-    /// finds it; the worker refuses any other). Attach >= `min_request_deposit()` (0.01 NEAR for OutLayer plus a
+    /// prediction resolves on that date), observed at `block_height`, which must be the first NEAR mainnet block of
+    /// that date, and at `block_height_28d`, the first block 28 days earlier (`worker/scripts/first_block.py DATE
+    /// --pair` prints both; the worker refuses any other). The run uses the pin in force at `date` 00:00 UTC. Attach >= `min_request_deposit()` (0.01 NEAR for OutLayer plus a
     /// 0.02 NEAR storage reserve) and >= 250 Tgas. The storage reserve stays here; the rest goes to OutLayer with
     /// the caller as `payer_account_id`, so OutLayer refunds its unused part to the caller. The callback refunds
     /// the unused storage reserve. The transaction's final value says whether the snapshot was stored.
     #[payable]
-    pub fn request_snapshot(&mut self, date: String, block_height: u64) -> Promise {
-        let cfg = self.outlayer.clone().unwrap_or_else(|| env::panic_str("the OutLayer worker is not configured"));
+    pub fn request_snapshot(&mut self, date: String, block_height: u64, block_height_28d: u64) -> Promise {
         require!(valid_date(&date), "date must be YYYY-MM-DD");
+        let cfg = self.pin_for(&date).map(|e| e.config.clone()).unwrap_or_else(|| env::panic_str("the OutLayer worker is not configured"));
         require!(date <= today(), "that date has not started yet");
         require!(
             date >= self.earliest_date || self.pending_resolve_dates.contains_key(&date),
@@ -373,6 +482,7 @@ impl NearBooks {
         );
         require!(!self.attested.contains_key(&date), "an attested snapshot for that date already exists");
         require!(block_height > 0, "block_height required");
+        require!(block_height_28d > 0 && block_height_28d < block_height, "block_height_28d must be below block_height");
         let deposit = env::attached_deposit();
         let reserve = storage_reserve();
         require!(
@@ -384,13 +494,14 @@ impl NearBooks {
         let requester = env::predecessor_account_id();
         let nonce = self.next_nonce;
         self.next_nonce += 1;
-        let input = worker_input(nonce, &date, block_height);
+        let input = worker_input(nonce, &date, block_height, block_height_28d);
         let mut pending = PendingRequest {
             requester: requester.clone(),
             outlayer_id: cfg.outlayer_id.clone(),
             wasm_hash: cfg.wasm_hash.clone(),
             date: date.clone(),
             mainnet_block_height: block_height,
+            mainnet_block_height_28d: block_height_28d,
             block_height: env::block_height(),
             storage_reserve: reserve,
             pending_bytes: 0,
@@ -400,7 +511,7 @@ impl NearBooks {
         self.pending.flush();
         pending.pending_bytes = env::storage_usage().saturating_sub(before);
         self.pending.insert(nonce, pending); // same width (u64), so the measured size is unchanged
-        emit("snapshot_requested", json!({"nonce": nonce, "date": date, "mainnet_block_height": block_height, "wasm_hash": cfg.wasm_hash, "requester": requester, "to_outlayer": to_outlayer, "storage_reserve": reserve}));
+        emit("snapshot_requested", json!({"nonce": nonce, "date": date, "mainnet_block_height": block_height, "mainnet_block_height_28d": block_height_28d, "wasm_hash": cfg.wasm_hash, "requester": requester, "to_outlayer": to_outlayer, "storage_reserve": reserve}));
         ext_outlayer::ext(cfg.outlayer_id.clone())
             .with_attached_deposit(to_outlayer)
             .with_static_gas(OUTLAYER_GAS)
@@ -592,14 +703,27 @@ impl NearBooks {
 }
 
 impl NearBooks {
+    fn current_pin(&self) -> &PinEntry {
+        self.pins.get(self.pins.len() - 1).unwrap_or_else(|| env::panic_str("the OutLayer worker is not configured"))
+    }
+
+    /// The pin entry in force at `date` 00:00 UTC (the first entry covers every earlier date).
+    fn pin_for(&self, date: &str) -> Option<&PinEntry> {
+        let midnight = midnight_ns(date)?;
+        let n = self.pins.len();
+        (0..n).rev().filter_map(|i| self.pins.get(i)).find(|e| e.from_ns.0 <= midnight).or_else(|| self.pins.get(0))
+    }
+
     /// Validates the worker output for request `nonce` and stores it. Err = nothing stored.
     fn accept_attested(&mut self, nonce: u64, p: &PendingRequest, bytes: &[u8]) -> Result<String, String> {
-        let cfg = self.outlayer.clone().ok_or("the OutLayer worker is no longer configured")?;
+        // The pin of a date that has started never changes (re-pins only govern later dates), so these hold unless the
+        // pin history itself was corrupted; checked anyway.
+        let cfg = self.pin_for(&p.date).map(|e| e.config.clone()).ok_or("the OutLayer worker is no longer configured")?;
         if p.outlayer_id != cfg.outlayer_id {
-            return Err("the configured OutLayer contract changed while the run was in flight".into());
+            return Err("the OutLayer contract for that date changed while the run was in flight".into());
         }
         if p.wasm_hash != cfg.wasm_hash {
-            return Err("the pinned wasm hash changed while the run was in flight".into());
+            return Err("the pinned wasm hash for that date changed while the run was in flight".into());
         }
         if bytes == b"null" {
             return Err("OutLayer reported the run as failed (it refunds the unused deposit to the requester)".into());
@@ -622,21 +746,31 @@ impl NearBooks {
         if date_from_unix_secs(ts_ns / 1_000_000_000) != p.date {
             return Err("block timestamp is not on the requested date".into());
         }
+        let height_28 = dec_u64(&o.h28, "h28")?;
+        if height_28 != p.mainnet_block_height_28d {
+            return Err("worker output is for a different 28-day block".into());
+        }
         let request_id = dec_u64(&o.rid, "rid")?;
         let supply = dec_u128(&o.sup, "sup")?;
+        let supply_28 = dec_u128(&o.sup28, "sup28")?;
         let (fe, bb, cs) = (dec_u128(&o.fe, "fe")?, dec_u128(&o.bb, "bb")?, dec_u128(&o.cs, "cs")?);
+        let (fe28, bb28, cs28) = (dec_u128(&o.fe28, "fe28")?, dec_u128(&o.bb28, "bb28")?, dec_u128(&o.cs28, "cs28")?);
         let (rk, rc, rd, rm) = (dec_u64(&o.rk, "rk")?, dec_u64(&o.rc, "rc")?, dec_u64(&o.rd, "rd")?, dec_u64(&o.rm, "rm")?);
         dec_u64(&o.fb, "fb")?;
         dec_u64(&o.ms, "ms")?;
         if rc > rk || rd > rc || o.rt.len() > 16 {
             return Err("inconsistent reserves fields".into());
         }
-        if supply == 0 {
+        if supply == 0 || supply_28 == 0 {
             return Err("total supply is zero".into());
         }
+        let big = |v: Option<u128>| v.and_then(|x| i128::try_from(x).ok()).ok_or_else(|| "value out of range".to_string());
+        // yoctoNEAR, signed: supply growth and the three revenue wallets' combined balance change over the 28 days
+        let issuance = big(Some(supply))? - big(Some(supply_28))?;
+        let gain = big(fe.checked_add(bb).and_then(|x| x.checked_add(cs)))? - big(fe28.checked_add(bb28).and_then(|x| x.checked_add(cs28)))?;
         let micro_near = |y: u128| I128((y / YOCTO_PER_MICRO_NEAR) as i128);
         let count = |c: u64| I128(c as i128 * MICRO);
-        let metrics = vec![
+        let mut metrics = vec![
             Metric { key: "supply_total_near".into(), value: micro_near(supply) },
             Metric { key: "buyback_wallet_near".into(), value: micro_near(bb) },
             Metric { key: "fefundsadmin_wallet_near".into(), value: micro_near(fe) },
@@ -645,7 +779,19 @@ impl NearBooks {
             Metric { key: "intents_reserves_tokens_in_deficit".into(), value: count(rd) },
             Metric { key: "intents_reserves_max_deficit_ppm".into(), value: count(rm) },
             Metric { key: "mainnet_block_height".into(), value: count(height) },
+            Metric { key: "supply_total_near_28d_ago".into(), value: micro_near(supply_28) },
+            Metric { key: "mainnet_block_height_28d".into(), value: count(height_28) },
+            // (supply at B - supply at B28) / 28 days
+            Metric { key: "net_issuance_near_per_day".into(), value: I128(issuance / (YOCTO_PER_MICRO_NEAR as i128 * LOOKBACK_DAYS)) },
+            Metric { key: "revenue_wallets_gain_near_28d".into(), value: I128(gain / YOCTO_PER_MICRO_NEAR as i128) },
         ];
+        // What the three revenue wallets kept over the 28 days, as a fraction of the NEAR issued in them. Only defined
+        // while supply grew; otherwise omitted (a prediction on it then resolves Void).
+        if issuance > 0 {
+            if let Some(x) = gain.checked_mul(MICRO) {
+                metrics.push(Metric { key: "revenue_wallets_gain_over_net_issuance".into(), value: I128(x / issuance) });
+            }
+        }
         check_snapshot(&p.date, &metrics, &o.sha).map_err(String::from)?;
         if self.attested.contains_key(&p.date) {
             return Err("an attested snapshot for that date already exists".into());
@@ -733,12 +879,12 @@ fn check_snapshot(date: &str, metrics: &[Metric], evidence_hash: &str) -> Result
 
 /// Input the worker receives. The nonce is echoed back so an answer cannot be replayed onto another request; date
 /// and block fix the observation point. Its sha256 is the attestation's `input_hash`.
-pub fn worker_input(nonce: u64, date: &str, block_height: u64) -> String {
-    format!("{{\"n\":\"{}\",\"d\":\"{}\",\"b\":\"{}\"}}", nonce, date, block_height)
+pub fn worker_input(nonce: u64, date: &str, block_height: u64, block_height_28d: u64) -> String {
+    format!("{{\"n\":\"{}\",\"d\":\"{}\",\"b\":\"{}\",\"b28\":\"{}\"}}", nonce, date, block_height, block_height_28d)
 }
 
 fn emit(event: &str, data: Value) {
-    env::log_str(&format!("EVENT_JSON:{}", json!({"standard": "nearbooks", "version": "1.1.0", "event": event, "data": data})));
+    env::log_str(&format!("EVENT_JSON:{}", json!({"standard": "nearbooks", "version": "1.2.0", "event": event, "data": data})));
 }
 
 pub fn is_hex64(s: &str) -> bool {
@@ -776,6 +922,21 @@ pub fn valid_date(s: &str) -> bool {
         _ => return false,
     };
     y >= 2000 && d >= 1 && d <= dim
+}
+
+/// Unix nanoseconds of `date` 00:00 UTC (days-from-civil), or None if it is not a valid date.
+pub fn midnight_ns(date: &str) -> Option<u64> {
+    if !valid_date(date) {
+        return None;
+    }
+    let num = |r: std::ops::Range<usize>| date[r].parse::<i64>().unwrap_or(0);
+    let (y, m, d) = (num(0..4), num(5..7), num(8..10));
+    let (y2, m2) = if m <= 2 { (y - 1, m + 9) } else { (y, m - 3) };
+    let era = y2.div_euclid(400);
+    let yoe = y2 - era * 400;
+    let doy = (153 * m2 + 2) / 5 + d - 1;
+    let doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
+    u64::try_from(era * 146_097 + doe - 719_468).ok().map(|days| days * 86_400 * 1_000_000_000)
 }
 
 /// UTC date of the current block as `YYYY-MM-DD`.
