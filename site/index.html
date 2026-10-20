@@ -81,9 +81,9 @@
 
   <section id="attested">
     <div class="shead"><h2>Attested on-chain</h2><span class="tag att" id="att-tag">attested</span></div>
-    <p class="note">NEAR mainnet state at the first block of each UTC day and at the first block 28 days earlier, read by the pinned worker inside OutLayer's Intel TDX enclave and stored by the contract. The hash checks run in this browser against OutLayer's public attestation. The TDX quote and Intel signature are checked by <span class="mono">contract/scripts/verify_attestation.py</span>.</p>
+    <p class="note">NEAR mainnet state at the first block of each UTC day and at the first block 28 days earlier, read by the pinned worker inside OutLayer's Intel TDX enclave and stored by the contract. A row is <b>verified</b> only if, checked in this browser: the worker hash is one this repository vouches for, it is the contract's pin for that date, OutLayer's public attestation matches the snapshot's wasm, input and output hashes, and the attested transaction called this contract. The TDX quote and Intel signature are checked by <span class="mono">contract/scripts/verify_attestation.py</span>.</p>
     <div class="cards" id="att-cards"></div>
-    <div class="tw"><table id="att-table"><thead><tr><th>Date</th><th class="num">Mainnet block</th><th>Worker sha256</th><th>Hash checks vs attestation</th><th>Evidence</th></tr></thead><tbody></tbody></table></div>
+    <div class="tw"><table id="att-table"><thead><tr><th>Date</th><th class="num">Mainnet block</th><th>Worker sha256</th><th>Checks (this browser)</th><th>Evidence</th></tr></thead><tbody></tbody></table></div>
   </section>
 
   <section id="predictions">
@@ -131,8 +131,10 @@ const Q = new URLSearchParams(location.search);
 // Network access is limited to these HTTPS origins; URLs found in contract state are never fetched as given.
 const RPC_ALLOWED = ["https://rpc.testnet.near.org", "https://rpc.testnet.fastnear.com", "https://test.rpc.fastnear.com"];
 const ATTESTATION_API = "https://testnet-api.outlayer.ai";
-const ACCOUNT_RE = /^(?=.{2,64}$)(([a-z\d]+[-_])*[a-z\d]+\.)*([a-z\d]+[-_])*[a-z\d]+$/;
-const CONTRACT = ACCOUNT_RE.test(Q.get("contract") || "") ? Q.get("contract") : "nearbooks-v5.okf-kill-1792497882.testnet";
+// The one contract this page reads (no override: a link must not be able to dress up another contract as attested).
+const CONTRACT = "nearbooks-v5.okf-kill-1792497882.testnet";
+// Worker builds this repo vouches for; identical to contract/known_workers.json (tests/test_mcp.py checks).
+const KNOWN_WORKERS = ["bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963"];
 const RPCS = ((Q.get("rpc") || "").split(",").filter((u) => RPC_ALLOWED.includes(u)).concat(RPC_ALLOWED)).filter((u, i, a) => a.indexOf(u) === i);
 const EXPLORER = "https://testnet.nearblocks.io", MAINNET_EXPLORER = "https://nearblocks.io";
 const $ = (id) => document.getElementById(id);
@@ -155,18 +157,21 @@ function card(box, k, v, n, cls) {
 const timeout = (ms) => (typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
 
 // ------------------------------------------------------------ contract reads (NEAR JSON-RPC view calls)
-async function view(method, args = {}) {
+async function rpc(method, params, ok) {
   const errors = [];
   for (const url of RPCS) {
     try {
-      const body = { jsonrpc: "2.0", id: "nb", method: "query", params: { request_type: "call_function", finality: "final", account_id: CONTRACT, method_name: method, args_base64: btoa(JSON.stringify(args)) } };
-      const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body), redirect: "error", credentials: "omit", signal: timeout(8000) });
+      const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: "nb", method, params }), redirect: "error", credentials: "omit", signal: timeout(8000) });
       const j = await r.json();
-      if (!j.result || !j.result.result) { errors.push(url + ": " + JSON.stringify(j.error || j.result).slice(0, 160)); continue; }
-      return { value: JSON.parse(new TextDecoder().decode(new Uint8Array(j.result.result))), rpc: url, height: j.result.block_height };
+      if (!j.result || !ok(j.result)) { errors.push(url + ": " + JSON.stringify(j.error || j.result).slice(0, 160)); continue; }
+      return { result: j.result, rpc: url };
     } catch (e) { errors.push(url + ": " + e.message); }
   }
   throw new Error(errors.join("; "));
+}
+async function view(method, args = {}) {
+  const { result, rpc: url } = await rpc("query", { request_type: "call_function", finality: "final", account_id: CONTRACT, method_name: method, args_base64: btoa(JSON.stringify(args)) }, (r) => r.result);
+  return { value: JSON.parse(new TextDecoder().decode(new Uint8Array(result.result))), rpc: url, height: result.block_height };
 }
 async function listAll(method) {
   let out = [], i = 0, last;
@@ -197,8 +202,18 @@ async function checkAttestation(s) {
   const a = s.source.attested, url = attestationUrl(s);
   const att = await (await fetch(url, { redirect: "error", credentials: "omit", signal: timeout(10000) })).json();
   const inputHash = crypto.subtle ? hex(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(workerInput(s)))) : null;
-  return { transaction_hash: att.transaction_hash, attestation_url_matches: a.attestation === url, wasm_hash_matches: att.wasm_hash === a.wasm_hash && att.executed_wasm_sha256 === a.wasm_hash,
+  const pin = (await view("get_pin_for_date", { date: s.date })).value || {};
+  let txOk = false;
+  if (typeof att.transaction_hash === "string" && typeof att.caller_account_id === "string") {
+    const t = (await rpc("EXPERIMENTAL_tx_status", { tx_hash: att.transaction_hash, sender_account_id: att.caller_account_id, wait_until: "FINAL" }, (r) => r.transaction)).result.transaction;
+    const fc = (t.actions || [])[0] && t.actions[0].FunctionCall;
+    txOk = t.receiver_id === CONTRACT && !!fc && fc.method_name === "request_snapshot";
+  }
+  const c = { transaction_hash: att.transaction_hash, known_worker: KNOWN_WORKERS.includes(a.wasm_hash), pin_for_date_matches: pin.wasm_hash === a.wasm_hash,
+    tx_targets_contract: txOk, attestation_url_matches: a.attestation === url, wasm_hash_matches: att.wasm_hash === a.wasm_hash && att.executed_wasm_sha256 === a.wasm_hash,
            input_hash_matches: inputHash === null ? null : att.input_hash === inputHash, output_hash_matches: att.output_hash === a.output_sha256, request_id_matches: att.request_id === a.request_id };
+  c.verified = Object.entries(c).every(([k, v]) => k === "transaction_hash" || v === true);
+  return c;
 }
 
 // ------------------------------------------------------------ rendering: attested
@@ -234,8 +249,12 @@ function renderAttested(st, pipeline, live) {
     const show = (c) => {
       checks.replaceChildren();
       if (!c || c.error) { checks.append(el("span", "attestation unreachable", "tag warn")); return; }
-      [["link", c.attestation_url_matches], ["wasm", c.wasm_hash_matches], ["input", c.input_hash_matches], ["output", c.output_hash_matches]].forEach(([k, ok]) =>
-        checks.append(el("span", `${k} ${ok === null ? "n/a" : ok ? "match" : "MISMATCH"}`, "tag " + (ok === null ? "mut" : ok ? "ok" : "bad"))));
+      // known worker = in this repo's list; pin = the contract's pin for that date; tx = the run was requested from this contract
+      const verified = c.verified === true && KNOWN_WORKERS.includes(a.wasm_hash);
+      checks.append(el("span", verified ? "verified" : "MISMATCH", "tag " + (verified ? "ok" : "bad")));
+      [["known worker", c.known_worker], ["pin", c.pin_for_date_matches], ["tx", c.tx_targets_contract], ["link", c.attestation_url_matches],
+       ["wasm", c.wasm_hash_matches], ["input", c.input_hash_matches], ["output", c.output_hash_matches]].forEach(([k, ok]) =>
+        checks.append(el("span", `${k} ${ok === null || ok === undefined ? "n/a" : ok ? "ok" : "MISMATCH"}`, "tag " + (ok === null || ok === undefined ? "mut" : ok ? "ok" : "bad"))));
       if (c.transaction_hash && /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(c.transaction_hash)) ev.prepend(link(`${EXPLORER}/txns/${c.transaction_hash}`, "tx"));
     };
     if (live) checkAttestation(s).catch(() => new Promise((r) => setTimeout(r, 1500)).then(() => checkAttestation(s)))
@@ -301,6 +320,7 @@ function recon(m) {
   let g = "";
   for (let k = 0; k <= 4; k++) { const v = (mx * k) / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${P.l - 6}" y="${Y(v) + 4}" text-anchor="end">${usd(v)}</text>`; }
   [0, Math.floor(D.length / 2), D.length - 1].forEach((i) => (g += `<text x="${X(i)}" y="${H - 6}" text-anchor="${i ? (i === D.length - 1 ? "end" : "middle") : "start"}">${D[i].date}</text>`));
+  // Only numbers and dates from the local metrics.json reach this markup; contract data is rendered with textContent.
   $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Cumulative captured revenue, on-chain rebuild vs DefiLlama">${g}<path d="${path(B)}" fill="none" stroke="var(--b)" stroke-width="3" opacity=".55"/><path d="${path(A)}" fill="none" stroke="var(--a)" stroke-width="1.6"/></svg>`;
 }
 function calc(m) {

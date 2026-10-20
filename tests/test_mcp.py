@@ -231,12 +231,13 @@ class TestUrlAllowlist(unittest.TestCase):
         url = chain.attestation_url(snap)
         self.assertEqual(url, f"https://testnet-api.outlayer.ai/attestations/by-request/{snap['source']['attested']['request_id']}")
         fetched = []
-        orig = chain._read
+        saved = (chain._read, chain.view)
         try:
             chain._read = lambda req, timeout: fetched.append(req.full_url) or {}
+            chain.view = lambda method, args, contract=None: ({}, "rpc", 1)
             self.assertFalse(chain.attestation_checks(snap)["attestation_url_matches"], "a tampered stored link is reported")
         finally:
-            chain._read = orig
+            chain._read, chain.view = saved
         self.assertEqual(fetched, [url])
         for rid in ("5168", -1, 2**63, True, 1.5):
             snap["source"]["attested"]["request_id"] = rid
@@ -270,6 +271,27 @@ class TestSiteStatic(unittest.TestCase):
         self.assertIn('.filter((u) => RPC_ALLOWED.includes(u))', self.html, "?rpc= overrides are filtered")
         self.assertIn("redirect: \"error\"", self.html)
 
+    def test_known_worker_list_is_identical_in_site_and_repo(self):
+        import re
+        with open(os.path.join(ROOT, "contract", "known_workers.json")) as f:
+            known = set(json.load(f)["worker_sha256"])
+        site = set(re.findall(r"[0-9a-f]{64}", re.search(r"const KNOWN_WORKERS = \[([^\]]*)\]", self.html).group(1)))
+        self.assertEqual(site, known)
+        self.assertEqual(chain.KNOWN_WORKERS, known)
+        with open(os.path.join(ROOT, "contract", "deployment.json")) as f:
+            self.assertIn(json.load(f)["worker_sha256"], known, "the pinned worker is vouched for")
+        with open(os.path.join(ROOT, "contract", "scripts", "verify_attestation.py")) as f:
+            self.assertIn("known_workers.json", f.read())
+
+    def test_the_contract_cannot_be_overridden_from_the_url(self):
+        self.assertNotIn('Q.get("contract")', self.html)
+        self.assertIn(f'const CONTRACT = "{chain.OFFICIAL_CONTRACT}";', self.html)
+
+    def test_a_snapshot_is_verified_only_with_every_check(self):
+        for k in ("known_worker", "pin_for_date_matches", "tx_targets_contract", "attestation_url_matches", "wasm_hash_matches", "input_hash_matches", "output_hash_matches"):
+            self.assertIn(k, self.html)
+        self.assertIn('c.verified = Object.entries(c).every(([k, v]) => k === "transaction_hash" || v === true);', self.html)
+
     def test_cache_is_the_contract_the_site_reads(self):
         with open(CACHE) as f:
             self.assertIn(f'"{json.load(f)["contract"]}"', self.html)
@@ -282,15 +304,34 @@ class TestChain(unittest.TestCase):
         a = snap["source"]["attested"]
         good = {"request_id": a["request_id"], "wasm_hash": a["wasm_hash"], "executed_wasm_sha256": a["wasm_hash"], "output_hash": a["output_sha256"],
                 "input_hash": hashlib.sha256(chain.worker_input(snap).encode()).hexdigest(), "transaction_hash": "TX"}
-        orig = chain._post_get
+        good["caller_account_id"] = snap["submitted_by"]
+        saved = (chain._post_get, chain.view, chain.tx_targets)
         try:
             chain._post_get = lambda url, timeout: dict(good)
-            self.assertTrue(all(v for k, v in chain.attestation_checks(snap).items() if k != "transaction_hash"))
+            chain.view = lambda method, args, contract=None: ({"wasm_hash": a["wasm_hash"]}, "rpc", 1)
+            chain.tx_targets = lambda tx, sender, contract: tx == "TX" and sender == snap["submitted_by"] and contract == chain.OFFICIAL_CONTRACT
+            c = chain.attestation_checks(snap, chain.OFFICIAL_CONTRACT)
+            self.assertTrue(c["verified"], c)
             for k in ("wasm_hash", "input_hash", "output_hash"):
                 chain._post_get = lambda url, timeout, k=k: dict(good, **{k: "0" * 64})
-                self.assertFalse(chain.attestation_checks(snap)[f"{k}_matches"], k)
+                c = chain.attestation_checks(snap, chain.OFFICIAL_CONTRACT)
+                self.assertFalse(c[f"{k}_matches"] or c["verified"], k)
+            chain._post_get = lambda url, timeout: dict(good)
+            # another contract replaying the same OutLayer run: tx check and official flag fail
+            self.assertFalse(chain.attestation_checks(snap, "attacker.testnet")["verified"])
+            # the contract's pin for that date is another hash
+            chain.view = lambda method, args, contract=None: ({"wasm_hash": "1" * 64}, "rpc", 1)
+            self.assertFalse(chain.attestation_checks(snap, chain.OFFICIAL_CONTRACT)["verified"])
+            # a worker this repo does not vouch for, even if pinned and attested consistently
+            chain.view = lambda method, args, contract=None: ({"wasm_hash": a["wasm_hash"]}, "rpc", 1)
+            known = chain.KNOWN_WORKERS
+            chain.KNOWN_WORKERS = set()
+            try:
+                self.assertFalse(chain.attestation_checks(snap, chain.OFFICIAL_CONTRACT)["verified"])
+            finally:
+                chain.KNOWN_WORKERS = known
         finally:
-            chain._post_get = orig
+            chain._post_get, chain.view, chain.tx_targets = saved
 
     def test_worker_input_matches_the_contract_format(self):
         with open(CACHE) as f:

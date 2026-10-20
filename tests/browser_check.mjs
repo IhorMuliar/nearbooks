@@ -1,7 +1,7 @@
 // Headless check of site/index.html (optional; needs node and playwright-core with a Chromium build).
 //   make site &   then   PLAYWRIGHT_CORE=/path/to/playwright-core/index.mjs [CHROME=/path/to/chrome] \
 //                          node tests/browser_check.mjs [http://127.0.0.1:8000/site/] [screenshot.png]
-// 1. live: the status badge says live, every attested row passes the four browser hash checks, predictions render.
+// 1. live: the status badge says live, every attested row is verified (seven browser checks), predictions render.
 // 2. offline: with every RPC request aborted, the page shows the "offline data" badge and the cached contract state.
 // 3. allowlist: ?rpc=https://evil.example is ignored and no request leaves for a non-allowlisted origin.
 // 4. mobile: at 390 px wide the page has no horizontal overflow outside the scrollable tables.
@@ -31,8 +31,8 @@ async function open(url, opts = {}) {
   const badge = await page.textContent("#status .tag");
   badge === "live" ? pass(`live badge: ${(await page.textContent("#status")).trim()}`) : fail(`badge is ${badge}`);
   const rows = await page.$$eval("#att-table tbody tr", (trs) => trs.map((t) => t.innerText.replace(/\s+/g, " ")));
-  const ok = rows.length > 0 && rows.every((r) => ["link match", "wasm match", "input match", "output match"].every((k) => r.toLowerCase().includes(k)) && r.includes("tx"));
-  ok ? pass(`${rows.length} attested row(s), all four hash checks match: ${rows.join(" | ")}`) : fail(`attested rows: ${rows.join(" | ")}`);
+  const ok = rows.length > 0 && rows.every((r) => ["verified", "known worker ok", "pin ok", "tx ok", "link ok", "wasm ok", "input ok", "output ok"].every((k) => r.toLowerCase().includes(k)) && !r.includes("MISMATCH") && r.includes("tx"));
+  ok ? pass(`${rows.length} attested row(s), verified (all seven checks ok): ${rows.join(" | ")}`) : fail(`attested rows: ${rows.join(" | ")}`);
   const preds = await page.$$eval("#preds tbody tr", (trs) => trs.map((t) => t.cells[0].innerText + ":" + t.cells[4].innerText));
   preds.length ? pass(`predictions: ${preds.join(" ")}`) : fail("no predictions");
   const tags = await page.$$eval(".shead .tag", (t) => t.map((x) => x.textContent));
@@ -48,7 +48,9 @@ async function open(url, opts = {}) {
   await ctx.close();
 }
 {
-  const { page, ctx, hosts } = await open(BASE + "?rpc=https://evil.example&contract=x%2F..%2Fy");
+  const { page, ctx, hosts } = await open(BASE + "?rpc=https://evil.example&contract=attacker.testnet");
+  const shown = await page.textContent("#status");
+  shown.includes("nearbooks-v5.okf-kill-1792497882.testnet") ? pass("?contract= is ignored") : fail("?contract= changed the contract");
   const bad = [...hosts].filter((h) => !ALLOWED.includes(h));
   bad.length ? fail(`requests to non-allowlisted hosts: ${bad}`) : pass(`hosts contacted: ${[...hosts].join(", ")}`);
   await ctx.close();

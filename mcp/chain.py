@@ -10,7 +10,8 @@ The offline cache (site/contract-cache.json) is what both fall back to when the 
 import base64, hashlib, ipaddress, json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-CONTRACT = os.environ.get("NEARBOOKS_CONTRACT", "nearbooks-v5.okf-kill-1792497882.testnet")
+OFFICIAL_CONTRACT = "nearbooks-v5.okf-kill-1792497882.testnet"
+CONTRACT = os.environ.get("NEARBOOKS_CONTRACT", OFFICIAL_CONTRACT)
 RPCS = [u for u in os.environ.get("NEARBOOKS_RPC", "https://rpc.testnet.near.org,https://rpc.testnet.fastnear.com").split(",") if u]
 CACHE = os.environ.get("NEARBOOKS_CACHE", os.path.join(ROOT, "site", "contract-cache.json"))
 EXPLORER = "https://testnet.nearblocks.io"
@@ -23,6 +24,8 @@ ATTESTATION_API = os.environ.get("NEARBOOKS_ATTESTATION_API", "https://testnet-a
 # Tests run a fake RPC on 127.0.0.1; only this explicit switch lets a loopback http:// RPC through.
 ALLOW_LOOPBACK_RPC = os.environ.get("NEARBOOKS_RPC_ALLOW_LOOPBACK") == "1"
 MAX_RESPONSE_BYTES = 256 * 1024
+with open(os.path.join(ROOT, "contract", "known_workers.json")) as _f:
+    KNOWN_WORKERS = set(json.load(_f)["worker_sha256"])
 
 
 class Unreachable(Exception):
@@ -127,20 +130,52 @@ def attestation_url(snap):
     return f"{ATTESTATION_API}/attestations/by-request/{rid}"
 
 
-def attestation_checks(snap, timeout=15):
-    """Fetches the public OutLayer attestation of the snapshot and compares its hashes with the snapshot. The TDX
-    quote itself is not checked here (contract/scripts/verify_attestation.py does that)."""
+def rpc(method, params, timeout=10):
+    errors = []
+    for url in RPCS:
+        try:
+            r = _post(url, {"jsonrpc": "2.0", "id": "nb", "method": method, "params": params}, timeout)
+        except (OSError, ValueError) as e:
+            errors.append(f"{url}: {e}")
+            continue
+        if "result" in r:
+            return r["result"]
+        errors.append(f"{url}: {json.dumps(r.get('error'))[:200]}")
+    raise Unreachable("; ".join(errors))
+
+
+def tx_targets(tx_hash, sender, contract):
+    """True if the transaction is `sender` calling `contract`.request_snapshot (read from the chain, not the attestation)."""
+    t = rpc("EXPERIMENTAL_tx_status", {"tx_hash": tx_hash, "sender_account_id": sender, "wait_until": "FINAL"})["transaction"]
+    acts = t.get("actions") or []
+    fc = acts[0].get("FunctionCall", {}) if acts and isinstance(acts[0], dict) else {}
+    return t.get("receiver_id") == contract and fc.get("method_name") == "request_snapshot"
+
+
+def attestation_checks(snap, contract=None, timeout=15):
+    """Fetches the public OutLayer attestation of the snapshot and compares it with the snapshot, the contract's pin for
+    that date, the known-good worker list and the transaction on chain. `verified` needs all of them. The TDX quote
+    itself is not checked here (contract/scripts/verify_attestation.py does that)."""
+    contract = contract or CONTRACT
     a = snap["source"]["attested"]
     url = attestation_url(snap)
     att = _post_get(url, timeout)
-    return {
-        "transaction_hash": att.get("transaction_hash"),
+    pin = view("get_pin_for_date", {"date": snap["date"]}, contract)[0] or {}
+    tx = att.get("transaction_hash")
+    c = {
+        "transaction_hash": tx,
+        "official_contract": contract == OFFICIAL_CONTRACT,
+        "known_worker": a["wasm_hash"] in KNOWN_WORKERS,
+        "pin_for_date_matches": pin.get("wasm_hash") == a["wasm_hash"],
+        "tx_targets_contract": bool(tx) and tx_targets(tx, att.get("caller_account_id", ""), contract),
         "attestation_url_matches": a["attestation"] == url,
         "wasm_hash_matches": att.get("wasm_hash") == a["wasm_hash"] == att.get("executed_wasm_sha256"),
         "input_hash_matches": att.get("input_hash") == hashlib.sha256(worker_input(snap).encode()).hexdigest(),
         "output_hash_matches": att.get("output_hash") == a["output_sha256"],
         "request_id_matches": att.get("request_id") == a["request_id"],
     }
+    c["verified"] = all(v for k, v in c.items() if k != "transaction_hash")
+    return c
 
 
 def _post_get(url, timeout):
@@ -193,7 +228,7 @@ def metrics_dict(snap):
 
 def snapshot_view(s):
     a = s["source"]["attested"]
-    out = {"date": s["date"], "metrics": metrics_dict(s), "mainnet_block_height": a["block_height"], "wasm_hash": a["wasm_hash"],
+    out = {"date": s["date"], "known_worker": s["source"]["attested"]["wasm_hash"] in KNOWN_WORKERS, "metrics": metrics_dict(s), "mainnet_block_height": a["block_height"], "wasm_hash": a["wasm_hash"],
            "outlayer_request_id": a["request_id"], "output_sha256": a["output_sha256"], "evidence_hash": s["evidence_hash"],
            "attestation_url": attestation_url(s), "requested_by": s["submitted_by"], "stored_in_testnet_block": s["block_height"],
            "stored_block_url": f"{EXPLORER}/blocks/{s['block_height']}"}

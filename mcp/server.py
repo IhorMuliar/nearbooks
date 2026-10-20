@@ -68,6 +68,14 @@ def tool_list_predictions(args):
 
 
 def _source(state, mode):
+    src = _source_mode(state, mode)
+    if state["contract"] != chain.OFFICIAL_CONTRACT:
+        src["warning"] = f"UNOFFICIAL CONTRACT: {state['contract']} is not {chain.OFFICIAL_CONTRACT}; its snapshots are not vouched for by this repository"
+    src["official_contract"] = state["contract"] == chain.OFFICIAL_CONTRACT
+    return src
+
+
+def _source_mode(state, mode):
     if mode == "live":
         return {"mode": "live", "contract": state["contract"], "network": "testnet", "rpc": state["rpc"], "block_height": state["block_height"]}
     return {"mode": "offline", "contract": state["contract"], "network": "testnet", "cache_fetched_at": state["fetched_at"],
@@ -87,7 +95,8 @@ def tool_get_attested_snapshots(args):
         snaps = [x for x in snaps if x["date"] == args["date"]]
     return {**_source(state, mode),
             "note": "Each snapshot is NEAR mainnet state at the first block of its UTC date (and 28 days earlier), read by the pinned worker in OutLayer's TDX enclave. "
-                    "verify=true fetches the public attestation and compares its wasm/input/output hashes; the TDX quote is checked by contract/scripts/verify_attestation.py.",
+                    "verify=true fetches the public attestation and checks it against the snapshot, the contract's pin for that date, the repo's known-good worker list "
+                    "(contract/known_workers.json) and the transaction on chain; attestation_checks.verified needs all of them. The TDX quote is checked by contract/scripts/verify_attestation.py.",
             "snapshots": [chain.snapshot_view(x) for x in sorted(snaps, key=lambda x: x["date"])]}
 
 

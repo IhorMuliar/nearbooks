@@ -1,0 +1,6 @@
+{
+  "_comment": "Worker builds this repository vouches for: sha256 of `make worker` at a commit of this repo. A snapshot counts as verified only if its wasm_hash is listed here (the dashboard keeps an identical copy, KNOWN_WORKERS, checked by tests/test_mcp.py). Add a hash only after building it from the repo.",
+  "worker_sha256": {
+    "bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963": "format 3 (28-day lookback), commit 422a4e6"
+  }
+}

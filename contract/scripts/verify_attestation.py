@@ -19,7 +19,7 @@ calls), fetches the public OutLayer attestation it links to, then checks:
 Optionally, independently: the observation block is the first mainnet block of DATE (worker/scripts/first_block.py).
 Exit code 0 only if every check that ran passes.
 """
-import base64, hashlib, json, struct, subprocess, sys, tempfile, urllib.error, urllib.request
+import base64, hashlib, json, os, struct, subprocess, sys, tempfile, urllib.error, urllib.request
 
 RPC = "https://rpc.testnet.near.org"
 ATTESTATION_BASES = {"https://testnet-api.outlayer.ai", "https://api.outlayer.ai"}
@@ -109,6 +109,9 @@ def main(argv):
     check("attestation.wasm_hash == snapshot wasm_hash", att.get("wasm_hash") == a["wasm_hash"], a["wasm_hash"])
     check("attestation.executed_wasm_sha256 == wasm_hash", att.get("executed_wasm_sha256") == a["wasm_hash"])
     check("snapshot wasm_hash == the contract's pin for that date", cfg["wasm_hash"] == a["wasm_hash"], cfg["outlayer_id"])
+    with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "known_workers.json")) as f:
+        known = json.load(f)["worker_sha256"]
+    check("wasm_hash is a worker this repo vouches for (contract/known_workers.json)", a["wasm_hash"] in known, known.get(a["wasm_hash"], "not listed"))
     now = view(contract, "get_outlayer_config", {})
     print(f"INFO  current pin: {now['wasm_hash']} ({'same' if now['wasm_hash'] == a['wasm_hash'] else 're-pinned for later dates'}); "
           f"waiting proposal: {view(contract, 'get_pin_proposal', {})}")
