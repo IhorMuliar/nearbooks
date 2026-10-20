@@ -22,6 +22,7 @@ Exit code 0 only if every check that ran passes.
 import base64, hashlib, json, os, struct, subprocess, sys, tempfile, urllib.error, urllib.request
 
 RPC = "https://rpc.testnet.near.org"
+ARCHIVAL_RPC = "https://archival-rpc.testnet.near.org"  # the regular RPC drops transactions after a few days
 ATTESTATION_BASES = {"https://testnet-api.outlayer.ai", "https://api.outlayer.ai"}
 MAX_RESPONSE = 256 * 1024
 
@@ -126,7 +127,7 @@ def main(argv):
 
     # The output bytes live in the transaction: OutLayer's on_execution_response receipt returns them.
     txh, signer = att["transaction_hash"], att["caller_account_id"]
-    tx = post(RPC, {"jsonrpc": "2.0", "id": 1, "method": "EXPERIMENTAL_tx_status",
+    tx = post(ARCHIVAL_RPC, {"jsonrpc": "2.0", "id": 1, "method": "EXPERIMENTAL_tx_status",
                     "params": {"tx_hash": txh, "sender_account_id": signer, "wait_until": "FINAL"}})["result"]
     fc = tx["transaction"]["actions"][0].get("FunctionCall", {})
     check("transaction calls this contract's request_snapshot", tx["transaction"]["receiver_id"] == contract and fc.get("method_name") == "request_snapshot", txh)
@@ -149,7 +150,7 @@ def main(argv):
                 "intents_reserves_tokens_checked": y("rc") * 10**6, "intents_reserves_tokens_in_deficit": y("rd") * 10**6,
                 "intents_reserves_max_deficit_ppm": y("rm") * 10**6, "mainnet_block_height": y("h") * 10**6, "mainnet_block_height_28d": y("h28") * 10**6,
                 "net_issuance_near_per_day": q(iss, 10**18 * 28), "revenue_wallets_gain_near_28d": q(gain, 10**18)}
-        if iss > 0:
+        if iss > 0 and abs(gain * 10**6) <= 2**127 - 1:  # the contract omits it when gain x 1e6 overflows i128
             want["revenue_wallets_gain_over_net_issuance"] = q(gain * 10**6, iss)
         same = (m == want and int(o["h"]) == a["block_height"] and o["d"] == snap["date"] and o["sha"] == snap["evidence_hash"] and o["n"] == str(a["nonce"]))
         check("stored metrics == attested output (all 13, incl. the 28-day ones recomputed here)" if iss > 0 else "stored metrics == attested output", same, out.decode())

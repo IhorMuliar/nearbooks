@@ -18,7 +18,9 @@ EXPLORER = "https://testnet.nearblocks.io"
 MICRO = 10**6
 # Network access is limited to these HTTPS hosts. URLs found in contract state are never fetched as given: the
 # attestation URL is rebuilt from an allowlisted base and the snapshot's numeric request id.
-RPC_HOSTS = {"rpc.testnet.near.org", "rpc.testnet.fastnear.com", "test.rpc.fastnear.com"}
+# Transactions are looked up on archival nodes: the regular testnet RPCs drop data after a few days.
+ARCHIVAL_RPCS = ["https://archival-rpc.testnet.near.org", "https://archival-rpc.testnet.fastnear.com"]
+RPC_HOSTS = {"rpc.testnet.near.org", "rpc.testnet.fastnear.com", "test.rpc.fastnear.com", "archival-rpc.testnet.near.org", "archival-rpc.testnet.fastnear.com"}
 ATTESTATION_BASES = {"https://testnet-api.outlayer.ai", "https://api.outlayer.ai"}
 ATTESTATION_API = os.environ.get("NEARBOOKS_ATTESTATION_API", "https://testnet-api.outlayer.ai")
 # Tests run a fake RPC on 127.0.0.1; only this explicit switch lets a loopback http:// RPC through.
@@ -130,9 +132,9 @@ def attestation_url(snap):
     return f"{ATTESTATION_API}/attestations/by-request/{rid}"
 
 
-def rpc(method, params, timeout=10):
+def rpc(method, params, timeout=10, urls=None):
     errors = []
-    for url in RPCS:
+    for url in urls or RPCS:
         try:
             r = _post(url, {"jsonrpc": "2.0", "id": "nb", "method": method, "params": params}, timeout)
         except (OSError, ValueError) as e:
@@ -146,7 +148,7 @@ def rpc(method, params, timeout=10):
 
 def tx_targets(tx_hash, sender, contract):
     """True if the transaction is `sender` calling `contract`.request_snapshot (read from the chain, not the attestation)."""
-    t = rpc("EXPERIMENTAL_tx_status", {"tx_hash": tx_hash, "sender_account_id": sender, "wait_until": "FINAL"})["transaction"]
+    t = rpc("EXPERIMENTAL_tx_status", {"tx_hash": tx_hash, "sender_account_id": sender, "wait_until": "FINAL"}, urls=ARCHIVAL_RPCS)["transaction"]
     acts = t.get("actions") or []
     fc = acts[0].get("FunctionCall", {}) if acts and isinstance(acts[0], dict) else {}
     return t.get("receiver_id") == contract and fc.get("method_name") == "request_snapshot"
@@ -200,8 +202,8 @@ def fetch_state(contract=None, with_attestations=False):
         for s in attested:
             try:
                 s["attestation_checks"] = attestation_checks(s)
-            except (OSError, ValueError) as e:  # RefusedUrl is a ValueError
-                s["attestation_checks"] = {"error": str(e)[:200]}
+            except (OSError, ValueError, Unreachable) as e:  # RefusedUrl is a ValueError
+                s["attestation_checks"] = {"error": str(e)[:200], "verified": False}
     return state
 
 
@@ -230,7 +232,7 @@ def snapshot_view(s):
     a = s["source"]["attested"]
     out = {"date": s["date"], "known_worker": s["source"]["attested"]["wasm_hash"] in KNOWN_WORKERS, "metrics": metrics_dict(s), "mainnet_block_height": a["block_height"], "wasm_hash": a["wasm_hash"],
            "outlayer_request_id": a["request_id"], "output_sha256": a["output_sha256"], "evidence_hash": s["evidence_hash"],
-           "attestation_url": attestation_url(s), "requested_by": s["submitted_by"], "stored_in_testnet_block": s["block_height"],
+           "attestation_url": _attestation_url_or_none(s), "requested_by": s["submitted_by"], "stored_in_testnet_block": s["block_height"],
            "stored_block_url": f"{EXPLORER}/blocks/{s['block_height']}"}
     chk = s.get("attestation_checks")
     if chk:
@@ -238,6 +240,13 @@ def snapshot_view(s):
         if chk.get("transaction_hash"):
             out["transaction_url"] = f"{EXPLORER}/txns/{chk['transaction_hash']}"
     return out
+
+
+def _attestation_url_or_none(s):
+    try:
+        return attestation_url(s)
+    except RefusedUrl:
+        return None
 
 
 def prediction_view(p):

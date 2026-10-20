@@ -263,8 +263,9 @@ class TestSiteStatic(unittest.TestCase):
 
     def test_rpc_and_attestation_origins_match_the_python_allowlist(self):
         import re
-        rpcs = re.search(r"const RPC_ALLOWED = \[([^\]]+)\]", self.html).group(1)
+        rpcs = re.search(r"const RPC_ALLOWED = \[([^\]]+)\]", self.html).group(1) + re.search(r"const ARCHIVAL_RPCS = \[([^\]]+)\]", self.html).group(1)
         self.assertEqual({u.split("//")[1] for u in re.findall(r'"([^"]+)"', rpcs)}, chain.RPC_HOSTS)
+        self.assertEqual(re.findall(r'"([^"]+)"', re.search(r"const ARCHIVAL_RPCS = \[([^\]]+)\]", self.html).group(1)), chain.ARCHIVAL_RPCS)
         self.assertIn(re.search(r'const ATTESTATION_API = "([^"]+)"', self.html).group(1), chain.ATTESTATION_BASES)
         # fetch() is only ever called on an RPC from the allowlisted list, the built attestation URL or local files
         targets = re.findall(r"fetch\(([^,)]+)", self.html)
@@ -296,6 +297,37 @@ class TestSiteStatic(unittest.TestCase):
     def test_cache_is_the_contract_the_site_reads(self):
         with open(CACHE) as f:
             self.assertIn(f'"{json.load(f)["contract"]}"', self.html)
+
+
+class TestChainFailures(unittest.TestCase):
+    def test_a_failed_tx_lookup_keeps_the_live_state(self):
+        with open(CACHE) as f:
+            cache = json.load(f)
+        def fake_all(method, contract):
+            return (cache["attested"] if method == "list_attested_snapshots" else cache["predictions"]), "https://rpc.testnet.near.org", 7
+        def fake_view(method, args=None, contract=None, timeout=10):
+            return {"get_config": [cache["owner_id"], cache["reporter_id"]], "get_pin_delay_secs": 3600, "list_pins": cache["pins"],
+                    "get_pin_proposal": None, "get_earliest_date": cache["earliest_date"]}[method], "https://rpc.testnet.near.org", 7
+        def broken(*a, **k):
+            raise chain.Unreachable("archival RPC down")
+        saved = (chain._all, chain.view, chain.attestation_checks)
+        try:
+            chain._all, chain.view, chain.attestation_checks = fake_all, fake_view, broken
+            s, mode = chain.state_or_cache(with_attestations=True)
+        finally:
+            chain._all, chain.view, chain.attestation_checks = saved
+        self.assertEqual((mode, s["block_height"]), ("live", 7))
+        self.assertEqual(s["attested"][0]["attestation_checks"], {"error": "archival RPC down", "verified": False})
+
+    def test_bad_attestation_api_setting_does_not_break_listing(self):
+        with open(CACHE) as f:
+            snap = json.load(f)["attested"][0]
+        old = chain.ATTESTATION_API
+        chain.ATTESTATION_API = "https://evil.example"
+        try:
+            self.assertIsNone(chain.snapshot_view(snap)["attestation_url"])
+        finally:
+            chain.ATTESTATION_API = old
 
 
 class TestChain(unittest.TestCase):

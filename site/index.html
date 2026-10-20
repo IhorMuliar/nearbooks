@@ -131,6 +131,8 @@ const Q = new URLSearchParams(location.search);
 // Network access is limited to these HTTPS origins; URLs found in contract state are never fetched as given.
 const RPC_ALLOWED = ["https://rpc.testnet.near.org", "https://rpc.testnet.fastnear.com", "https://test.rpc.fastnear.com"];
 const ATTESTATION_API = "https://testnet-api.outlayer.ai";
+// Transactions are looked up on archival nodes: the regular testnet RPCs drop data after a few days.
+const ARCHIVAL_RPCS = ["https://archival-rpc.testnet.near.org", "https://archival-rpc.testnet.fastnear.com"];
 // The one contract this page reads (no override: a link must not be able to dress up another contract as attested).
 const CONTRACT = "nearbooks-v5.okf-kill-1792497882.testnet";
 // Worker builds this repo vouches for; identical to contract/known_workers.json (tests/test_mcp.py checks).
@@ -157,9 +159,9 @@ function card(box, k, v, n, cls) {
 const timeout = (ms) => (typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
 
 // ------------------------------------------------------------ contract reads (NEAR JSON-RPC view calls)
-async function rpc(method, params, ok) {
+async function rpc(method, params, ok, urls = RPCS) {
   const errors = [];
-  for (const url of RPCS) {
+  for (const url of urls) {
     try {
       const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ jsonrpc: "2.0", id: "nb", method, params }), redirect: "error", credentials: "omit", signal: timeout(8000) });
       const j = await r.json();
@@ -205,7 +207,7 @@ async function checkAttestation(s) {
   const pin = (await view("get_pin_for_date", { date: s.date })).value || {};
   let txOk = false;
   if (typeof att.transaction_hash === "string" && typeof att.caller_account_id === "string") {
-    const t = (await rpc("EXPERIMENTAL_tx_status", { tx_hash: att.transaction_hash, sender_account_id: att.caller_account_id, wait_until: "FINAL" }, (r) => r.transaction)).result.transaction;
+    const t = (await rpc("EXPERIMENTAL_tx_status", { tx_hash: att.transaction_hash, sender_account_id: att.caller_account_id, wait_until: "FINAL" }, (r) => r.transaction, ARCHIVAL_RPCS)).result.transaction;
     const fc = (t.actions || [])[0] && t.actions[0].FunctionCall;
     txOk = t.receiver_id === CONTRACT && !!fc && fc.method_name === "request_snapshot";
   }
@@ -251,7 +253,8 @@ function renderAttested(st, pipeline, live) {
       if (!c || c.error) { checks.append(el("span", "attestation unreachable", "tag warn")); return; }
       // known worker = in this repo's list; pin = the contract's pin for that date; tx = the run was requested from this contract
       const verified = c.verified === true && KNOWN_WORKERS.includes(a.wasm_hash);
-      checks.append(el("span", verified ? "verified" : "MISMATCH", "tag " + (verified ? "ok" : "bad")));
+      const failed = Object.entries(c).some(([k, v]) => k !== "transaction_hash" && k !== "verified" && v === false);
+      checks.append(el("span", verified ? "verified" : failed ? "MISMATCH" : "unverified", "tag " + (verified ? "ok" : failed ? "bad" : "warn")));
       [["known worker", c.known_worker], ["pin", c.pin_for_date_matches], ["tx", c.tx_targets_contract], ["link", c.attestation_url_matches],
        ["wasm", c.wasm_hash_matches], ["input", c.input_hash_matches], ["output", c.output_hash_matches]].forEach(([k, ok]) =>
         checks.append(el("span", `${k} ${ok === null || ok === undefined ? "n/a" : ok ? "ok" : "MISMATCH"}`, "tag " + (ok === null || ok === undefined ? "mut" : ok ? "ok" : "bad"))));
