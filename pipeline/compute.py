@@ -333,11 +333,21 @@ def compute(data, m2=None):
                  "net_issuance_at_target_near_per_day": net_at_target, "breakeven_volume_usd_per_day_at_target": breakeven(net_at_target),
                  "breakeven_over_current_volume_at_target": breakeven(net_at_target) / vol_per_day}
 
+    # ---- what the attested worker measures, estimated from transfers: the three wallets' combined native-NEAR gain over
+    # the 28-day window (external in minus external out; transfers between the three cancel; fees are ignored) as a
+    # share of the supply growth in the same window. The worker uses balances at two first-of-day blocks instead.
+    t28 = int(H["28"]["timestamp_ns"])
+    gain28 = sum(int(r["amount"]) for r in rows if is_near(r) and r["other_account_id"] not in W3 and t28 < int(r["block_timestamp"]) <= int(head["timestamp_ns"])) / YOCTO
+    attested_like = {"window_days": ref["days"], "revenue_wallets_gain_near_28d": gain28, "supply_growth_near_28d": ref["supply_growth_near"],
+                     "revenue_wallets_gain_over_net_issuance": gain28 / ref["supply_growth_near"],
+                     "note": "transfer-based estimate over the HSP-029 28-day window; the contract's value comes from wallet balances at first-of-day blocks"}
+
     # ---- on-chain snapshot (what the oracle contract stores): integer micro-units, keyed by as_of date
     sn = {"supply_total_near": supply_now, "buyback_wallet_near": other[BUYBACK]["balance_near"], "revenue_ytd_usd": ytd_on,
           "revenue_30d_usd": on30, "net_issuance_near_per_day": net_per_day,
           "breakeven_volume_usd_per_day": deflation["breakeven_volume_usd_per_day"],
-          "breakeven_over_current_volume": deflation["breakeven_over_current_volume"], "take_rate_bps": take * 1e4}
+          "breakeven_over_current_volume": deflation["breakeven_over_current_volume"], "take_rate_bps": take * 1e4,
+          "revenue_wallets_gain_near_28d": gain28, "revenue_wallets_gain_over_net_issuance": attested_like["revenue_wallets_gain_over_net_issuance"]}
     snapshot = {"date": man["as_of"], "metrics": {k: round(v * MICRO) for k, v in sn.items()}, "unit": "value x 1e6 (micro-units)"}
 
     preds = []
@@ -376,7 +386,7 @@ def compute(data, m2=None):
                     "outflow_count": len(bb_out), "outflow_near": -sum(r["human_amount"] for r in bb_out),
                     "monthly_inflow": dict(sorted(bb_monthly.items())), "all_wallets": other, "reconciliation": bb_rec},
         "supply": supply, "hsp029": {"windows": windows, "reference_window_days": 28},
-        "deflation": deflation, "snapshot": snapshot, "predictions": preds,
+        "deflation": deflation, "worker_metrics_estimate": attested_like, "snapshot": snapshot, "predictions": preds,
         "sample": sample_estimates(M2) if M2 else None,
         "provenance": {"manifest": man, "m2_manifest": M2["manifest"] if M2 else None},
     }

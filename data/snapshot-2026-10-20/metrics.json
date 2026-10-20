@@ -2115,6 +2115,13 @@
   "breakeven_volume_usd_per_day_at_target": 502052835.6651173,
   "breakeven_over_current_volume_at_target": 3.3713828031161692
  },
+ "worker_metrics_estimate": {
+  "window_days": 27.999989012112568,
+  "revenue_wallets_gain_near_28d": 423001.22319094563,
+  "supply_growth_near_28d": 2454967.4464870817,
+  "revenue_wallets_gain_over_net_issuance": 0.17230420867544954,
+  "note": "transfer-based estimate over the HSP-029 28-day window; the contract's value comes from wallet balances at first-of-day blocks"
+ },
  "snapshot": {
   "date": "2026-10-20",
   "metrics": {
@@ -2125,14 +2132,16 @@
    "net_issuance_near_per_day": 87677443210,
    "breakeven_volume_usd_per_day": 794711937745227,
    "breakeven_over_current_volume": 5336646,
-   "take_rate_bps": 5153935
+   "take_rate_bps": 5153935,
+   "revenue_wallets_gain_near_28d": 423001223191,
+   "revenue_wallets_gain_over_net_issuance": 172304
   },
   "unit": "value x 1e6 (micro-units)"
  },
  "predictions": [
   {
    "id": "P1",
-   "claim": "Total NEAR supply on the first snapshot on/after 2026-12-31 is higher than at the as-of snapshot (no net burn at the protocol level).",
+   "claim": "Total NEAR supply at the first mainnet block of 2026-12-31 is higher than at the as-of snapshot (no net burn at the protocol level).",
    "metric": "supply_total_near",
    "comparator": "gt",
    "threshold": 1309454856.5442514,
@@ -2143,7 +2152,7 @@
   },
   {
    "id": "P2",
-   "claim": "The buyback wallet still holds at least as much NEAR as at the as-of snapshot (revenue is accumulated, not spent or burned from it).",
+   "claim": "The buyback wallet holds at least as much NEAR at the first block of 2026-12-31 as at the as-of snapshot (revenue is accumulated, not spent or burned from it).",
    "metric": "buyback_wallet_near",
    "comparator": "gte",
    "threshold": 2024301.6071215146,
@@ -2154,7 +2163,7 @@
   },
   {
    "id": "P3",
-   "claim": "Net issuance over the trailing 28 days is still positive on the first snapshot on/after 2027-01-31.",
+   "claim": "Net issuance over the 28 days to the first block of 2027-01-31 is still positive (total supply grew).",
    "metric": "net_issuance_near_per_day",
    "comparator": "gt",
    "threshold": 0,
@@ -2165,13 +2174,13 @@
   },
   {
    "id": "P4",
-   "claim": "The daily volume needed for NEAR to be net-deflationary stays above 2x the trailing 30-day average volume on the first snapshot on/after 2027-01-31.",
-   "metric": "breakeven_over_current_volume",
-   "comparator": "gt",
-   "threshold": 2,
+   "claim": "In the 28 days to the first block of 2027-01-31 the three Intents revenue wallets gain less than half as much NEAR as total supply grows (burning all revenue would offset under 50% of issuance).",
+   "metric": "revenue_wallets_gain_over_net_issuance",
+   "comparator": "lt",
+   "threshold": 0.5,
    "resolve_after": "2027-01-31",
-   "threshold_micro": 2000000,
-   "current_value": 5.336645807001352,
+   "threshold_micro": 500000,
+   "current_value": 0.17230420867544954,
    "status": "pending (resolved only on-chain, by anyone, after resolve_after)"
   }
  ],

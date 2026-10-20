@@ -1,13 +1,13 @@
 {
-  "_comment": "Dated, falsifiable, no-stakes predictions. A threshold of {\"from_metric\": k} means 'the value of metric k in the as-of snapshot' and is filled in by compute.py. The same list is registered in the nearbooks contract (contract/scripts/register_predictions.py).",
+  "_comment": "Dated, falsifiable, no-stakes predictions. A threshold of {\"from_metric\": k} means 'the value of metric k in the as-of snapshot' and is filled in by compute.py. Each one is decided by the attested snapshot for exactly resolve_after (NEAR mainnet state at the first block of that UTC day, plus the first block 28 days earlier). contract/scripts/make_args.py turns them into add_prediction arguments.",
   "predictions": [
-    {"id": "P1", "claim": "Total NEAR supply on the first snapshot on/after 2026-12-31 is higher than at the as-of snapshot (no net burn at the protocol level).",
+    {"id": "P1", "claim": "Total NEAR supply at the first mainnet block of 2026-12-31 is higher than at the as-of snapshot (no net burn at the protocol level).",
      "metric": "supply_total_near", "comparator": "gt", "threshold": {"from_metric": "supply_total_near"}, "resolve_after": "2026-12-31"},
-    {"id": "P2", "claim": "The buyback wallet still holds at least as much NEAR as at the as-of snapshot (revenue is accumulated, not spent or burned from it).",
+    {"id": "P2", "claim": "The buyback wallet holds at least as much NEAR at the first block of 2026-12-31 as at the as-of snapshot (revenue is accumulated, not spent or burned from it).",
      "metric": "buyback_wallet_near", "comparator": "gte", "threshold": {"from_metric": "buyback_wallet_near"}, "resolve_after": "2026-12-31"},
-    {"id": "P3", "claim": "Net issuance over the trailing 28 days is still positive on the first snapshot on/after 2027-01-31.",
+    {"id": "P3", "claim": "Net issuance over the 28 days to the first block of 2027-01-31 is still positive (total supply grew).",
      "metric": "net_issuance_near_per_day", "comparator": "gt", "threshold": 0, "resolve_after": "2027-01-31"},
-    {"id": "P4", "claim": "The daily volume needed for NEAR to be net-deflationary stays above 2x the trailing 30-day average volume on the first snapshot on/after 2027-01-31.",
-     "metric": "breakeven_over_current_volume", "comparator": "gt", "threshold": 2, "resolve_after": "2027-01-31"}
+    {"id": "P4", "claim": "In the 28 days to the first block of 2027-01-31 the three Intents revenue wallets gain less than half as much NEAR as total supply grows (burning all revenue would offset under 50% of issuance).",
+     "metric": "revenue_wallets_gain_over_net_issuance", "comparator": "lt", "threshold": 0.5, "resolve_after": "2027-01-31"}
   ]
 }
