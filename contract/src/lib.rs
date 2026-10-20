@@ -36,6 +36,15 @@
 //! earlier and never blocks a Pending prediction's date), and the contract never refunds anything beyond the
 //! unused part of a request's own reserve. The owner's remaining powers are listed in docs/attestation.md.
 //! Metric values are signed integers in micro-units (value x 1e6) so no floats are needed on-chain.
+//!
+//! Keeper budget. A NEAR function-call access key cannot attach a deposit, so a bounded bot holding only such a key
+//! cannot call the payable `request_snapshot`. Instead anyone may prepay a budget (`fund_keeper`), and the one
+//! `keeper_id` account the owner names (`set_keeper`) may call the non-payable `keeper_request_snapshot`, which draws
+//! exactly `min_request_deposit()` per request from that budget, at most `keeper_daily_cap` per UTC day (gross). For
+//! those requests OutLayer's `payer_account_id` is this contract and the callback credits the unused storage reserve
+//! back to the budget instead of transferring it. OutLayer's own refund of the unused run deposit arrives as a plain
+//! transfer this contract cannot attribute, so it lands in the free balance and is not re-credited: the ledger only
+//! ever undercounts what is really here.
 
 use near_sdk::json_types::{I128, U64};
 use near_sdk::serde::Deserialize;
@@ -55,6 +64,8 @@ pub const MIN_OUTLAYER_DEPOSIT: NearToken = NearToken::from_millinear(10);
 /// 830 bytes in the test `storage_is_paid_by_the_requester`). Kept by the contract; whatever the
 /// stored snapshot does not use is refunded to the requester by the callback.
 pub const STORAGE_RESERVE_BYTES: u64 = 2_000;
+/// Upper bound on the keeper's daily cap the owner can set.
+pub const MAX_KEEPER_DAILY_CAP: NearToken = NearToken::from_near(1);
 pub const MIN_REQUEST_GAS: Gas = Gas::from_tgas(250);
 pub const OUTLAYER_GAS: Gas = Gas::from_tgas(150);
 pub const CALLBACK_GAS: Gas = Gas::from_tgas(40);
@@ -192,6 +203,22 @@ pub struct PendingRequest {
     pub storage_reserve: NearToken,
     /// Bytes this pending entry itself occupies (freed by the callback).
     pub pending_bytes: u64,
+    /// Paid from the keeper budget (`keeper_request_snapshot`): the unused reserve goes back to the budget.
+    pub from_budget: bool,
+}
+
+/// The keeper's allowance, as `get_keeper` reports it. Amounts in yoctoNEAR.
+#[near(serializers = [json])]
+#[derive(Clone, Debug, PartialEq)]
+pub struct KeeperInfo {
+    pub keeper_id: Option<AccountId>,
+    pub daily_cap: NearToken,
+    pub budget: NearToken,
+    /// UTC day `spent_today` refers to; the counter starts again at 0 on a new day.
+    pub day: String,
+    pub spent_today: NearToken,
+    /// What one `keeper_request_snapshot` draws (`min_request_deposit()`).
+    pub request_cost: NearToken,
 }
 
 /// What the pinned worker prints (worker/src/lib.rs). Every value is a string; unknown keys are refused.
@@ -306,6 +333,13 @@ pub struct NearBooks {
     earliest_date: String,
     /// Number of Pending predictions per resolve_after date: those dates are always requestable.
     pending_resolve_dates: LookupMap<String, u32>,
+    /// The only account `keeper_request_snapshot` accepts (None = keeper path off).
+    keeper_id: Option<AccountId>,
+    keeper_daily_cap: NearToken,
+    /// Prepaid by `fund_keeper`, drawn by `keeper_request_snapshot`, credited with unused storage reserves.
+    keeper_budget: NearToken,
+    keeper_day: String,
+    keeper_spent: NearToken,
 }
 
 #[near]
@@ -329,6 +363,11 @@ impl NearBooks {
             attested_dates: Vector::new(b"d"),
             earliest_date: today(),
             pending_resolve_dates: LookupMap::new(b"r"),
+            keeper_id: None,
+            keeper_daily_cap: NearToken::from_yoctonear(0),
+            keeper_budget: NearToken::from_yoctonear(0),
+            keeper_day: String::new(),
+            keeper_spent: NearToken::from_yoctonear(0),
         }
     }
 
@@ -462,6 +501,74 @@ impl NearBooks {
         (self.owner_id.clone(), self.reporter_id.clone())
     }
 
+    // ------------------------------------------------------------ keeper budget
+
+    /// Owner only. Names the one account that may spend the keeper budget (None turns the keeper path off) and its
+    /// cap per UTC day (at most `MAX_KEEPER_DAILY_CAP`). Event `keeper_set`.
+    pub fn set_keeper(&mut self, keeper_id: Option<AccountId>, daily_cap: NearToken) {
+        require!(env::predecessor_account_id() == self.owner_id, "only the owner can set the keeper");
+        require!(daily_cap <= MAX_KEEPER_DAILY_CAP, "daily_cap must be at most 1 NEAR");
+        emit("keeper_set", json!({"keeper_id": keeper_id, "daily_cap": daily_cap, "previous": self.keeper_id}));
+        self.keeper_id = keeper_id;
+        self.keeper_daily_cap = daily_cap;
+    }
+
+    /// Anyone. Adds the attached deposit to the keeper budget. Event `keeper_funded`.
+    #[payable]
+    pub fn fund_keeper(&mut self) -> NearToken {
+        let amount = env::attached_deposit();
+        require!(!amount.is_zero(), "attach the amount to add to the keeper budget");
+        self.keeper_budget = self.keeper_budget.saturating_add(amount);
+        emit("keeper_funded", json!({"from": env::predecessor_account_id(), "amount": amount, "budget": self.keeper_budget}));
+        self.keeper_budget
+    }
+
+    /// Owner only. Takes `amount` out of the unspent keeper budget and sends it to the owner. Event
+    /// `keeper_budget_withdrawn`.
+    pub fn withdraw_keeper_budget(&mut self, amount: NearToken) -> Promise {
+        require!(env::predecessor_account_id() == self.owner_id, "only the owner can withdraw the keeper budget");
+        require!(!amount.is_zero() && amount <= self.keeper_budget, "amount must be 1..=budget yoctoNEAR");
+        self.keeper_budget = self.keeper_budget.saturating_sub(amount);
+        emit("keeper_budget_withdrawn", json!({"to": self.owner_id, "amount": amount, "budget": self.keeper_budget}));
+        Promise::new(self.owner_id.clone()).transfer(amount)
+    }
+
+    pub fn get_keeper(&self) -> KeeperInfo {
+        let day = today();
+        let spent_today = if self.keeper_day == day { self.keeper_spent } else { NearToken::from_yoctonear(0) };
+        KeeperInfo {
+            keeper_id: self.keeper_id.clone(),
+            daily_cap: self.keeper_daily_cap,
+            budget: self.keeper_budget,
+            day,
+            spent_today,
+            request_cost: self.min_request_deposit(),
+        }
+    }
+
+    /// Keeper only, no deposit (so a function-call access key can call it). Same as `request_snapshot`, but the
+    /// `min_request_deposit()` comes out of the keeper budget, within `keeper_daily_cap` per UTC day, and OutLayer's
+    /// payer is this contract. Event `keeper_spent`.
+    pub fn keeper_request_snapshot(&mut self, date: String, block_height: u64, block_height_28d: u64) -> Promise {
+        let keeper = env::predecessor_account_id();
+        require!(self.keeper_id.as_ref() == Some(&keeper), "only the keeper can spend the keeper budget");
+        require!(env::attached_deposit().is_zero(), "keeper_request_snapshot takes no deposit; it draws on the keeper budget");
+        let cfg = self.check_request(&date, block_height, block_height_28d);
+        let cost = self.min_request_deposit();
+        let day = today();
+        if self.keeper_day != day {
+            self.keeper_day = day;
+            self.keeper_spent = NearToken::from_yoctonear(0);
+        }
+        require!(self.keeper_spent.saturating_add(cost) <= self.keeper_daily_cap, "keeper daily cap reached");
+        require!(cost <= self.keeper_budget, "keeper budget too low (anyone can fund_keeper)");
+        self.keeper_budget = self.keeper_budget.saturating_sub(cost);
+        self.keeper_spent = self.keeper_spent.saturating_add(cost);
+        emit("keeper_spent", json!({"keeper_id": keeper, "date": date, "amount": cost, "spent_today": self.keeper_spent, "daily_cap": self.keeper_daily_cap, "budget": self.keeper_budget}));
+        let payer = env::current_account_id();
+        self.launch(cfg, date, block_height, block_height_28d, cost, keeper, payer, true)
+    }
+
     // ------------------------------------------------------ attested (OutLayer)
 
     /// Anyone. Asks for the attested snapshot of `date` (UTC; not before `earliest_date` unless a Pending
@@ -473,59 +580,14 @@ impl NearBooks {
     /// the unused storage reserve. The transaction's final value says whether the snapshot was stored.
     #[payable]
     pub fn request_snapshot(&mut self, date: String, block_height: u64, block_height_28d: u64) -> Promise {
-        require!(valid_date(&date), "date must be YYYY-MM-DD");
-        let cfg = self.pin_for(&date).map(|e| e.config.clone()).unwrap_or_else(|| env::panic_str("the OutLayer worker is not configured"));
-        require!(date <= today(), "that date has not started yet");
-        require!(
-            date >= self.earliest_date || self.pending_resolve_dates.contains_key(&date),
-            "date is before earliest_date"
-        );
-        require!(!self.attested.contains_key(&date), "an attested snapshot for that date already exists");
-        require!(block_height > 0, "block_height required");
-        require!(block_height_28d > 0 && block_height_28d < block_height, "block_height_28d must be below block_height");
+        let cfg = self.check_request(&date, block_height, block_height_28d);
         let deposit = env::attached_deposit();
-        let reserve = storage_reserve();
         require!(
-            deposit >= MIN_OUTLAYER_DEPOSIT.saturating_add(reserve),
+            deposit >= self.min_request_deposit(),
             "attach at least min_request_deposit(): 0.01 NEAR for the OutLayer run plus the storage reserve (unused parts are refunded)"
         );
-        let to_outlayer = deposit.saturating_sub(reserve);
-        require!(env::prepaid_gas() >= MIN_REQUEST_GAS, "attach at least 250 Tgas");
         let requester = env::predecessor_account_id();
-        let nonce = self.next_nonce;
-        self.next_nonce += 1;
-        let input = worker_input(nonce, &date, block_height, block_height_28d);
-        let mut pending = PendingRequest {
-            requester: requester.clone(),
-            outlayer_id: cfg.outlayer_id.clone(),
-            wasm_hash: cfg.wasm_hash.clone(),
-            date: date.clone(),
-            mainnet_block_height: block_height,
-            mainnet_block_height_28d: block_height_28d,
-            block_height: env::block_height(),
-            storage_reserve: reserve,
-            pending_bytes: 0,
-        };
-        let before = env::storage_usage();
-        self.pending.insert(nonce, pending.clone());
-        self.pending.flush();
-        pending.pending_bytes = env::storage_usage().saturating_sub(before);
-        self.pending.insert(nonce, pending); // same width (u64), so the measured size is unchanged
-        emit("snapshot_requested", json!({"nonce": nonce, "date": date, "mainnet_block_height": block_height, "mainnet_block_height_28d": block_height_28d, "wasm_hash": cfg.wasm_hash, "requester": requester, "to_outlayer": to_outlayer, "storage_reserve": reserve}));
-        ext_outlayer::ext(cfg.outlayer_id.clone())
-            .with_attached_deposit(to_outlayer)
-            .with_static_gas(OUTLAYER_GAS)
-            .with_unused_gas_weight(1)
-            .request_execution(
-                json!({"WasmUrl": {"url": cfg.wasm_url, "hash": cfg.wasm_hash, "build_target": "wasm32-wasip2"}}),
-                json!({"max_instructions": cfg.max_instructions, "max_memory_mb": 128, "max_execution_seconds": cfg.max_execution_seconds}),
-                Some(input),
-                None,
-                Some("Json".into()),
-                Some(requester),
-                None,
-            )
-            .then(Self::ext(env::current_account_id()).with_static_gas(CALLBACK_GAS).with_unused_gas_weight(0).on_snapshot_result(nonce))
+        self.launch(cfg, date, block_height, block_height_28d, deposit, requester.clone(), requester, false)
     }
 
     /// Callback of `request_snapshot` (private: only this contract can invoke it, and the promise result it reads is
@@ -552,10 +614,12 @@ impl NearBooks {
         let left = env::storage_usage().saturating_sub(usage_with_pending.saturating_sub(p.pending_bytes));
         let used = env::storage_byte_cost().saturating_mul(left as u128);
         let refund = p.storage_reserve.saturating_sub(used);
-        if !refund.is_zero() {
+        if p.from_budget {
+            self.keeper_budget = self.keeper_budget.saturating_add(refund);
+        } else if !refund.is_zero() {
             Promise::new(p.requester.clone()).transfer(refund).detach();
         }
-        emit("storage_settled", json!({"nonce": nonce, "bytes": left, "kept": used, "refunded": refund}));
+        emit("storage_settled", json!({"nonce": nonce, "bytes": left, "kept": used, "refunded": refund, "to_budget": p.from_budget}));
         match outcome {
             Ok(date) => {
                 emit("snapshot", json!({"date": date, "source": "attested", "nonce": nonce}));
@@ -703,6 +767,65 @@ impl NearBooks {
 }
 
 impl NearBooks {
+    /// Checks shared by both request paths; returns the pin for `date`.
+    fn check_request(&self, date: &str, block_height: u64, block_height_28d: u64) -> OutlayerConfig {
+        require!(valid_date(date), "date must be YYYY-MM-DD");
+        let cfg = self.pin_for(date).map(|e| e.config.clone()).unwrap_or_else(|| env::panic_str("the OutLayer worker is not configured"));
+        require!(date <= today().as_str(), "that date has not started yet");
+        require!(
+            date >= self.earliest_date.as_str() || self.pending_resolve_dates.contains_key(date),
+            "date is before earliest_date"
+        );
+        require!(!self.attested.contains_key(date), "an attested snapshot for that date already exists");
+        require!(block_height > 0, "block_height required");
+        require!(block_height_28d > 0 && block_height_28d < block_height, "block_height_28d must be below block_height");
+        require!(env::prepaid_gas() >= MIN_REQUEST_GAS, "attach at least 250 Tgas");
+        cfg
+    }
+
+    /// Records the pending request, keeps the storage reserve out of `deposit` and sends the rest to OutLayer with
+    /// `payer` as `payer_account_id` (who gets OutLayer's refund of the unused run deposit).
+    #[allow(clippy::too_many_arguments)]
+    fn launch(&mut self, cfg: OutlayerConfig, date: String, block_height: u64, block_height_28d: u64, deposit: NearToken, requester: AccountId, payer: AccountId, from_budget: bool) -> Promise {
+        let reserve = storage_reserve();
+        let to_outlayer = deposit.saturating_sub(reserve);
+        let nonce = self.next_nonce;
+        self.next_nonce += 1;
+        let input = worker_input(nonce, &date, block_height, block_height_28d);
+        let mut pending = PendingRequest {
+            requester: requester.clone(),
+            outlayer_id: cfg.outlayer_id.clone(),
+            wasm_hash: cfg.wasm_hash.clone(),
+            date: date.clone(),
+            mainnet_block_height: block_height,
+            mainnet_block_height_28d: block_height_28d,
+            block_height: env::block_height(),
+            storage_reserve: reserve,
+            pending_bytes: 0,
+            from_budget,
+        };
+        let before = env::storage_usage();
+        self.pending.insert(nonce, pending.clone());
+        self.pending.flush();
+        pending.pending_bytes = env::storage_usage().saturating_sub(before);
+        self.pending.insert(nonce, pending); // same width (u64), so the measured size is unchanged
+        emit("snapshot_requested", json!({"nonce": nonce, "date": date, "mainnet_block_height": block_height, "mainnet_block_height_28d": block_height_28d, "wasm_hash": cfg.wasm_hash, "requester": requester, "payer": payer, "from_budget": from_budget, "to_outlayer": to_outlayer, "storage_reserve": reserve}));
+        ext_outlayer::ext(cfg.outlayer_id.clone())
+            .with_attached_deposit(to_outlayer)
+            .with_static_gas(OUTLAYER_GAS)
+            .with_unused_gas_weight(1)
+            .request_execution(
+                json!({"WasmUrl": {"url": cfg.wasm_url, "hash": cfg.wasm_hash, "build_target": "wasm32-wasip2"}}),
+                json!({"max_instructions": cfg.max_instructions, "max_memory_mb": 128, "max_execution_seconds": cfg.max_execution_seconds}),
+                Some(input),
+                None,
+                Some("Json".into()),
+                Some(payer),
+                None,
+            )
+            .then(Self::ext(env::current_account_id()).with_static_gas(CALLBACK_GAS).with_unused_gas_weight(0).on_snapshot_result(nonce))
+    }
+
     fn current_pin(&self) -> &PinEntry {
         self.pins.get(self.pins.len() - 1).unwrap_or_else(|| env::panic_str("the OutLayer worker is not configured"))
     }
@@ -884,7 +1007,7 @@ pub fn worker_input(nonce: u64, date: &str, block_height: u64, block_height_28d:
 }
 
 fn emit(event: &str, data: Value) {
-    env::log_str(&format!("EVENT_JSON:{}", json!({"standard": "nearbooks", "version": "1.2.0", "event": event, "data": data})));
+    env::log_str(&format!("EVENT_JSON:{}", json!({"standard": "nearbooks", "version": "1.3.0", "event": event, "data": data})));
 }
 
 pub fn is_hex64(s: &str) -> bool {

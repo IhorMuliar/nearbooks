@@ -1191,3 +1191,223 @@ fn json_shapes_are_stable() {
     let args: Vec<Metric> = serde_json::from_str(r#"[{"key":"a","value":"-5"}]"#).unwrap();
     assert_eq!(args[0].value.0, -5);
 }
+
+// ------------------------------------------------------------ keeper budget
+
+const KEEPER: &str = "keeper.testnet";
+
+fn cost() -> NearToken {
+    NearToken::from_millinear(10).saturating_add(reserve())
+}
+
+/// Pinned contract with KEEPER allowed `cap_millinear` per day and `fund_millinear` in the budget (funded by STRANGER).
+fn with_keeper(cap_millinear: u128, fund_millinear: u128) -> NearBooks {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    ctx(OWNER, T_2026_10_20);
+    c.set_keeper(Some(acct(KEEPER)), NearToken::from_millinear(cap_millinear));
+    if fund_millinear > 0 {
+        fund(&mut c, STRANGER, fund_millinear);
+    }
+    c
+}
+
+fn fund(c: &mut NearBooks, caller: &str, millinear: u128) -> NearToken {
+    testing_env!(VMContextBuilder::new().storage_usage(carried_usage()).clone().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(caller)).attached_deposit(NearToken::from_millinear(millinear)).block_timestamp(T_2026_10_20 * 1_000_000_000).build());
+    c.fund_keeper()
+}
+
+/// `caller` calls keeper_request_snapshot (no deposit, 300 Tgas) for `date` at unix time `now`; returns the nonce.
+fn keeper_request_at(c: &mut NearBooks, caller: &str, date: &str, height: u64, now: u64) -> u64 {
+    testing_env!(VMContextBuilder::new().storage_usage(carried_usage()).clone()
+        .current_account_id(acct(CONTRACT))
+        .predecessor_account_id(acct(caller))
+        .signer_account_id(acct(caller))
+        .prepaid_gas(Gas::from_tgas(300))
+        .block_timestamp(now * 1_000_000_000)
+        .build());
+    let _ = c.keeper_request_snapshot(date.into(), height, b28_for(height));
+    c.next_nonce - 1
+}
+
+fn keeper_request(c: &mut NearBooks, caller: &str) -> u64 {
+    keeper_request_at(c, caller, "2026-10-20", B_1020, T_2026_10_20)
+}
+
+#[test]
+fn keeper_request_draws_the_deposit_from_the_budget_and_pays_outlayer_from_the_contract() {
+    let mut c = with_keeper(100, 100);
+    let nonce = keeper_request(&mut c, KEEPER);
+    let receipts = get_created_receipts();
+    let to_outlayer = receipts.iter().find(|r| r.receiver_id == acct(OUTLAYER)).expect("a receipt to OutLayer");
+    let MockAction::FunctionCallWeight { args, attached_deposit, .. } = &to_outlayer.actions[0] else { panic!("not a function call") };
+    assert_eq!(*attached_deposit, NearToken::from_millinear(10));
+    let a: Value = serde_json::from_slice(args).unwrap();
+    assert_eq!(a["payer_account_id"], CONTRACT, "OutLayer's refund comes back to the contract, not to the keeper");
+    let p = c.get_pending(nonce).unwrap();
+    assert!(p.from_budget && p.requester == acct(KEEPER) && p.storage_reserve == reserve());
+    let k = c.get_keeper();
+    assert_eq!(k.budget, NearToken::from_millinear(100).saturating_sub(cost()));
+    assert_eq!((k.spent_today, k.request_cost, k.day.as_str()), (cost(), cost(), "2026-10-20"));
+    assert!(get_logs().iter().any(|l| l.contains("keeper_spent")));
+}
+
+#[test]
+#[should_panic(expected = "only the keeper can spend the keeper budget")]
+fn a_stranger_cannot_spend_the_keeper_budget() {
+    let mut c = with_keeper(100, 100);
+    keeper_request(&mut c, STRANGER);
+}
+
+#[test]
+#[should_panic(expected = "only the keeper can spend the keeper budget")]
+fn the_owner_cannot_spend_the_keeper_budget() {
+    let mut c = with_keeper(100, 100);
+    keeper_request(&mut c, OWNER);
+}
+
+#[test]
+#[should_panic(expected = "only the keeper can spend the keeper budget")]
+fn keeper_path_is_off_until_a_keeper_is_set() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    fund(&mut c, STRANGER, 100);
+    keeper_request(&mut c, KEEPER);
+}
+
+#[test]
+#[should_panic(expected = "keeper_request_snapshot takes no deposit")]
+fn keeper_path_takes_no_deposit() {
+    let mut c = with_keeper(100, 100);
+    testing_env!(VMContextBuilder::new().storage_usage(carried_usage()).clone().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(KEEPER))
+        .attached_deposit(cost()).prepaid_gas(Gas::from_tgas(300)).block_timestamp(T_2026_10_20 * 1_000_000_000).build());
+    let _ = c.keeper_request_snapshot("2026-10-20".into(), B_1020, B_0922);
+}
+
+#[test]
+fn daily_cap_is_enforced_and_resets_the_next_utc_day() {
+    // cap 70 milliNEAR = two requests of 30; budget for four
+    let mut c = with_keeper(70, 120);
+    keeper_request(&mut c, KEEPER);
+    keeper_request(&mut c, KEEPER);
+    assert_eq!(c.get_keeper().spent_today, cost().saturating_mul(2));
+    let third = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| keeper_request(&mut c, KEEPER)));
+    assert!(third.is_err(), "a third request on the same day exceeds the cap");
+    // the refused call changed nothing
+    assert_eq!(c.get_keeper().budget, NearToken::from_millinear(120).saturating_sub(cost().saturating_mul(2)));
+    // the next UTC day starts a new allowance
+    let next = T_2026_10_20 + 86_400;
+    ctx(KEEPER, next);
+    assert_eq!(c.get_keeper().spent_today, NearToken::from_yoctonear(0));
+    keeper_request_at(&mut c, KEEPER, "2026-10-21", B_1020 + 1_000, next);
+    assert_eq!((c.get_keeper().day.as_str(), c.get_keeper().spent_today), ("2026-10-21", cost()));
+}
+
+#[test]
+#[should_panic(expected = "keeper daily cap reached")]
+fn a_cap_below_one_request_allows_nothing() {
+    let mut c = with_keeper(29, 100);
+    keeper_request(&mut c, KEEPER);
+}
+
+#[test]
+#[should_panic(expected = "keeper budget too low")]
+fn keeper_cannot_spend_more_than_the_budget() {
+    let mut c = with_keeper(100, 29);
+    keeper_request(&mut c, KEEPER);
+}
+
+#[test]
+#[should_panic(expected = "daily_cap must be at most 1 NEAR")]
+fn owner_cannot_set_a_cap_above_the_hard_limit() {
+    let mut c = fresh();
+    c.set_keeper(Some(acct(KEEPER)), NearToken::from_millinear(1_001));
+}
+
+#[test]
+#[should_panic(expected = "only the owner can set the keeper")]
+fn only_the_owner_names_the_keeper() {
+    let mut c = fresh();
+    ctx(STRANGER, T_2026_10_20);
+    c.set_keeper(Some(acct(STRANGER)), NearToken::from_millinear(100));
+}
+
+#[test]
+fn unused_storage_reserve_returns_to_the_budget_not_to_the_keeper() {
+    let mut c = with_keeper(100, 100);
+    let start = c.get_keeper().budget;
+    ctx(STRANGER, T_2026_10_20);
+    let before = env::storage_usage();
+    let nonce = keeper_request(&mut c, KEEPER);
+    assert!(deliver(&mut c, nonce, ok_bytes(&worker_output(nonce))).starts_with("stored"));
+    assert!(transfers().is_empty(), "nothing is sent anywhere: {:?}", transfers());
+    let staked = NearToken::from_yoctonear(10u128.pow(19) * (env::storage_usage() - before) as u128);
+    // budget = start - 0.01 NEAR sent to OutLayer - what the stored snapshot stakes
+    assert_eq!(c.get_keeper().budget, start.saturating_sub(NearToken::from_millinear(10)).saturating_sub(staked));
+    // the cap counts gross spending: the credited reserve does not reopen today's allowance
+    assert_eq!(c.get_keeper().spent_today, cost());
+    assert!(get_logs().iter().any(|l| l.contains("storage_settled") && l.contains(r#""to_budget":true"#)));
+}
+
+#[test]
+fn rejected_keeper_run_returns_the_whole_reserve_to_the_budget() {
+    let mut c = with_keeper(100, 100);
+    for result in [ok_bytes("null"), PromiseResult::Failed, ok_bytes("garbage")] {
+        let start = c.get_keeper().budget;
+        let nonce = keeper_request(&mut c, KEEPER);
+        assert!(deliver(&mut c, nonce, result).starts_with("rejected"));
+        assert!(transfers().is_empty());
+        // only the OutLayer part is gone from the ledger (OutLayer refunds its unused part to the contract's free balance)
+        assert_eq!(c.get_keeper().budget, start.saturating_sub(NearToken::from_millinear(10)));
+        assert_eq!(c.attested_count(), 0);
+    }
+}
+
+#[test]
+fn keeper_snapshot_decides_predictions_like_any_attested_one() {
+    let mut c = with_keeper(100, 100);
+    ctx(OWNER, T_2026_10_20 - 86_400);
+    let id = c.add_prediction("x".into(), "supply_total_near".into(), Comparator::Gt, I128(0), "2026-10-20".into());
+    let nonce = keeper_request(&mut c, KEEPER);
+    assert!(deliver(&mut c, nonce, ok_bytes(&worker_output(nonce))).starts_with("stored"));
+    assert_eq!(c.get_attested_snapshot("2026-10-20".into()).unwrap().submitted_by, acct(KEEPER));
+    ctx(KEEPER, T_2026_10_20);
+    assert_eq!(c.resolve_prediction(id).status, Status::Confirmed);
+}
+
+#[test]
+#[should_panic(expected = "an attested snapshot for that date already exists")]
+fn keeper_cannot_pay_for_a_date_that_is_already_attested() {
+    let mut c = with_keeper(100, 100);
+    let nonce = request(&mut c, STRANGER, 10);
+    assert!(deliver(&mut c, nonce, ok_bytes(&worker_output(nonce))).starts_with("stored"));
+    keeper_request(&mut c, KEEPER);
+}
+
+#[test]
+fn budget_accounting_fund_and_withdraw() {
+    let mut c = with_keeper(100, 0);
+    assert_eq!(fund(&mut c, STRANGER, 40), NearToken::from_millinear(40));
+    assert_eq!(fund(&mut c, OWNER, 60), NearToken::from_millinear(100));
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| fund(&mut c, STRANGER, 0))).is_err(), "zero deposit refused");
+    ctx(STRANGER, T_2026_10_20);
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.withdraw_keeper_budget(NearToken::from_millinear(1)))).is_err(), "only the owner withdraws");
+    ctx(OWNER, T_2026_10_20);
+    assert!(std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.withdraw_keeper_budget(NearToken::from_millinear(101)))).is_err(), "not more than the budget");
+    ctx(OWNER, T_2026_10_20);
+    let _ = c.withdraw_keeper_budget(NearToken::from_millinear(30));
+    assert_eq!(transfers(), vec![(acct(OWNER), NearToken::from_millinear(30))]);
+    assert_eq!(c.get_keeper().budget, NearToken::from_millinear(70));
+}
+
+#[test]
+fn public_payable_path_is_unchanged_by_the_keeper() {
+    let mut c = with_keeper(100, 100);
+    let nonce = request(&mut c, STRANGER, 10);
+    assert!(!c.get_pending(nonce).unwrap().from_budget);
+    assert!(deliver(&mut c, nonce, ok_bytes(&worker_output(nonce))).starts_with("stored"));
+    let t = transfers();
+    assert!(t.len() == 1 && t[0].0 == acct(STRANGER), "{:?}", t);
+    assert_eq!(c.get_keeper().budget, NearToken::from_millinear(100));
+    assert_eq!(c.get_keeper().spent_today, NearToken::from_yoctonear(0));
+}
