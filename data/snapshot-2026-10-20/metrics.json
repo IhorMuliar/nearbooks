@@ -1719,6 +1719,118 @@
      ]
     ]
    }
+  },
+  "reconciliation": {
+   "wallet": "buybacks.multisignature.near",
+   "balance_near": 2024301.6071215146,
+   "opening_near": 0.0,
+   "external_in_near": 1526258.949496053,
+   "internal_in_near": 510068.0,
+   "internal_by_source_near": {
+    "1csfundsadmin.sputnik-dao.near": 510068.0
+   },
+   "out_near": 12025.0,
+   "out_by_destination_near": {
+    "nf-payments.near": 25.0,
+    "508aa18569e5a59d63b0f4c445e02e7b5fc53b86337328e756b32745ebac50e7": 12000.0
+   },
+   "smallest_outflow_near": 5.0,
+   "nontransfer_near": -0.3423745381474328,
+   "nontransfer_steps": 14,
+   "nontransfer_negative_steps": 13,
+   "largest_nontransfer_step_near": 0.0301008785844416,
+   "tail_after_last_row_yocto": 0,
+   "residual_near": -0.3423745381474328,
+   "unexplained_yocto": 0,
+   "rows": 2732,
+   "dashboard": {
+    "url": "https://revenue.near.org/",
+    "fetched_on": "2026-10-20",
+    "cutoff_day": "2026-10-19",
+    "rounding_near": 0.05,
+    "wallets": {
+     "fefundsadmin.sputnik-dao.near": {
+      "dashboard_near": 1916643.1,
+      "external_in_to_cutoff_near": 1489126.138644276,
+      "opening_near": 427518.1017239185,
+      "bracket_low_near": 1489126.138644276,
+      "bracket_high_near": 1916644.2403681944,
+      "in_bracket": true,
+      "balance_at_cutoff_near": 1916643.242806074,
+      "diff_vs_external_near": -427516.96135572414,
+      "best_matching_day": "2026-10-19",
+      "best_matching_diff_near": 1.1403681943193078,
+      "history_complete": false,
+      "all_time_definition_near": 1916643.138644276,
+      "all_time_diff_near": 0.038644275860860944,
+      "all_time_ledger_unexplained_yocto": 0,
+      "all_time_opening_yocto": 0,
+      "all_time_rows": 1252,
+      "all_time_nontransfer_near": 0.0041617981421578
+     },
+     "buybacks.multisignature.near": {
+      "dashboard_near": 1524137.4,
+      "external_in_to_cutoff_near": 1524137.4302899044,
+      "opening_near": 0.0,
+      "bracket_low_near": 1524137.4302899044,
+      "bracket_high_near": 1524137.4302899044,
+      "in_bracket": true,
+      "balance_at_cutoff_near": 2022180.0879153663,
+      "diff_vs_external_near": 0.03028990444727242,
+      "best_matching_day": "2026-10-19",
+      "best_matching_diff_near": 0.03028990444727242,
+      "history_complete": true,
+      "all_time_definition_near": 1524137.4302899044,
+      "all_time_diff_near": 0.03028990444727242,
+      "all_time_ledger_unexplained_yocto": 0,
+      "all_time_opening_yocto": 0,
+      "all_time_rows": 2732,
+      "all_time_nontransfer_near": -0.3423745381474328
+     },
+     "1csfundsadmin.sputnik-dao.near": {
+      "dashboard_near": 555348.3,
+      "external_in_to_cutoff_near": 555343.3729285762,
+      "opening_near": 6.00006626053214,
+      "bracket_low_near": 555343.3729285762,
+      "bracket_high_near": 555349.3729948368,
+      "in_bracket": true,
+      "balance_at_cutoff_near": 270.87589141242086,
+      "diff_vs_external_near": -4.927071423851885,
+      "best_matching_day": "2026-09-19",
+      "best_matching_diff_near": 0.9739386767614633,
+      "history_complete": false,
+      "all_time_definition_near": 555348.2729285762,
+      "all_time_diff_near": -0.027071423828601837,
+      "all_time_ledger_unexplained_yocto": 0,
+      "all_time_opening_yocto": 0,
+      "all_time_rows": 525,
+      "all_time_nontransfer_near": 0.0029628362120125
+     }
+    },
+    "full_history": true,
+    "claim_text": "NEAR captures a growing share of fees, feeding buybacks that permanently remove NEAR from circulation."
+   },
+   "altcoinbuzz": {
+    "url": "https://altcoinbuzz.io/near-intents-has-bought-back-6-68m-of-near-using-fees",
+    "published": "2026-10-19",
+    "nearblocks_block": 220621578,
+    "nearblocks_balance_near": 2015496.446,
+    "ours_balance_at_block_near": 2015496.4460550803,
+    "nearblocks_diff_near": 5.508027970790863e-05,
+    "nearblocks_rounding_near": 0.0005,
+    "dashboard_buyback_near": 1510410.8,
+    "dashboard_matching_day": "2026-10-17",
+    "dashboard_diff_near": -0.0260351006872952,
+    "dashboard_rounding_near": 0.05,
+    "gap_near": 505085.64599999995,
+    "gap_parts": {
+     "internal_in_near": 510068.0,
+     "outflows_near": -12025.0,
+     "fees_near": -0.3423745381474328,
+     "revenue_after_dashboard_cutoff_near": 7043.014464718988
+    },
+    "gap_closure_near": -0.026090180908795446
+   }
   }
  },
  "supply": {
@@ -2063,6 +2175,969 @@
    "status": "pending (resolved only on-chain, by anyone, after resolve_after)"
   }
  ],
+ "sample": {
+  "source": "https://mainnet.neardata.xyz/v0/block/{}",
+  "seed": 20261020,
+  "blocks_per_stratum": 36,
+  "strata": [
+   {
+    "month": "2026-01",
+    "start_height": 179199136,
+    "end_height": 183584249,
+    "start_timestamp_ns": "1767225600442673525"
+   },
+   {
+    "month": "2026-02",
+    "start_height": 183584249,
+    "end_height": 187573901,
+    "start_timestamp_ns": "1769904000365275634"
+   },
+   {
+    "month": "2026-03",
+    "start_height": 187573901,
+    "end_height": 192013995,
+    "start_timestamp_ns": "1772323200044231819"
+   },
+   {
+    "month": "2026-04",
+    "start_height": 192013995,
+    "end_height": 196336954,
+    "start_timestamp_ns": "1775001600329493628"
+   },
+   {
+    "month": "2026-05",
+    "start_height": 196336954,
+    "end_height": 200773914,
+    "start_timestamp_ns": "1777593600251109507"
+   },
+   {
+    "month": "2026-06",
+    "start_height": 200773914,
+    "end_height": 205022619,
+    "start_timestamp_ns": "1780272000033646618"
+   },
+   {
+    "month": "2026-07",
+    "start_height": 205022619,
+    "end_height": 209393356,
+    "start_timestamp_ns": "1782864000553414356"
+   },
+   {
+    "month": "2026-08",
+    "start_height": 209393356,
+    "end_height": 213761242,
+    "start_timestamp_ns": "1785542400052527483"
+   },
+   {
+    "month": "2026-09",
+    "start_height": 213761242,
+    "end_height": 217984974,
+    "start_timestamp_ns": "1788220800624143615"
+   },
+   {
+    "month": "2026-10",
+    "start_height": 217984974,
+    "end_height": 220800719,
+    "start_timestamp_ns": "1790812800172319287"
+   }
+  ],
+  "blocks": 360,
+  "skipped_heights_replaced": 1,
+  "bad_replacements": [],
+  "blocks_outside_their_month": 0,
+  "plan_matches": true,
+  "fetch": {
+   "fetched_unix": 1792509629,
+   "runtime_s": 1656,
+   "neardata_http_429": 60
+  },
+  "channels": [
+   "1click-rango",
+   "1click-swapkit",
+   "1click-protocol-fees",
+   "1click-unknown",
+   "1click-intents.tg",
+   "1click-1cs",
+   "other"
+  ],
+  "referral_names_seen": 10,
+  "referral_counts": {
+   "1click-rango": 21,
+   "1click-swapkit": 19,
+   "1click-protocol-fees": 7,
+   "1click-unknown": 6,
+   "1click-intents.tg": 4,
+   "1click-1cs": 3,
+   "1click-sweat-app": 2,
+   "1click-lifi": 2,
+   "1click-near-mobile": 1,
+   "1click-stableflow": 1
+  },
+  "referred_swaps_without_fee": 0,
+  "channel_mix_by_month": {
+   "2026-01": {
+    "blocks": 36,
+    "referred_swaps": 11,
+    "intents_executed": 38,
+    "channels": {
+     "1click-rango": {
+      "p": 0.8181818181818182,
+      "units": 11,
+      "blocks": 36,
+      "lo": 0.5008742530593988,
+      "hi": 0.9527841066480669,
+      "n_eff": 9.538366594411164,
+      "deff": 1.1532372855584367
+     },
+     "1click-swapkit": {
+      "p": 0.0,
+      "units": 11,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.2588329669680317,
+      "n_eff": 11,
+      "deff": null
+     },
+     "1click-protocol-fees": {
+      "p": 0.09090909090909091,
+      "units": 11,
+      "blocks": 36,
+      "lo": 0.015319103278170126,
+      "hi": 0.3912756617444969,
+      "n_eff": 10.141366781414172,
+      "deff": 1.0846664199306373
+     },
+     "1click-unknown": {
+      "p": 0.0,
+      "units": 11,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.2588329669680317,
+      "n_eff": 11,
+      "deff": null
+     },
+     "1click-intents.tg": {
+      "p": 0.09090909090909091,
+      "units": 11,
+      "blocks": 36,
+      "lo": 0.015319103278170126,
+      "hi": 0.3912756617444969,
+      "n_eff": 10.141366781414172,
+      "deff": 1.0846664199306373
+     },
+     "1click-1cs": {
+      "p": 0.0,
+      "units": 11,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.2588329669680317,
+      "n_eff": 11,
+      "deff": null
+     },
+     "other": {
+      "p": 0.0,
+      "units": 11,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.2588329669680317,
+      "n_eff": 11,
+      "deff": null
+     }
+    }
+   },
+   "2026-02": {
+    "blocks": 36,
+    "referred_swaps": 3,
+    "intents_executed": 10,
+    "channels": {
+     "1click-rango": {
+      "p": 0.6666666666666666,
+      "units": 3,
+      "blocks": 36,
+      "lo": 0.16948691780102554,
+      "hi": 0.9514578225158951,
+      "n_eff": 2.1875197387417735,
+      "deff": 1.3714161965576375
+     },
+     "1click-swapkit": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "1click-protocol-fees": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "1click-unknown": {
+      "p": 0.3333333333333333,
+      "units": 3,
+      "blocks": 36,
+      "lo": 0.04854217748410483,
+      "hi": 0.8305130821989744,
+      "n_eff": 2.1875197387417735,
+      "deff": 1.3714161965576375
+     },
+     "1click-intents.tg": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "1click-1cs": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "other": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     }
+    }
+   },
+   "2026-03": {
+    "blocks": 36,
+    "referred_swaps": 8,
+    "intents_executed": 26,
+    "channels": {
+     "1click-rango": {
+      "p": 0.0,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.32440756488388023,
+      "n_eff": 8,
+      "deff": null
+     },
+     "1click-swapkit": {
+      "p": 0.0,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.32440756488388023,
+      "n_eff": 8,
+      "deff": null
+     },
+     "1click-protocol-fees": {
+      "p": 0.25,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.07031525729617305,
+      "hi": 0.5949898356468813,
+      "n_eff": 7.7778408400170544,
+      "deff": 1.0285630889796478
+     },
+     "1click-unknown": {
+      "p": 0.125,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.021973892850391724,
+      "hi": 0.47598374656418996,
+      "n_eff": 7.7778408400170544,
+      "deff": 1.0285630889796478
+     },
+     "1click-intents.tg": {
+      "p": 0.125,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.021973892850391724,
+      "hi": 0.47598374656418996,
+      "n_eff": 7.7778408400170544,
+      "deff": 1.0285630889796478
+     },
+     "1click-1cs": {
+      "p": 0.125,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.021973892850391724,
+      "hi": 0.47598374656418996,
+      "n_eff": 7.7778408400170544,
+      "deff": 1.0285630889796478
+     },
+     "other": {
+      "p": 0.375,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.13491088066347773,
+      "hi": 0.6977416658080495,
+      "n_eff": 7.7778408400170544,
+      "deff": 1.0285630889796478
+     }
+    }
+   },
+   "2026-04": {
+    "blocks": 36,
+    "referred_swaps": 3,
+    "intents_executed": 10,
+    "channels": {
+     "1click-rango": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "1click-swapkit": {
+      "p": 0.3333333333333333,
+      "units": 3,
+      "blocks": 36,
+      "lo": 0.060251535053964855,
+      "hi": 0.7958880370550707,
+      "n_eff": 2.916690955787708,
+      "deff": 1.0285628630098702
+     },
+     "1click-protocol-fees": {
+      "p": 0.6666666666666666,
+      "units": 3,
+      "blocks": 36,
+      "lo": 0.20411196294492934,
+      "hi": 0.9397484649460353,
+      "n_eff": 2.916690955787708,
+      "deff": 1.0285628630098702
+     },
+     "1click-unknown": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "1click-intents.tg": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "1click-1cs": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "other": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     }
+    }
+   },
+   "2026-05": {
+    "blocks": 36,
+    "referred_swaps": 3,
+    "intents_executed": 14,
+    "channels": {
+     "1click-rango": {
+      "p": 0.3333333333333333,
+      "units": 3,
+      "blocks": 36,
+      "lo": 0.060251525692734675,
+      "hi": 0.7958880639130679,
+      "n_eff": 2.9166903317102864,
+      "deff": 1.028563083089065
+     },
+     "1click-swapkit": {
+      "p": 0.3333333333333333,
+      "units": 3,
+      "blocks": 36,
+      "lo": 0.060251525692734675,
+      "hi": 0.7958880639130679,
+      "n_eff": 2.9166903317102864,
+      "deff": 1.028563083089065
+     },
+     "1click-protocol-fees": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "1click-unknown": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "1click-intents.tg": {
+      "p": 0.3333333333333333,
+      "units": 3,
+      "blocks": 36,
+      "lo": 0.060251525692734675,
+      "hi": 0.7958880639130679,
+      "n_eff": 2.9166903317102864,
+      "deff": 1.028563083089065
+     },
+     "1click-1cs": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     },
+     "other": {
+      "p": 0.0,
+      "units": 3,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.5614970317550454,
+      "n_eff": 3,
+      "deff": null
+     }
+    }
+   },
+   "2026-06": {
+    "blocks": 36,
+    "referred_swaps": 7,
+    "intents_executed": 21,
+    "channels": {
+     "1click-rango": {
+      "p": 0.14285714285714285,
+      "units": 7,
+      "blocks": 36,
+      "lo": 0.02284790259663322,
+      "hi": 0.5429598308684938,
+      "n_eff": 5.95491156808952,
+      "deff": 1.175500243783766
+     },
+     "1click-swapkit": {
+      "p": 0.2857142857142857,
+      "units": 7,
+      "blocks": 36,
+      "lo": 0.08221892400405678,
+      "hi": 0.6410655481673808,
+      "n_eff": 7,
+      "deff": 0.5583626157972887
+     },
+     "1click-protocol-fees": {
+      "p": 0.14285714285714285,
+      "units": 7,
+      "blocks": 36,
+      "lo": 0.02284790259663322,
+      "hi": 0.5429598308684938,
+      "n_eff": 5.95491156808952,
+      "deff": 1.175500243783766
+     },
+     "1click-unknown": {
+      "p": 0.2857142857142857,
+      "units": 7,
+      "blocks": 36,
+      "lo": 0.07463655948927533,
+      "hi": 0.6648480805898009,
+      "n_eff": 5.9549115680895195,
+      "deff": 1.1755002437837663
+     },
+     "1click-intents.tg": {
+      "p": 0.14285714285714285,
+      "units": 7,
+      "blocks": 36,
+      "lo": 0.02284790259663322,
+      "hi": 0.5429598308684938,
+      "n_eff": 5.95491156808952,
+      "deff": 1.175500243783766
+     },
+     "1click-1cs": {
+      "p": 0.0,
+      "units": 7,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.35433043506668743,
+      "n_eff": 7,
+      "deff": null
+     },
+     "other": {
+      "p": 0.0,
+      "units": 7,
+      "blocks": 36,
+      "lo": 5.551115123125783e-17,
+      "hi": 0.35433043506668743,
+      "n_eff": 7,
+      "deff": null
+     }
+    }
+   },
+   "2026-07": {
+    "blocks": 36,
+    "referred_swaps": 8,
+    "intents_executed": 23,
+    "channels": {
+     "1click-rango": {
+      "p": 0.625,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.2694768206795375,
+      "hi": 0.8827703060111407,
+      "n_eff": 5.982955262098355,
+      "deff": 1.3371318436357857
+     },
+     "1click-swapkit": {
+      "p": 0.0,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.32440756488388023,
+      "n_eff": 8,
+      "deff": null
+     },
+     "1click-protocol-fees": {
+      "p": 0.125,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.020911432561347698,
+      "hi": 0.4886284076850997,
+      "n_eff": 7.259319051346004,
+      "deff": 1.102031739260263
+     },
+     "1click-unknown": {
+      "p": 0.125,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.020911432561347698,
+      "hi": 0.4886284076850997,
+      "n_eff": 7.259319051346004,
+      "deff": 1.102031739260263
+     },
+     "1click-intents.tg": {
+      "p": 0.0,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.32440756488388023,
+      "n_eff": 8,
+      "deff": null
+     },
+     "1click-1cs": {
+      "p": 0.125,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.020911432561347698,
+      "hi": 0.4886284076850997,
+      "n_eff": 7.259319051346004,
+      "deff": 1.102031739260263
+     },
+     "other": {
+      "p": 0.0,
+      "units": 8,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.32440756488388023,
+      "n_eff": 8,
+      "deff": null
+     }
+    }
+   },
+   "2026-08": {
+    "blocks": 36,
+    "referred_swaps": 13,
+    "intents_executed": 40,
+    "channels": {
+     "1click-rango": {
+      "p": 0.15384615384615385,
+      "units": 13,
+      "blocks": 36,
+      "lo": 0.043258178358081184,
+      "hi": 0.4223463101948254,
+      "n_eff": 13,
+      "deff": 0.8271660096364312
+     },
+     "1click-swapkit": {
+      "p": 0.6923076923076923,
+      "units": 13,
+      "blocks": 36,
+      "lo": 0.42369343180549035,
+      "hi": 0.8731929634428948,
+      "n_eff": 13,
+      "deff": 0.9933984057759264
+     },
+     "1click-protocol-fees": {
+      "p": 0.0,
+      "units": 13,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.22809537235419838,
+      "n_eff": 13,
+      "deff": null
+     },
+     "1click-unknown": {
+      "p": 0.0,
+      "units": 13,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.22809537235419838,
+      "n_eff": 13,
+      "deff": null
+     },
+     "1click-intents.tg": {
+      "p": 0.0,
+      "units": 13,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.22809537235419838,
+      "n_eff": 13,
+      "deff": null
+     },
+     "1click-1cs": {
+      "p": 0.0,
+      "units": 13,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.22809537235419838,
+      "n_eff": 13,
+      "deff": null
+     },
+     "other": {
+      "p": 0.15384615384615385,
+      "units": 13,
+      "blocks": 36,
+      "lo": 0.038796423518044104,
+      "hi": 0.45025559916832913,
+      "n_eff": 10.82261082308979,
+      "deff": 1.2011889009502958
+     }
+    }
+   },
+   "2026-09": {
+    "blocks": 36,
+    "referred_swaps": 5,
+    "intents_executed": 19,
+    "channels": {
+     "1click-rango": {
+      "p": 0.2,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0355025954803872,
+      "hi": 0.6293461028956677,
+      "n_eff": 4.861152544017268,
+      "deff": 1.0285626617814358
+     },
+     "1click-swapkit": {
+      "p": 0.2,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0355025954803872,
+      "hi": 0.6293461028956677,
+      "n_eff": 4.861152544017268,
+      "deff": 1.0285626617814358
+     },
+     "1click-protocol-fees": {
+      "p": 0.0,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.43448246478317476,
+      "n_eff": 5,
+      "deff": null
+     },
+     "1click-unknown": {
+      "p": 0.2,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0355025954803872,
+      "hi": 0.6293461028956677,
+      "n_eff": 4.861152544017268,
+      "deff": 1.0285626617814358
+     },
+     "1click-intents.tg": {
+      "p": 0.0,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.43448246478317476,
+      "n_eff": 5,
+      "deff": null
+     },
+     "1click-1cs": {
+      "p": 0.2,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0355025954803872,
+      "hi": 0.6293461028956677,
+      "n_eff": 4.861152544017268,
+      "deff": 1.0285626617814358
+     },
+     "other": {
+      "p": 0.2,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0355025954803872,
+      "hi": 0.6293461028956677,
+      "n_eff": 4.861152544017268,
+      "deff": 1.0285626617814358
+     }
+    }
+   },
+   "2026-10": {
+    "blocks": 36,
+    "referred_swaps": 5,
+    "intents_executed": 20,
+    "channels": {
+     "1click-rango": {
+      "p": 0.0,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.43448246478317476,
+      "n_eff": 5,
+      "deff": null
+     },
+     "1click-swapkit": {
+      "p": 1.0,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.5655175352168251,
+      "hi": 1.0,
+      "n_eff": 5,
+      "deff": null
+     },
+     "1click-protocol-fees": {
+      "p": 0.0,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.43448246478317476,
+      "n_eff": 5,
+      "deff": null
+     },
+     "1click-unknown": {
+      "p": 0.0,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.43448246478317476,
+      "n_eff": 5,
+      "deff": null
+     },
+     "1click-intents.tg": {
+      "p": 0.0,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.43448246478317476,
+      "n_eff": 5,
+      "deff": null
+     },
+     "1click-1cs": {
+      "p": 0.0,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.43448246478317476,
+      "n_eff": 5,
+      "deff": null
+     },
+     "other": {
+      "p": 0.0,
+      "units": 5,
+      "blocks": 36,
+      "lo": 0.0,
+      "hi": 0.43448246478317476,
+      "n_eff": 5,
+      "deff": null
+     }
+    }
+   }
+  },
+  "channel_mix_pooled": {
+   "1click-rango": {
+    "p": 0.32632451152012226,
+    "units": 66,
+    "lo": 0.21034092691333733,
+    "hi": 0.4683322501643143,
+    "n_eff": 47.43146526363166
+   },
+   "1click-swapkit": {
+    "p": 0.268650127225194,
+    "units": 66,
+    "lo": 0.16844226352241234,
+    "hi": 0.39981009013961655,
+    "n_eff": 53.58411373000383
+   },
+   "1click-protocol-fees": {
+    "p": 0.10954965545854307,
+    "units": 66,
+    "lo": 0.05308970410510706,
+    "hi": 0.21257429264378835,
+    "n_eff": 60.58070545630522
+   },
+   "1click-unknown": {
+    "p": 0.09157630833777688,
+    "units": 66,
+    "lo": 0.03860251028205633,
+    "hi": 0.2019733954308443,
+    "n_eff": 50.80336627443056
+   },
+   "1click-intents.tg": {
+    "p": 0.06283224573417029,
+    "units": 66,
+    "lo": 0.024265331438599866,
+    "hi": 0.1530799803781417,
+    "n_eff": 61.14829615712031
+   },
+   "1click-1cs": {
+    "p": 0.04677042156744243,
+    "units": 66,
+    "lo": 0.01579762412147289,
+    "hi": 0.13042144373653253,
+    "n_eff": 62.26034210446395
+   },
+   "other": {
+    "p": 0.09429673015675107,
+    "units": 66,
+    "lo": 0.043418166675644354,
+    "hi": 0.19278070960717003,
+    "n_eff": 61.63396546835917
+   }
+  },
+  "meta_tx_by_month": {
+   "2026-01": {
+    "p": 0.8536082474226804,
+    "units": 970,
+    "blocks": 36,
+    "lo": 0.7285225903316559,
+    "hi": 0.9268468050125234,
+    "n_eff": 48.55767379042109,
+    "deff": 19.976245241619267
+   },
+   "2026-02": {
+    "p": 0.789272030651341,
+    "units": 783,
+    "blocks": 36,
+    "lo": 0.6252601002913432,
+    "hi": 0.8937043286099697,
+    "n_eff": 33.46077178857556,
+    "deff": 23.400536154618468
+   },
+   "2026-03": {
+    "p": 0.8694418164616841,
+    "units": 1057,
+    "blocks": 36,
+    "lo": 0.7656572096372805,
+    "hi": 0.9313820420321604,
+    "n_eff": 63.99061239420983,
+    "deff": 16.51804788940639
+   },
+   "2026-04": {
+    "p": 0.6497695852534562,
+    "units": 217,
+    "blocks": 36,
+    "lo": 0.5841940045093258,
+    "hi": 0.7101347884043946,
+    "n_eff": 217,
+    "deff": 0.7927814274465012
+   },
+   "2026-05": {
+    "p": 0.510752688172043,
+    "units": 186,
+    "blocks": 36,
+    "lo": 0.4219142215132844,
+    "hi": 0.5989170890930765,
+    "n_eff": 118.7163467846351,
+    "deff": 1.566759802147762
+   },
+   "2026-06": {
+    "p": 0.44549763033175355,
+    "units": 211,
+    "blocks": 36,
+    "lo": 0.36659116485299814,
+    "hi": 0.5272506059491235,
+    "n_eff": 143.26401315399966,
+    "deff": 1.4728053148503422
+   },
+   "2026-07": {
+    "p": 0.5934579439252337,
+    "units": 214,
+    "blocks": 36,
+    "lo": 0.503395374754757,
+    "hi": 0.6776463321792057,
+    "n_eff": 118.39340188875494,
+    "deff": 1.807533161358765
+   },
+   "2026-08": {
+    "p": 0.3103448275862069,
+    "units": 174,
+    "blocks": 36,
+    "lo": 0.23404864222602473,
+    "hi": 0.3985703160753955,
+    "n_eff": 118.30356961566804,
+    "deff": 1.4707924753688546
+   },
+   "2026-09": {
+    "p": 0.36363636363636365,
+    "units": 198,
+    "blocks": 36,
+    "lo": 0.2704194764461531,
+    "hi": 0.46835829076304586,
+    "n_eff": 87.2204230369121,
+    "deff": 2.270110521204483
+   },
+   "2026-10": {
+    "p": 0.3014354066985646,
+    "units": 209,
+    "blocks": 36,
+    "lo": 0.2183114341675399,
+    "hi": 0.40001322044182536,
+    "n_eff": 94.87544889690123,
+    "deff": 2.2028881278560806
+   }
+  },
+  "meta_tx_pooled": {
+   "p": 0.7215328816147688,
+   "units": 4219,
+   "lo": 0.6455205543058389,
+   "hi": 0.7866331876484811,
+   "n_eff": 152.1350409842639
+  },
+  "full_months": [
+   "2026-01",
+   "2026-02",
+   "2026-03",
+   "2026-04",
+   "2026-05",
+   "2026-06",
+   "2026-07",
+   "2026-08",
+   "2026-09"
+  ]
+ },
  "provenance": {
   "manifest": {
    "as_of": "2026-10-20",
@@ -2081,6 +3156,21 @@
     "transfers_1csfundsadmin.sputnik-dao.near.jsonl": "5ade210aa38532e16a5a5b75e23e2f73822b38b5bfcbc6133625fd2a82967965",
     "transfers_buybacks.multisignature.near.jsonl": "46dc8f9529d6e4697cbd4f933b0df11741b0b14cc7c5e42b6ead2f8ab5845c74",
     "transfers_fefundsadmin.sputnik-dao.near.jsonl": "905eb74537256ffc8ba2cb3f02078b5bfe8f80b2fc4bfb25900f5cb9cecb65db"
+   }
+  },
+  "m2_manifest": {
+   "as_of": "2026-10-20",
+   "head_height": 220800718,
+   "main_manifest_sha256": "d02d6f6ca34be2d5c380c3cdeba7987e48c7d3577d9c4acc08aa2ad4178889ae",
+   "fetched_unix": 1792509629,
+   "runtime_s": 1656,
+   "neardata_http_429": 60,
+   "sha256": {
+    "neardata_plan.json": "cb1cb10d21d2347c54df45ea0ddaf04f8a4fadd683e4d4a696b083395f25b135",
+    "neardata_sample.jsonl": "2ba93144a1facefebf76e4655ca5ee65da6f10017f5d4c828133e3ec4dfca82b",
+    "transfers_pre_1csfundsadmin.sputnik-dao.near.jsonl": "4614c9fca982dc07ac3512725b589338b9f9a1e91829e141e8a34526a57b5b00",
+    "transfers_pre_buybacks.multisignature.near.jsonl": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "transfers_pre_fefundsadmin.sputnik-dao.near.jsonl": "9b1fa89ac1ce73825cf00afe7582e447c1568e49bc56c63f020cd7157acb1c18"
    }
   }
  }
