@@ -9,7 +9,11 @@
   "treasury_account": "treasury.near",
   "year_start": "2026-01-01",
   "supply_sample_step_blocks": 1000000,
-  "hsp029_windows_days": [7, 28, 92],
+  "hsp029_windows_days": [
+    7,
+    28,
+    92
+  ],
   "protocol_issuance_cap_pct": 2.5,
   "proposed_issuance_target_pct": 1.6,
   "published_claims": {
@@ -24,6 +28,51 @@
     "llama_revenue": "https://api.llama.fi/summary/fees/near-intents?dataType=dailyRevenue",
     "llama_holders_revenue": "https://api.llama.fi/summary/fees/near-intents?dataType=dailyHoldersRevenue",
     "llama_volume": "https://api.llama.fi/summary/dexs/near-intents?dataType=dailyVolume",
-    "price": "https://coins.llama.fi/prices/current/coingecko:near"
+    "price": "https://coins.llama.fi/prices/current/coingecko:near",
+    "neardata_block": "https://mainnet.neardata.xyz/v0/block/<height>"
+  },
+  "published_figures": {
+    "_comment": "Numbers other parties published, pinned with their source and the date we read them. compute.py compares them with the chain; it never fetches them.",
+    "revenue_dashboard": {
+      "url": "https://revenue.near.org/",
+      "fetched_on": "2026-10-20",
+      "section": "Wallet Breakdown (All-time), 'Traceable flow of revenue'",
+      "display_decimals": 1,
+      "wallet_total_near": {
+        "fefundsadmin.sputnik-dao.near": 1916643.1,
+        "buybacks.multisignature.near": 1524137.4,
+        "1csfundsadmin.sputnik-dao.near": 555348.3
+      },
+      "claim_text": "NEAR captures a growing share of fees, feeding buybacks that permanently remove NEAR from circulation."
+    },
+    "altcoinbuzz_2026_10_19": {
+      "url": "https://altcoinbuzz.io/near-intents-has-bought-back-6-68m-of-near-using-fees",
+      "published": "2026-10-19",
+      "nearblocks_balance_near": 2015496.446,
+      "nearblocks_decimals": 3,
+      "nearblocks_block": 220621578,
+      "dashboard_buyback_near": 1510410.8,
+      "dashboard_decimals": 1,
+      "defillama_cumulative_holders_revenue_usd": 6680000,
+      "quote": "The two figures do not match, and nothing published alongside them explains the difference.",
+      "defillama_30d_revenue_usd": 2310000
+    },
+    "held_not_burned_context": {
+      "url": "https://stocktwits.com/news-articles/markets/cryptocurrency/near-treasury-firm-ceo-says-buybacks-are-still-real-but-issuance-runs-six-times-higher/cZDteDIRBl3",
+      "published": "2026-10-06",
+      "summary": "SVRN CEO Sal Ternullo on the Bankless podcast: tokens bought with Intents fees are not destroyed but held in a 'permanent capital vehicle'."
+    },
+    "hsp029_buyback_text": {
+      "url": "https://gov.near.org/t/42644",
+      "quote": "Intents fee-switch buybacks, and any other revenue removed from circulation, stay removed."
+    },
+    "defillama_methodology_holders": "Since 2026-02-23, NEAR's captured Intents revenue is used to buy back $NEAR on the open market (not burned), returning value to holders."
+  },
+  "neardata_sample": {
+    "_comment": "Stratified block sample over NEARData (one stratum per calendar month). NEARData sustained about 0.25 blocks/s from one IP in our probes (HTTP 429 after a burst of ~20), so 36 blocks x 10 months at one request per 3.8 s keeps a fresh pull under 30 minutes.",
+    "seed": 20261020,
+    "blocks_per_stratum": 36,
+    "request_interval_s": 3.8,
+    "top_channels": 6
   }
 }

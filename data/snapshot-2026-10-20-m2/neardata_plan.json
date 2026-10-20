@@ -1,0 +1,69 @@
+{
+ "source": "https://mainnet.neardata.xyz/v0/block/{}",
+ "seed": 20261020,
+ "blocks_per_stratum": 36,
+ "strata": [
+  {
+   "month": "2026-01",
+   "start_height": 179199136,
+   "end_height": 183584249,
+   "start_timestamp_ns": "1767225600442673525"
+  },
+  {
+   "month": "2026-02",
+   "start_height": 183584249,
+   "end_height": 187573901,
+   "start_timestamp_ns": "1769904000365275634"
+  },
+  {
+   "month": "2026-03",
+   "start_height": 187573901,
+   "end_height": 192013995,
+   "start_timestamp_ns": "1772323200044231819"
+  },
+  {
+   "month": "2026-04",
+   "start_height": 192013995,
+   "end_height": 196336954,
+   "start_timestamp_ns": "1775001600329493628"
+  },
+  {
+   "month": "2026-05",
+   "start_height": 196336954,
+   "end_height": 200773914,
+   "start_timestamp_ns": "1777593600251109507"
+  },
+  {
+   "month": "2026-06",
+   "start_height": 200773914,
+   "end_height": 205022619,
+   "start_timestamp_ns": "1780272000033646618"
+  },
+  {
+   "month": "2026-07",
+   "start_height": 205022619,
+   "end_height": 209393356,
+   "start_timestamp_ns": "1782864000553414356"
+  },
+  {
+   "month": "2026-08",
+   "start_height": 209393356,
+   "end_height": 213761242,
+   "start_timestamp_ns": "1785542400052527483"
+  },
+  {
+   "month": "2026-09",
+   "start_height": 213761242,
+   "end_height": 217984974,
+   "start_timestamp_ns": "1788220800624143615"
+  },
+  {
+   "month": "2026-10",
+   "start_height": 217984974,
+   "end_height": 220800719,
+   "start_timestamp_ns": "1790812800172319287"
+  }
+ ],
+ "head_height": 220800718,
+ "note": "end_height is exclusive; heights drawn with random.Random(f'{seed}:{month}').sample"
+}

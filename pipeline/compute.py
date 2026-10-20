@@ -7,10 +7,12 @@ Pure function of the input directory: no network, no clock. Standard library onl
 import argparse, collections, datetime, json, math, os, statistics, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import CONFIG, YOCTO, day_of, sha256_file, load_json
+import ledger, neardata, stats
 
 W3 = CONFIG["revenue_wallets"]
 BUYBACK = CONFIG["buyback_wallet"]
 MICRO = 10 ** 6
+S_TOP = CONFIG["neardata_sample"]["top_channels"]
 
 
 def llama_series(path):
@@ -55,9 +57,160 @@ def check_integrity(data, man):
             raise SystemExit(f"integrity failure: {name} sha256 {got} != manifest {want}")
 
 
-def compute(data):
+def _match_day(led, near_value):
+    """UTC day whose end-of-day cumulative external inflow is closest to a published NEAR figure."""
+    best = min(led["timeline"], key=lambda d: abs(led["timeline"][d]["external_in"] / YOCTO - near_value))
+    return best, led["timeline"][best]["external_in"] / YOCTO - near_value
+
+
+def dashboard_definition_near(rows, wallet, cutoff):
+    """Our reading of revenue.near.org's per-wallet 'Total NEAR': all native NEAR received from accounts outside
+    the three revenue wallets up to the end of `cutoff`, excluding Sputnik DAO proposal bonds (AttachedDeposit,
+    refunded when the proposal resolves)."""
+    return sum(int(r["amount"]) for r in rows if r["account_id"] == wallet and r["asset_id"] == "native:near"
+               and int(r["amount"]) > 0 and r["other_account_id"] not in W3 and r["transfer_type"] != "AttachedDeposit"
+               and day_of(int(r["block_timestamp"]) / 1e9) <= cutoff) / YOCTO
+
+
+def buyback_reconciliation(rows, led, win_end, pre_rows=None):
+    """Balance = external revenue + internal transfers - outflows + fees, and the published figures that match each part."""
+    pub = CONFIG["published_figures"]
+    L = led[BUYBACK]
+    n = ledger.to_near
+    steps = L["nontransfer_steps"]
+    out = {"wallet": BUYBACK, "balance_near": n(L["balance"]), "opening_near": n(L["opening"]),
+           "external_in_near": n(L["external_in"]), "internal_in_near": n(L["internal_in"]),
+           "internal_by_source_near": {k: n(v) for k, v in L["internal_by_source"].items()},
+           "out_near": n(L["out"]), "out_by_destination_near": {k: n(v) for k, v in L["out_by_destination"].items()},
+           "smallest_outflow_near": min((-int(r["amount"]) for r in rows if r["account_id"] == BUYBACK and r["asset_id"] == "native:near" and int(r["amount"]) < 0), default=0) / YOCTO,
+           "nontransfer_near": n(L["nontransfer_total"]), "nontransfer_steps": len(steps),
+           "nontransfer_negative_steps": sum(1 for s in steps if s["yocto"] < 0),
+           "largest_nontransfer_step_near": max((abs(s["yocto"]) for s in steps), default=0) / YOCTO,
+           "tail_after_last_row_yocto": L["tail_after_last_row"], "residual_near": n(L["residual"]), "unexplained_yocto": L["unexplained"],
+           "rows": L["rows"]}
+    # revenue.near.org "Wallet Breakdown (All-time)": compare each wallet with our external inflow at the dashboard cutoff
+    rd = pub["revenue_dashboard"]
+    cutoff = shift(rd["fetched_on"], -1)          # last complete UTC day before the fetch
+    half = 0.5 * 10 ** -rd["display_decimals"]
+    dash = {}
+    for w, v in rd["wallet_total_near"].items():
+        Lw = led[w]
+        ext_c = ledger.cumulative_at(Lw, cutoff, "external_in") / YOCTO
+        tl = [Lw["timeline"][d] for d in sorted(Lw["timeline"]) if d <= cutoff]
+        eob_c = tl[-1]["eob"] / YOCTO if tl else None
+        day, diff = _match_day(Lw, v - n(Lw["opening"]))
+        dash[w] = {"dashboard_near": v, "external_in_to_cutoff_near": ext_c, "opening_near": n(Lw["opening"]),
+                   "bracket_low_near": ext_c, "bracket_high_near": ext_c + n(Lw["opening"]),
+                   "in_bracket": ext_c - half <= v <= ext_c + n(Lw["opening"]) + half,
+                   "balance_at_cutoff_near": eob_c, "diff_vs_external_near": ext_c - v,
+                   "best_matching_day": day, "best_matching_diff_near": diff, "history_complete": Lw["opening"] == 0}
+        if pre_rows is not None:
+            allrows = pre_rows + rows
+            full = ledger.wallet_ledger(allrows, w, W3, int(Lw["balance"]))
+            dash[w].update({"all_time_definition_near": dashboard_definition_near(allrows, w, cutoff),
+                            "all_time_diff_near": dashboard_definition_near(allrows, w, cutoff) - v,
+                            "all_time_ledger_unexplained_yocto": full["unexplained"], "all_time_opening_yocto": full["opening"],
+                            "all_time_rows": full["rows"], "all_time_nontransfer_near": full["nontransfer_total"] / YOCTO})
+    out["dashboard"] = {"url": rd["url"], "fetched_on": rd["fetched_on"], "cutoff_day": cutoff, "rounding_near": half, "wallets": dash,
+                        "full_history": pre_rows is not None, "claim_text": rd["claim_text"]}
+    # Altcoin Buzz 2026-10-19: NearBlocks balance at a block vs the dashboard figure the same day
+    ab = pub["altcoinbuzz_2026_10_19"]
+    B = ab["nearblocks_block"]
+    ours_b = ledger.balance_at(L, B) / YOCTO
+    d_day, d_diff = _match_day(L, ab["dashboard_buyback_near"])
+    comp = {k: ledger.cumulative_at_height(rows, BUYBACK, W3, B, k) / YOCTO for k in ("external_in", "internal_in", "out")}
+    fees_b = sum(s["yocto"] for s in steps if s["height"] <= B) / YOCTO
+    ext_d = ledger.cumulative_at(L, d_day, "external_in") / YOCTO
+    gap = ab["nearblocks_balance_near"] - ab["dashboard_buyback_near"]
+    parts = {"internal_in_near": comp["internal_in"], "outflows_near": -comp["out"], "fees_near": fees_b,
+             "revenue_after_dashboard_cutoff_near": comp["external_in"] - ext_d}
+    out["altcoinbuzz"] = {"url": ab["url"], "published": ab["published"], "nearblocks_block": B, "nearblocks_balance_near": ab["nearblocks_balance_near"],
+                          "ours_balance_at_block_near": ours_b, "nearblocks_diff_near": ours_b - ab["nearblocks_balance_near"],
+                          "nearblocks_rounding_near": 0.5 * 10 ** -ab["nearblocks_decimals"], "dashboard_buyback_near": ab["dashboard_buyback_near"],
+                          "dashboard_matching_day": d_day, "dashboard_diff_near": d_diff, "dashboard_rounding_near": 0.5 * 10 ** -ab["dashboard_decimals"],
+                          "gap_near": gap, "gap_parts": parts, "gap_closure_near": gap - sum(parts.values())}
+    return out
+
+
+def load_m2(m2, man_path):
+    """The M2 snapshot: pre-year wallet history + the NEARData block sample. Bound to one main snapshot by hash."""
+    man2 = load_json(os.path.join(m2, "manifest.json"))
+    check_integrity(m2, man2)
+    if man2["main_manifest_sha256"] != sha256_file(man_path):
+        raise SystemExit(f"{m2} was fetched against a different main snapshot (manifest hash mismatch)")
+    pre = []
+    for w in W3:
+        with open(os.path.join(m2, f"transfers_pre_{w}.jsonl")) as f:
+            pre += [json.loads(l) for l in f]
+    plan = load_json(os.path.join(m2, "neardata_plan.json"))
+    with open(os.path.join(m2, "neardata_sample.jsonl")) as f:
+        sample = [json.loads(l) for l in f]
+    return {"manifest": man2, "pre_rows": pre, "plan": plan, "sample": sample}
+
+
+def sample_estimates(M2):
+    """Channel mix (dip4 token_diff `referral`) and meta-transaction share per month, from the NEARData block sample."""
+    P, smp = M2["plan"], M2["sample"]
+    want = neardata.plan(P["seed"], P["strata"], P["blocks_per_stratum"])
+    got = collections.defaultdict(list)
+    month_of = {}
+    for st in P["strata"]:
+        for h in want[st["month"]]:
+            month_of[h] = st["month"]
+    order = [h for m in sorted(want) for h in want[m]]
+    if [x["requested"] for x in smp] != order:
+        raise SystemExit("neardata sample does not match the seeded plan (heights or order differ)")
+    skipped = sum(1 for x in smp if x["height"] != x["requested"])
+    bad_skip = [x["requested"] for x in smp if not 0 <= x["height"] - x["requested"] < 20]
+    off_month = sum(1 for x in smp if day_of(int(x["timestamp_ns"]) / 1e9)[:7] != month_of[x["requested"]])
+    for x in smp:
+        got[month_of[x["requested"]]].append(x)
+    size = {st["month"]: st["end_height"] - st["start_height"] for st in P["strata"]}
+
+    per_block = {m: [] for m in want}
+    names = collections.Counter()
+    for m, xs in got.items():
+        for x in xs:
+            sw = neardata.referred_swaps(x)
+            tx, dl = neardata.delegate_counts(x)
+            c = collections.Counter(s["referral"] for s in sw)
+            names.update(c)
+            per_block[m].append({"tx": tx, "delegate": dl, "swaps": len(sw), "by_ref": c,
+                                 "no_fee": sum(1 for s in sw if not s["has_fee"]),
+                                 "executed": neardata.event_counts(x).get("dip4:intents_executed", 0)})
+    top = [k for k, _ in names.most_common(S_TOP)]
+    channels = top + ["other"]
+    lab = lambda r: r if r in top else "other"
+    months = sorted(want)
+    mix = {}
+    for m in months:
+        B = per_block[m]
+        ms = [b["swaps"] for b in B]
+        row = {"blocks": len(B), "referred_swaps": sum(ms), "intents_executed": sum(b["executed"] for b in B), "channels": {}}
+        for ch in channels:
+            ys = [sum(v for k, v in b["by_ref"].items() if lab(k) == ch) for b in B]
+            row["channels"][ch] = stats.ratio_share(ys, ms, size[m])
+        mix[m] = row
+    pooled = {}
+    for ch in channels:
+        pooled[ch] = stats.stratified_ratio([([sum(v for k, v in b["by_ref"].items() if lab(k) == ch) for b in per_block[m]],
+                                              [b["swaps"] for b in per_block[m]], size[m]) for m in months])
+    meta = {m: stats.ratio_share([b["delegate"] for b in per_block[m]], [b["tx"] for b in per_block[m]], size[m]) for m in months}
+    meta_pooled = stats.stratified_ratio([([b["delegate"] for b in per_block[m]], [b["tx"] for b in per_block[m]], size[m]) for m in months])
+    full = [m for m in months if m < max(months)]                         # the last stratum is a partial month
+    return {"source": P["source"], "seed": P["seed"], "blocks_per_stratum": P["blocks_per_stratum"], "strata": P["strata"],
+            "blocks": len(smp), "skipped_heights_replaced": skipped, "bad_replacements": bad_skip, "blocks_outside_their_month": off_month,
+            "plan_matches": True, "fetch": {k: M2["manifest"].get(k) for k in ("fetched_unix", "runtime_s", "neardata_http_429")},
+            "channels": channels, "referral_names_seen": len(names), "referral_counts": dict(names.most_common()),
+            "referred_swaps_without_fee": sum(b["no_fee"] for m in months for b in per_block[m]),
+            "channel_mix_by_month": mix, "channel_mix_pooled": pooled,
+            "meta_tx_by_month": meta, "meta_tx_pooled": meta_pooled, "full_months": full}
+
+
+def compute(data, m2=None):
     man = load_json(os.path.join(data, "manifest.json"))
     check_integrity(data, man)
+    M2 = load_m2(m2, os.path.join(data, "manifest.json")) if m2 else None
     head_ns = int(man["head_timestamp_ns"])
     rev_llama, rev_raw = llama_series(os.path.join(data, "llama_revenue.json"))
     hold_llama, _ = llama_series(os.path.join(data, "llama_holders_revenue.json"))
@@ -128,6 +281,9 @@ def compute(data):
                     "balance_residual_near": int(bal["amount_yocto"][w]) / YOCTO - opening - net, "outflow_count": len(outs),
                     "outflow_near": -sum(r["human_amount"] for r in outs),
                     "outflow_top_counterparties": collections.Counter(r["other_account_id"][:16] + ("..." if len(r["other_account_id"]) > 16 else "") for r in outs).most_common(3)}
+    # ---- buyback wallet, exact ledger (integer yocto) and the published figures it is compared with
+    led = {w: ledger.wallet_ledger(rows, w, W3, int(bal["amount_yocto"][w])) for w in W3}
+    bb_rec = buyback_reconciliation(rows, led, win_end, M2["pre_rows"] if M2 else None)
     non_near_usd = sum(r["usd_amount"] or 0 for r in rows if not is_near(r) and int(r["amount"]) > 0 and r["other_account_id"] not in W3 and r["_day"] <= win_end)
 
     # ---- supply from archival block headers
@@ -218,17 +374,19 @@ def compute(data):
                     "share_reached_pct": reached_bb_near / rev_near_since * 100, "buyback_start": hold_start, "inflow_internal_n": len(bb_in_int),
                     "largest_internal_hop": max(((r["human_amount"], r["_day"], r["other_account_id"]) for r in bb_in_int), default=None),
                     "outflow_count": len(bb_out), "outflow_near": -sum(r["human_amount"] for r in bb_out),
-                    "monthly_inflow": dict(sorted(bb_monthly.items())), "all_wallets": other},
+                    "monthly_inflow": dict(sorted(bb_monthly.items())), "all_wallets": other, "reconciliation": bb_rec},
         "supply": supply, "hsp029": {"windows": windows, "reference_window_days": 28},
         "deflation": deflation, "snapshot": snapshot, "predictions": preds,
-        "provenance": {"manifest": man},
+        "sample": sample_estimates(M2) if M2 else None,
+        "provenance": {"manifest": man, "m2_manifest": M2["manifest"] if M2 else None},
     }
 
 
 def main():
     ap = argparse.ArgumentParser(); ap.add_argument("--data", required=True); ap.add_argument("--out", required=True)
+    ap.add_argument("--m2", help="M2 snapshot dir (pre-year wallet history + NEARData block sample)")
     a = ap.parse_args()
-    m = compute(a.data)
+    m = compute(a.data, a.m2)
     with open(a.out, "w") as f:
         json.dump(m, f, indent=1)
     print(f"wrote {a.out}: as_of {m['as_of']}, revenue {m['window']['start']}..{m['window']['end']} = ${m['revenue']['ytd_usd']:,.0f} "

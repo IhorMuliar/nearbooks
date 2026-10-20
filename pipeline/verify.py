@@ -32,12 +32,14 @@ def findings(m):
         f"lag 0 must beat every shifted lag (noise floor {best_other:.2f})", lags["0"] > best_other, "same")
 
     # F2: buybacks are custody, not a burn
-    bb_w = bb["all_wallets"][bb["wallet"]]
-    tol = bb["balance_near_rpc"] * 1e-6
-    add("F2a", "Buyback wallet balance is fully explained by transfers in minus transfers out (nothing burned from it)",
-        f"{bb['balance_near_rpc']:,.0f} NEAR on-chain = {bb['inflow_external_near']:,.0f} external + {bb['inflow_internal_near']:,.0f} internal in - {bb['outflow_near']:,.0f} out (residual {bb_w['balance_residual_near']:+.2f} NEAR)",
-        f"+-{tol:.1f} NEAR (1e-6 of balance; covers gas/storage not in transfer rows)", abs(bb_w["balance_residual_near"]) <= tol,
-        "archival RPC view_account; FastNear transfers API")
+    r = bb["reconciliation"]
+    dst = ", ".join(f"{v:,.0f} to {k[:12] + '...' if len(k) == 64 else k}" for k, v in sorted(r["out_by_destination_near"].items(), key=lambda kv: -kv[1]))
+    src = " + ".join(f"{v:,.3f} internal from {k}" for k, v in r["internal_by_source_near"].items())
+    add("F2a", "Buyback wallet reconciles to the yoctoNEAR: balance = external revenue in + internal transfers in - outflows - its own transaction fees (nothing burned from it)",
+        f"{r['balance_near']:,.3f} NEAR (RPC) = {r['external_in_near']:,.3f} external revenue + {src} - {r['out_near']:,.3f} out ({dst}) "
+        f"{r['nontransfer_near']:+.3f} fees ({r['nontransfer_steps']} balance steps with no transfer row, largest {r['largest_nontransfer_step_near']:.4f}); unexplained {r['unexplained_yocto']} yoctoNEAR",
+        f"0 yoctoNEAR unexplained (integer sums over {r['rows']:,} FastNear rows vs RPC); non-transfer moves must stay below the smallest outflow ({r['smallest_outflow_near']:.1f} NEAR)",
+        r["unexplained_yocto"] == 0 and abs(r["nontransfer_near"]) < r["smallest_outflow_near"], "archival RPC view_account; FastNear transfers API (amounts and start/end-of-block balances)")
     add("F2b", "Total supply rose in every sampled interval since 1 Jan (no net burn visible)",
         f"{sup['increasing_intervals']}/{sup['intervals']} intervals up; {sup['first_near']:,.0f} -> {sup['last_near']:,.0f} NEAR ({sup['growth_pct']:+.2f}%)",
         "all intervals (no tolerance)", sup["increasing_intervals"] == sup["intervals"], "archival RPC block headers")
@@ -50,8 +52,31 @@ def findings(m):
     fe = bb["all_wallets"]["fefundsadmin.sputnik-dao.near"]
     add("F2d", "fefundsadmin has spent almost nothing of what it holds",
         f"holds {fe['balance_near']:,.0f} NEAR; outflows {fe['outflow_near']:.2f} NEAR in {fe['outflow_count']} transfers",
-        f"outflows must be below {fe['balance_near']*1e-6:.1f} NEAR (the same 1e-6-of-balance rounding scale as F2a)",
+        f"outflows must be below {fe['balance_near']*1e-6:.1f} NEAR (1e-6 of its balance, i.e. rounding noise)",
         fe["outflow_near"] <= fe["balance_near"] * 1e-6, "FastNear transfers API; archival RPC")
+
+    dd = r["dashboard"]
+    W = dd["wallets"]
+    if dd["full_history"]:
+        short = lambda w: w.split(".")[0]
+        obs = "; ".join(f"{short(w)}: {v['dashboard_near']:,.1f} vs ours {v['all_time_definition_near']:,.2f}" for w, v in W.items())
+        bbw = W[bb["wallet"]]
+        add("F2e", "revenue.near.org's per-wallet 'Total NEAR' is each wallet's all-time external revenue inflow, not its balance (the dashboard is right about revenue)",
+            f"{obs} (inflows to end of {dd['cutoff_day']}, page read {dd['fetched_on']}); buyback wallet balance at that time {bbw['balance_at_cutoff_near']:,.1f}",
+            f"each within +-{dd['rounding_near']:.2f} NEAR (the page rounds to 0.1 NEAR); proposal bonds (refunded AttachedDeposit) excluded; all three wallet histories reconcile to 0 yoctoNEAR",
+            all(abs(v["all_time_diff_near"]) <= dd["rounding_near"] and v["all_time_ledger_unexplained_yocto"] == 0 for v in W.values()),
+            "revenue.near.org Wallet Breakdown (pinned in config.json); FastNear transfers API incl. pre-2026 history; archival RPC")
+    else:
+        add("F2e", "revenue.near.org's per-wallet 'Total NEAR' is each wallet's all-time external revenue inflow", "needs the M2 snapshot (pre-2026 wallet history)", "-", False, "-")
+    ab = r["altcoinbuzz"]; gp = ab["gap_parts"]
+    tol_gap = ab["nearblocks_rounding_near"] + ab["dashboard_rounding_near"]
+    add("F2f", "The 2.02M vs 1.51M NEAR gap Altcoin Buzz reported on 2026-10-19 is the internal transfer from 1csfundsadmin, minus outflows, plus revenue received after the dashboard's cutoff (both published numbers are right)",
+        f"NearBlocks {ab['nearblocks_balance_near']:,.3f} at block {ab['nearblocks_block']:,} vs ours {ab['ours_balance_at_block_near']:,.3f}; dashboard {ab['dashboard_buyback_near']:,.1f} = our external inflow to end of {ab['dashboard_matching_day']} ({ab['dashboard_diff_near']:+.3f}); "
+        f"gap {ab['gap_near']:,.1f} = {gp['internal_in_near']:,.1f} internal - {-gp['outflows_near']:,.1f} out {gp['fees_near']:+.1f} fees + {gp['revenue_after_dashboard_cutoff_near']:,.1f} revenue after the cutoff (closes to {ab['gap_closure_near']:+.3f})",
+        f"each published figure within its display rounding (+-{ab['nearblocks_rounding_near']} / +-{ab['dashboard_rounding_near']} NEAR); decomposition closes within their sum (+-{tol_gap:.4f})",
+        abs(ab["nearblocks_diff_near"]) <= ab["nearblocks_rounding_near"] and abs(ab["dashboard_diff_near"]) <= ab["dashboard_rounding_near"]
+        and abs(ab["gap_closure_near"]) <= tol_gap and ab["dashboard_matching_day"] < ab["published"],
+        "Altcoin Buzz 2026-10-19 (figures pinned in config.json); FastNear transfers API")
 
     # F3: HSP-029 method reproduces
     ws = [h[k]["treasury_share_pct"] for k in sorted(h, key=int)]
@@ -85,6 +110,30 @@ def findings(m):
         "spot must lie inside the 7d implied range", pi["min"] <= d["price_usd"] <= pi["max"], "DefiLlama coins API; FastNear transfers API")
     add("F4d", "Our daily sums reproduce DefiLlama's own 30-day revenue field (parsing check)",
         f"${rev['defillama_last30d_usd']:,.0f} vs published total30d ${rev['defillama_total30d_field_usd']:,.0f}", "exact", abs(rev["defillama_last30d_usd"] - rev["defillama_total30d_field_usd"]) < 1, "DefiLlama")
+    # F5/F6: NEARData block sample (channel mix, meta-transactions)
+    s = m.get("sample")
+    if s:
+        n_exp = len(s["strata"]) * s["blocks_per_stratum"]
+        add("F5a", "The NEARData sample is exactly the seeded stratified plan (one stratum per month, uniform heights)",
+            f"{s['blocks']} blocks = {len(s['strata'])} months x {s['blocks_per_stratum']}; seed {s['seed']}; {s['skipped_heights_replaced']} skipped heights replaced by the next block; {s['blocks_outside_their_month']} blocks outside their month",
+            "heights must reproduce from the seed (compute.py refuses otherwise); every block inside its month; replacements < 20 heights away",
+            s["plan_matches"] and s["blocks"] == n_exp and s["blocks_outside_their_month"] == 0 and not s["bad_replacements"],
+            "NEARData block API; pipeline/neardata.py")
+        P = s["channel_mix_pooled"]
+        named = sorted((c for c in s["channels"] if c != "other"), key=lambda c: -(P[c]["p"] or 0))
+        top, second = named[0], named[1]
+        ranked = P[top]["lo"] > P[second]["hi"]
+        add("F5b", "No single 1Click referral channel carries a majority of referred swaps in 2026 (dip4 token_diff `referral`)",
+            f"largest `{top}` {P[top]['p']*100:.0f}% [{P[top]['lo']*100:.0f}-{P[top]['hi']*100:.0f}], next `{second}` {P[second]['p']*100:.0f}% [{P[second]['lo']*100:.0f}-{P[second]['hi']*100:.0f}] "
+            f"({'ranked' if ranked else 'intervals overlap, so the two cannot be ranked'}); {P[top]['units']} referred swaps in {s['blocks']} blocks, {s['referral_names_seen']} channel tags",
+            "95% Wilson interval (stratified, cluster-effective sample size) of the largest channel must lie below 50%",
+            P[top]["hi"] < 0.5, "NEARData block sample (intents.near EVENT_JSON logs)")
+        mt = s["meta_tx_by_month"]; first, last = s["full_months"][0], s["full_months"][-1]
+        a, b = mt[first], mt[last]
+        add("F6a", "The share of transactions that are meta-transactions (NEP-366 Delegate action) fell during 2026",
+            f"{first}: {a['p']*100:.1f}% [{a['lo']*100:.1f}-{a['hi']*100:.1f}] of {a['units']:,} tx; {last}: {b['p']*100:.1f}% [{b['lo']*100:.1f}-{b['hi']*100:.1f}] of {b['units']:,} tx",
+            f"95% Wilson intervals at the cluster-effective sample size (design effect {a['deff'] or 0:.1f} / {b['deff'] or 0:.1f}); intervals must not overlap",
+            a["lo"] > b["hi"], "NEARData block sample (chunk transactions)")
     return out
 
 
@@ -99,6 +148,17 @@ def markdown(fs):
     return "\n".join(lines)
 
 
+def generated_blocks(m):
+    """(begin marker, end marker, body) for every generated README block."""
+    import report
+    out = [(BEGIN, END, markdown(findings(m)))]
+    for key, (b, e, fn) in report.BLOCKS.items():
+        if key != "sources" and not m.get("sample"):
+            continue
+        out.append((b, e, fn(m)))
+    return out
+
+
 def main(argv):
     m = load_json(argv[1])
     fs = findings(m)
@@ -107,10 +167,10 @@ def main(argv):
     if "--check-readme" in argv:
         with open(argv[argv.index("--check-readme") + 1]) as f:
             txt = f.read()
-        want = BEGIN + "\n" + markdown(fs) + "\n" + END
-        if want in txt:
-            print("README findings block matches the verified output"); return 0
-        print("README findings block is stale: run `make readme`"); return 1
+        stale = [b for b, e, body in generated_blocks(m) if b + "\n" + body + "\n" + e not in txt]
+        if not stale:
+            print(f"README generated blocks ({len(generated_blocks(m))}) match the verified output"); return 0
+        print("README blocks stale or missing: " + ", ".join(stale) + " -> run `make readme`"); return 1
     print("\n".join(table(fs)))
     ok = all(f["ok"] for f in fs)
     print(f"\nas_of {m['as_of']}: {sum(f['ok'] for f in fs)}/{len(fs)} findings hold -> " + ("ALL PASS" if ok else "SOME FAILED"))
