@@ -10,7 +10,7 @@ The offline cache (site/contract-cache.json) is what both fall back to when the 
 import base64, hashlib, ipaddress, json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OFFICIAL_CONTRACT = "nearbooks-v5.okf-kill-1792497882.testnet"
+OFFICIAL_CONTRACT = "nearbooks-v6.okf-kill-1792497882.testnet"
 CONTRACT = os.environ.get("NEARBOOKS_CONTRACT", OFFICIAL_CONTRACT)
 RPCS = [u for u in os.environ.get("NEARBOOKS_RPC", "https://rpc.testnet.near.org,https://rpc.testnet.fastnear.com").split(",") if u]
 CACHE = os.environ.get("NEARBOOKS_CACHE", os.path.join(ROOT, "site", "contract-cache.json"))
@@ -196,6 +196,7 @@ def fetch_state(contract=None, with_attestations=False):
         "owner_id": owner_reporter[0], "reporter_id": owner_reporter[1],
         "pin_delay_secs": view("get_pin_delay_secs", {}, contract)[0], "pins": view("list_pins", {}, contract)[0],
         "pin_proposal": view("get_pin_proposal", {}, contract)[0], "earliest_date": view("get_earliest_date", {}, contract)[0],
+        "keeper": view("get_keeper", {}, contract)[0],
         "attested": attested, "predictions": predictions,
     }
     if with_attestations:

@@ -1,0 +1,66 @@
+contract nearbooks-v6.okf-kill-1792497882.testnet (code sha256 644a8df3222e098485ce944d39a144715f93165e8377bf65fd923fae27342cae)   keeper nearbooks-keeper.okf-kill-1792497882.testnet   worker bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963   date 2026-10-20   demo date 2026-10-21
+-- create nearbooks-v6.okf-kill-1792497882.testnet and deploy + new(owner=nearbooks-v6.okf-kill-1792497882.testnet, reporter=nbproto-rep-1696.testnet, pin_delay_secs=3600)
+3KaDPdorZvHdDSVLrpiBXYqNT7pE9oNzRH1cAzUhF6xM
+E4v9u7RahTmuz89jVWQfwLmrtTVyopmNvkvpLix5MFvR
+-- first pin (applies at once)
+9F5YW5ajQZhsooD2FjNgZSRpEPwemp6hzkar66YMrAj5
+EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"worker_pinned","data":{"outlayer_id":"outlayer.testnet","wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm","previous_wasm_hash":null,"previous_outlayer_id":null,"from_ns":"0"}}
+-- predictions P1..P4 and the demos resolving on 2026-10-21
+P1 9A7NKUTXr2PmczmAVDdGuAGUkyFPQ5H6C1cYhNYScEpD
+P2 APmvdKUssWtf1VrxbwxXbXGERT185ZNGvpe2jEWNiez8
+P3 BvWkuvvQg5a4v3M9rWnXS978SYnmCN6qaNxvVPsMnqCe
+P4 4qPNwTS8ZQeUnvcFCWYU3rA6K7bxURWUepoNKxwibAu8
+demo 0 GGruMXnrjrJKfM6kRMnMddrSVp3YxDuXWMeFrQF6iPn8
+demo 1 4YtBHvmzXtz4V8ebYdTeh9qEo5kpjLmWiXwJ4zSqs8RH
+demo 2 E4MW7TPu1cBiLm8Uq49B5pnR8PzuGNE5zKMuWP6g5rkt
+-- create nearbooks-keeper.okf-kill-1792497882.testnet (1 NEAR); its full-access key stays in the local keychain, CI only ever gets the function-call key
+FyPGwu9472pB1gMo95rD9xYHLBEm5WxFNVGvtAuqbcZr
+-- add the function-call key ed25519:5U6f1VTZ4kb3vRteFjZuNqpy5w9Kd6R1sMDnoJC9fMXi: allowance 0.5 NEAR, receiver nearbooks-v6.okf-kill-1792497882.testnet, methods keeper_request_snapshot, resolve_prediction
+4zmXP4Qk5yEuTd9gR1yErXVcPd1j9rdvsZnND8Twuj5Z
+-- owner names the keeper, daily cap 0.06 NEAR (event keeper_set); okf-kill-1792497882.testnet prepays 0.15 NEAR (event keeper_funded)
+9kuWAtebygaKePWSpbje6dDwLCEcpPG8JTifpmriwu5H
+EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"keeper_set","data":{"keeper_id":"nearbooks-keeper.okf-kill-1792497882.testnet","daily_cap":"60000000000000000000000","previous":null}}
+HhQfjLjt6tsBzgGDjKQAYhFFppyrkNSRZDtVKq5dwSw6
+EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"keeper_funded","data":{"from":"okf-kill-1792497882.testnet","amount":"150000000000000000000000","budget":"150000000000000000000000"}}
+get_keeper: {"budget":"150000000000000000000000","daily_cap":"60000000000000000000000","day":"2026-10-20","keeper_id":"nearbooks-keeper.okf-kill-1792497882.testnet","request_cost":"30000000000000000000000","spent_today":"0"}
+-- NEGATIVE: what the keeper key cannot do (rejected before execution, no fee)
+REFUSED  payable request_snapshot with 0.03 NEAR attached: {"TxExecutionError": {"InvalidTxError": {"InvalidAccessKeyError": "DepositWithFunctionCall"}}}
+REFUSED  fund_keeper (method not on the key): {"TxExecutionError": {"InvalidTxError": {"InvalidAccessKeyError": {"MethodNameMismatch": {"method_name": "fund_keeper"}}}}}
+REFUSED  a call to another contract: {"TxExecutionError": {"InvalidTxError": {"InvalidAccessKeyError": {"ReceiverMismatch": {"ak_receiver": "nearbooks-v6.okf-kill-1792497882.testnet", "tx_receiver": "outlayer.testnet"}}}}}
+REFUSED  a plain transfer of 0.1 NEAR: {"TxExecutionError": {"InvalidTxError": {"InvalidAccessKeyError": "RequiresFullAccess"}}}
+-- NEGATIVE: the funder (not the keeper) cannot spend the budget
+Smart contract panicked: only the keeper can spend the keeper budget
+-- the keeper requests the attested snapshot of 2026-10-20 through the budget
+{"ts":"2026-10-20T21:28:36Z","event":"start","contract":"nearbooks-v6.okf-kill-1792497882.testnet","keeper":"nearbooks-keeper.okf-kill-1792497882.testnet","date":"2026-10-20","dry_run":false}
+{"ts":"2026-10-20T21:28:39Z","event":"key_ok","account":"nearbooks-keeper.okf-kill-1792497882.testnet","public_key":"ed25519:5U6f1VTZ4kb3vRteFjZuNqpy5w9Kd6R1sMDnoJC9fMXi","receiver":"nearbooks-v6.okf-kill-1792497882.testnet","methods":["keeper_request_snapshot","resolve_prediction"],"allowance":"500000000000000000000000"}
+{"ts":"2026-10-20T21:28:53Z","event":"first_blocks","date":"2026-10-20","block_height":220726930,"block_height_28d":216696053}
+{"ts":"2026-10-20T21:29:02Z","event":"tx_sent","method":"keeper_request_snapshot","args":{"date":"2026-10-20","block_height":220726930,"block_height_28d":216696053},"tx":"BWso6e2mQR5Qmj8tCvxbF9J8SHkoqgVnbV3rWXLFfyi4"}
+{"ts":"2026-10-20T21:29:19Z","event":"snapshot_result","date":"2026-10-20","tx":"BWso6e2mQR5Qmj8tCvxbF9J8SHkoqgVnbV3rWXLFfyi4","ok":true,"value":"stored attested snapshot 2026-10-20","stored":true}
+{"ts":"2026-10-20T21:29:22Z","event":"done","failures":0}
+get_keeper: {"budget":"128980000000000000000000","daily_cap":"60000000000000000000000","day":"2026-10-20","keeper_id":"nearbooks-keeper.okf-kill-1792497882.testnet","request_cost":"30000000000000000000000","spent_today":"30000000000000000000000"}
+-- second run: idempotent (the snapshot exists, nothing is signed)
+{"ts":"2026-10-20T21:29:22Z","event":"start","contract":"nearbooks-v6.okf-kill-1792497882.testnet","keeper":"nearbooks-keeper.okf-kill-1792497882.testnet","date":"2026-10-20","dry_run":false}
+{"ts":"2026-10-20T21:29:26Z","event":"key_ok","account":"nearbooks-keeper.okf-kill-1792497882.testnet","public_key":"ed25519:5U6f1VTZ4kb3vRteFjZuNqpy5w9Kd6R1sMDnoJC9fMXi","receiver":"nearbooks-v6.okf-kill-1792497882.testnet","methods":["keeper_request_snapshot","resolve_prediction"],"allowance":"498679548710747900000000"}
+{"ts":"2026-10-20T21:29:32Z","event":"snapshot_exists","date":"2026-10-20"}
+{"ts":"2026-10-20T21:29:35Z","event":"done","failures":0}
+-- third-party verification
+snapshot 2026-10-20: nonce 0, OutLayer request 5240, mainnet block 220726930 (ts 1792454400548428142)
+attestation: https://testnet-api.outlayer.ai/attestations/by-request/5240
+PASS  snapshot's attestation link == the allowlisted URL for its request id
+PASS  attestation.request_id == snapshot request_id  5240
+PASS  attestation.wasm_hash == snapshot wasm_hash  bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963
+PASS  attestation.executed_wasm_sha256 == wasm_hash
+PASS  snapshot wasm_hash == the contract's pin for that date  outlayer.testnet
+PASS  wasm_hash is a worker this repo vouches for (contract/known_workers.json)  format 3 (28-day lookback), commit 422a4e6
+INFO  current pin: bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963 (same); waiting proposal: None
+PASS  local worker build sha256 == wasm_hash  bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963
+PASS  attestation.input_hash == sha256(contract input)  {"n":"0","d":"2026-10-20","b":"220726930","b28":"216696053"}
+PASS  attestation.output_hash == snapshot output_sha256  99a4cf8c881ba3fdbef9f26388d9fcfcbf95c177d24f61e589ce570c5bf27251
+PASS  transaction calls this contract's request_snapshot or keeper_request_snapshot  BWso6e2mQR5Qmj8tCvxbF9J8SHkoqgVnbV3rWXLFfyi4 (keeper_request_snapshot)
+PASS  OutLayer receipt returned bytes hashing to output_hash
+PASS  stored metrics == attested output (all 13, incl. the 28-day ones recomputed here)  {"bb":"2022180087915366303354191622511","bb28":"1742992598429748746718610202638","cs":"270875891412420848813311023","cs28":"270776835252430877653311023","d":"2026-10-20","fb":"0","fe":"1916643242806074001541587346866","fe28":"1761656506829824773977686937425","h":"220726930","h28":"216696053","ms":"3043","n":"0","rc":"8","rd":"0","rid":"5240","rk":"8","rm":"0","rt":"","sha":"875a2965057e9b6d4c6f153b05186aedd30f5025109721b75f42c138dc247ec0","sup":"1309428647101414191323016386004184","sup28":"1306946432063617123518596881337035","t":"1792454400548428142","v":"3"}
+INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 f6c4087e601b4300... (= worker_measurement)
+PASS  quote report_data == sha256(task fields): the quote is bound to this run  ddecfc906b8ee99540a449ca955f3cdce346b97c04b7aba1475f364108b23bc2
+PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (110 approved sets)
+SKIP  Intel DCAP signature chain (pass --dcap /path/to/dcap-qvl)
+14/14 checks pass

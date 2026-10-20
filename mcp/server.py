@@ -111,7 +111,7 @@ def tool_get_predictions(args):
 
 def tool_get_contract_config(args):
     state, mode = _state(args)
-    keys = ("owner_id", "reporter_id", "pin_delay_secs", "pins", "pin_proposal", "earliest_date")
+    keys = ("owner_id", "reporter_id", "pin_delay_secs", "pins", "pin_proposal", "earliest_date", "keeper")
     return {**_source(state, mode), **{k: state[k] for k in keys},
             "note": "A re-pin is proposed, waits pin_delay_secs, then governs only dates that start after it is applied (pins[i].from_ns)."}
 
@@ -126,7 +126,7 @@ TOOLS = {
                                {"type": "object", "properties": {"date": {"type": "string"}, "verify": {"type": "boolean"}, "offline": {"type": "boolean"}}}),
     "get_predictions": (tool_get_predictions, "Every prediction registered in the nearbooks testnet contract with its on-chain status (pending, confirmed, refuted, void) and the observed value that decided it, read live over RPC (cache fallback, flagged). Optional `status`, `offline`.",
                         {"type": "object", "properties": {"status": {"type": "string", "enum": ["pending", "confirmed", "refuted", "void"]}, "offline": {"type": "boolean"}}}),
-    "get_contract_config": (tool_get_contract_config, "Owner, reporter, pin history, waiting pin proposal, timelock and earliest_date of the nearbooks testnet contract, read live (cache fallback, flagged).",
+    "get_contract_config": (tool_get_contract_config, "Owner, reporter, pin history, waiting pin proposal, timelock, earliest_date and keeper budget (keeper account, daily cap, budget, spent today) of the nearbooks testnet contract, read live (cache fallback, flagged).",
                             {"type": "object", "properties": {"offline": {"type": "boolean"}}}),
 }
 

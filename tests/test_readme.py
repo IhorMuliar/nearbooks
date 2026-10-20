@@ -77,14 +77,23 @@ class TestReadmeFacts(unittest.TestCase):
         d = load_json(os.path.join(ROOT, "contract", "deployment.json"))
         self.assertTrue(d["worker_url"].endswith(d["worker_sha256"] + ".wasm"))
         self.assertEqual(load_json(os.path.join(ROOT, "site", "contract-cache.json"))["contract"], d["contract"])
-        with open(os.path.join(ROOT, "contract", "testnet-attested.log")) as f:
+        with open(os.path.join(ROOT, "contract", "testnet-keeper.log")) as f:
             log = f.read()
-        self.assertIn(f"contract wasm sha256: {d['code_sha256']}", log, "the logged deploy used this build")
-        with open(os.path.join(ROOT, "contract", "testnet-resolve.log")) as f:
-            log += f.read()
+        self.assertIn(f"contract {d['contract']} (code sha256 {d['code_sha256']})", log, "the logged deploy used this build")
+        self.assertIn(d["keeper"]["function_call_key"], log)
         for _, tx in d["transactions"]:
             self.assertIn(tx, log)
-
+        with open(os.path.join(ROOT, "contract", "Cargo.toml")) as f:
+            toml = f.read()
+        self.assertIn(f'image_digest = "{d["reproducible_build"]["image_digest"]}"', toml)
+        with open(os.path.join(ROOT, "contract", "testnet-attested.log")) as f:
+            old = f.read()
+        with open(os.path.join(ROOT, "contract", "testnet-resolve.log")) as f:
+            old += f.read()
+        for p in d["previous_deployments"]:
+            self.assertIn(f"contract wasm sha256: {p['code_sha256']}", old)
+            for _, tx in p["transactions"]:
+                self.assertIn(tx, old)
 
 if __name__ == "__main__":
     unittest.main()

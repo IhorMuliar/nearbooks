@@ -134,7 +134,7 @@ const ATTESTATION_API = "https://testnet-api.outlayer.ai";
 // Transactions are looked up on archival nodes: the regular testnet RPCs drop data after a few days.
 const ARCHIVAL_RPCS = ["https://archival-rpc.testnet.near.org", "https://archival-rpc.testnet.fastnear.com"];
 // The one contract this page reads (no override: a link must not be able to dress up another contract as attested).
-const CONTRACT = "nearbooks-v5.okf-kill-1792497882.testnet";
+const CONTRACT = "nearbooks-v6.okf-kill-1792497882.testnet";
 // Worker builds this repo vouches for; identical to contract/known_workers.json (tests/test_mcp.py checks).
 const KNOWN_WORKERS = ["bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963"];
 const RPCS = ((Q.get("rpc") || "").split(",").filter((u) => RPC_ALLOWED.includes(u)).concat(RPC_ALLOWED)).filter((u, i, a) => a.indexOf(u) === i);

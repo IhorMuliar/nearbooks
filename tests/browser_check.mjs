@@ -50,7 +50,7 @@ async function open(url, opts = {}) {
 {
   const { page, ctx, hosts } = await open(BASE + "?rpc=https://evil.example&contract=attacker.testnet");
   const shown = await page.textContent("#status");
-  shown.includes("nearbooks-v5.okf-kill-1792497882.testnet") ? pass("?contract= is ignored") : fail("?contract= changed the contract");
+  shown.includes("nearbooks-v6.okf-kill-1792497882.testnet") ? pass("?contract= is ignored") : fail("?contract= changed the contract");
   const bad = [...hosts].filter((h) => !ALLOWED.includes(h));
   bad.length ? fail(`requests to non-allowlisted hosts: ${bad}`) : pass(`hosts contacted: ${[...hosts].join(", ")}`);
   await ctx.close();

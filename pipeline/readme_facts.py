@@ -63,12 +63,19 @@ def tests_block(m, findings):
 
 def deployment_block(m, findings):
     d = _load("contract/deployment.json")
+    rb, k = d["reproducible_build"], d["keeper"]
+    near = lambda y: f"{int(y) / 10**24:g} NEAR"
     rows = ["| Item | Value |", "|---|---|",
             f"| Contract | `{d['contract']}` ({d['network']}) |",
             f"| Code sha256 | `{d['code_sha256']}` ({d['code_size_bytes']:,} bytes; {d['build']}) |",
+            f"| Reproducible build | commit `{d['source_commit']}`, image `{rb['image']}@{rb['image_digest']}`; rebuild: `{rb['rebuild']}` |",
             f"| Pinned worker sha256 | `{d['worker_sha256']}` ([FastFS]({d['worker_url']})) |",
-            f"| Re-pin timelock | {d['pin_delay_secs']:,} s |"]
+            f"| Re-pin timelock | {d['pin_delay_secs']:,} s |",
+            f"| Keeper | `{k['account']}`: function-call key `{k['function_call_key']}` for {', '.join('`' + x + '`' for x in k['key_methods'])}, allowance {near(k['key_allowance_yocto'])}; daily cap {near(k['daily_cap_yocto'])}, budget funded {near(k['funded_yocto'])} |"]
     rows += [f"| {what} | `{tx}` |" for what, tx in d["transactions"]]
+    for p in d.get("previous_deployments", []):
+        rows.append(f"| **Earlier contract** `{p['contract']}` | code `{p['code_sha256']}` ({p['build']}); {p['status']} |")
+        rows += [f"| {p['contract'].split('.')[0]}: {what} | `{tx}` |" for what, tx in p["transactions"]]
     rows += [f"| Deleted superseded account `{a}` (funds returned to the funder) | `{tx}` |" for a, tx in d.get("superseded_accounts_deleted", [])]
     return "\n".join(rows)
 

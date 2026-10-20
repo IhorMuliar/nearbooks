@@ -1,10 +1,10 @@
 {
- "contract": "nearbooks-v5.okf-kill-1792497882.testnet",
+ "contract": "nearbooks-v6.okf-kill-1792497882.testnet",
  "network": "testnet",
  "rpc": "https://rpc.testnet.near.org",
- "block_height": 273970467,
- "fetched_at": "2026-10-20T16:35:15Z",
- "owner_id": "nearbooks-v5.okf-kill-1792497882.testnet",
+ "block_height": 274002295,
+ "fetched_at": "2026-10-20T21:39:14Z",
+ "owner_id": "nearbooks-v6.okf-kill-1792497882.testnet",
  "reporter_id": "nbproto-rep-1696.testnet",
  "pin_delay_secs": 3600,
  "pins": [
@@ -18,22 +18,19 @@
     "max_execution_seconds": 60
    },
    "from_ns": "0",
-   "applied_block": 273966590
+   "applied_block": 274001060
   }
  ],
- "pin_proposal": {
-  "config": {
-   "outlayer_id": "outlayer.testnet",
-   "wasm_url": "https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm",
-   "wasm_hash": "bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963",
-   "attestation_api": "https://testnet-api.outlayer.ai",
-   "max_instructions": 200000000,
-   "max_execution_seconds": 90
-  },
-  "proposed_at_ns": "1792512084467119729",
-  "apply_after_ns": "1792515684467119729"
- },
+ "pin_proposal": null,
  "earliest_date": "2026-10-20",
+ "keeper": {
+  "keeper_id": "nearbooks-keeper.okf-kill-1792497882.testnet",
+  "daily_cap": "60000000000000000000000",
+  "budget": "128980000000000000000000",
+  "day": "2026-10-20",
+  "spent_today": "30000000000000000000000",
+  "request_cost": "30000000000000000000000"
+ },
  "attested": [
   {
    "date": "2026-10-20",
@@ -92,22 +89,22 @@
     }
    ],
    "evidence_hash": "875a2965057e9b6d4c6f153b05186aedd30f5025109721b75f42c138dc247ec0",
-   "submitted_by": "okf-kill-1792497882.testnet",
-   "block_height": 273966704,
-   "block_timestamp_ms": 1792511973570,
+   "submitted_by": "nearbooks-keeper.okf-kill-1792497882.testnet",
+   "block_height": 274001258,
+   "block_timestamp_ms": 1792531753814,
    "source": {
     "attested": {
-     "nonce": 1,
-     "request_id": 5168,
+     "nonce": 0,
+     "request_id": 5240,
      "wasm_hash": "bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963",
      "block_height": 220726930,
      "block_timestamp_ns": "1792454400548428142",
-     "output_sha256": "e6ca46c3fe6da075ed2304e9808e610ff78f76059c54d96dd8f167856da8cab6",
-     "attestation": "https://testnet-api.outlayer.ai/attestations/by-request/5168"
+     "output_sha256": "99a4cf8c881ba3fdbef9f26388d9fcfcbf95c177d24f61e589ce570c5bf27251",
+     "attestation": "https://testnet-api.outlayer.ai/attestations/by-request/5240"
     }
    },
    "attestation_checks": {
-    "transaction_hash": "8s6bbc6aU84jgk3eAS8qq1a3ra6Kr8oguw2gHpNf7pMz",
+    "transaction_hash": "BWso6e2mQR5Qmj8tCvxbF9J8SHkoqgVnbV3rWXLFfyi4",
     "official_contract": true,
     "known_worker": true,
     "pin_for_date_matches": true,

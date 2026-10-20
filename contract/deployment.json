@@ -1,30 +1,179 @@
 {
-  "_comment": "The live testnet deployment. Every value comes from contract/testnet-attested.log and contract/testnet-resolve.log. `make verify` fails if the README disagrees with this file or if a local `make wasm` / `make worker` build differs from the hashes below; `make verify-deploy` also compares them with the chain.",
+  "_comment": "The live testnet deployment. Every value comes from contract/testnet-keeper.log (earlier contract: testnet-attested.log, testnet-resolve.log). `make verify` fails if the README disagrees with this file or if a local `make wasm` / `make worker` build differs from the hashes below; `make verify-deploy` compares them with the chain and rebuilds the contract reproducibly from source_commit.",
   "network": "testnet",
-  "contract": "nearbooks-v5.okf-kill-1792497882.testnet",
+  "contract": "nearbooks-v6.okf-kill-1792497882.testnet",
   "funder": "okf-kill-1792497882.testnet",
-  "code_sha256": "b9343afe68017cd5853e31a8550b7a021d172ec21704ca078fae998659206b18",
-  "code_size_bytes": 254824,
-  "build": "cargo-near 0.22.0, cargo near build non-reproducible-wasm, rustc 1.98.0",
+  "code_sha256": "644a8df3222e098485ce944d39a144715f93165e8377bf65fd923fae27342cae",
+  "code_size_bytes": 271141,
+  "build": "cargo near build reproducible-wasm (host cargo-near 0.22.0; image sourcescan/cargo-near:0.21.1-rust-1.96.0)",
+  "source_commit": "30d995d80f931de63cb778d1d8525bda2df2b915",
+  "reproducible_build": {
+    "image": "sourcescan/cargo-near:0.21.1-rust-1.96.0",
+    "image_digest": "sha256:ccb22bb4e677ed022d8b9d1aa1b32f0af52dd0471ef1c32e48dedbf68ee6ee17",
+    "container_build_command": [
+      "cargo",
+      "near",
+      "build",
+      "non-reproducible-wasm",
+      "--locked",
+      "--no-abi"
+    ],
+    "repository": "https://github.com/IhorMuliar/nearbooks",
+    "rebuild": "contract/scripts/repro_build.sh 30d995d80f931de63cb778d1d8525bda2df2b915"
+  },
   "worker_sha256": "bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963",
   "worker_url": "https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm",
   "pin_delay_secs": 3600,
+  "keeper": {
+    "account": "nearbooks-keeper.okf-kill-1792497882.testnet",
+    "function_call_key": "ed25519:5U6f1VTZ4kb3vRteFjZuNqpy5w9Kd6R1sMDnoJC9fMXi",
+    "key_receiver": "nearbooks-v6.okf-kill-1792497882.testnet",
+    "key_methods": [
+      "keeper_request_snapshot",
+      "resolve_prediction"
+    ],
+    "key_allowance_yocto": "500000000000000000000000",
+    "daily_cap_yocto": "60000000000000000000000",
+    "funded_yocto": "150000000000000000000000"
+  },
   "transactions": [
-    ["Create the contract account", "2vtwcPHrCLoBGoqGQTaUou8xvhhbm5nHgCNxtYAQoXdj"],
-    ["Deploy + new(owner, reporter, pin_delay_secs = 3600)", "3q8BoMC36HdWW3ceEXanBzoCt5BBzYpaDkqW2Pfp41Si"],
-    ["First pin (applies at once, event worker_pinned)", "E926APVGKKTqtLAuToUvNwsCEUWJD8S8pKg24UPAaut1"],
-    ["add_prediction P1", "AyJyrAcFDdp1vF4LAm7cwPaMm6yJNzG7vSCy6riKzufg"],
-    ["add_prediction P2", "2v1rLYevSWs1wWpUBpWaWSH9JNJu4pfUiQimtZFiu3pS"],
-    ["add_prediction P3", "EFWxCqCsbzmdprfqq81WFHqRLLgWpHYYAjt8pABpwEPH"],
-    ["add_prediction P4", "3XP6epQd9BLJaxFDRVQERLhUv9PNvQQYH812EcGkau8L"],
-    ["add_prediction demo 4 (resolves 2026-10-21)", "58Ecj4BJjYoKChBTtd8we5bzUVTeaYboiYW8raVP7HdL"],
-    ["add_prediction demo 5 (resolves 2026-10-21)", "6XBikgFVCS15oQ1MFL21tfUqTd1xaUM1ErnqxP6bdLne"],
-    ["add_prediction demo 6 (resolves 2026-10-21)", "EMxWSSqbtgE95DK9tD6usL5sPUqTvdp6h5cY3ebRJwa8"],
-    ["request_snapshot with a wrong 28-day block: worker refused, nothing stored, reserve refunded", "EDyJbhSRc7m4dyV619TwpfqtUg3ueoQ5Yr3quC2csU6S"],
-    ["request_snapshot(2026-10-20, 220726930, 216696053): stored, OutLayer request 5168", "8s6bbc6aU84jgk3eAS8qq1a3ra6Kr8oguw2gHpNf7pMz"],
-    ["propose_pin (event pin_proposed); apply_pin right after refused by the timelock", "DBLitSRh6xKdpfCF5MA91okLpWygGoj3nKeQD2eAWczD"],
-    ["cancel_pin_proposal (event pin_proposal_cancelled)", "Fu7RF4rxjrbveQrbyzdhdy7eS8TAiDeJmLP6NciASfn8"],
-    ["propose_pin again (time limit 60 s -> 90 s), applicable after 2026-10-20 17:01 UTC", "Evxxf3CFJZJMyrTqUZHYNnQkc2wadrr2iiZSxGwW2cWC"]
+    [
+      "Create the contract account",
+      "3KaDPdorZvHdDSVLrpiBXYqNT7pE9oNzRH1cAzUhF6xM"
+    ],
+    [
+      "Deploy the reproducible build + new(owner, reporter, pin_delay_secs = 3600)",
+      "E4v9u7RahTmuz89jVWQfwLmrtTVyopmNvkvpLix5MFvR"
+    ],
+    [
+      "First pin (applies at once, event worker_pinned)",
+      "9F5YW5ajQZhsooD2FjNgZSRpEPwemp6hzkar66YMrAj5"
+    ],
+    [
+      "add_prediction P1",
+      "9A7NKUTXr2PmczmAVDdGuAGUkyFPQ5H6C1cYhNYScEpD"
+    ],
+    [
+      "add_prediction P2",
+      "APmvdKUssWtf1VrxbwxXbXGERT185ZNGvpe2jEWNiez8"
+    ],
+    [
+      "add_prediction P3",
+      "BvWkuvvQg5a4v3M9rWnXS978SYnmCN6qaNxvVPsMnqCe"
+    ],
+    [
+      "add_prediction P4",
+      "4qPNwTS8ZQeUnvcFCWYU3rA6K7bxURWUepoNKxwibAu8"
+    ],
+    [
+      "add_prediction demo 4 (resolves 2026-10-21)",
+      "GGruMXnrjrJKfM6kRMnMddrSVp3YxDuXWMeFrQF6iPn8"
+    ],
+    [
+      "add_prediction demo 5 (resolves 2026-10-21)",
+      "4YtBHvmzXtz4V8ebYdTeh9qEo5kpjLmWiXwJ4zSqs8RH"
+    ],
+    [
+      "add_prediction demo 6 (resolves 2026-10-21)",
+      "E4MW7TPu1cBiLm8Uq49B5pnR8PzuGNE5zKMuWP6g5rkt"
+    ],
+    [
+      "Create the keeper account (1 NEAR)",
+      "FyPGwu9472pB1gMo95rD9xYHLBEm5WxFNVGvtAuqbcZr"
+    ],
+    [
+      "Add the keeper's function-call key (allowance 0.5 NEAR; this contract; keeper_request_snapshot, resolve_prediction)",
+      "4zmXP4Qk5yEuTd9gR1yErXVcPd1j9rdvsZnND8Twuj5Z"
+    ],
+    [
+      "set_keeper(keeper, daily cap 0.06 NEAR) (event keeper_set)",
+      "9kuWAtebygaKePWSpbje6dDwLCEcpPG8JTifpmriwu5H"
+    ],
+    [
+      "fund_keeper 0.15 NEAR (event keeper_funded)",
+      "HhQfjLjt6tsBzgGDjKQAYhFFppyrkNSRZDtVKq5dwSw6"
+    ],
+    [
+      "keeper/keeper.py: keeper_request_snapshot(2026-10-20, 220726930, 216696053) signed by the function-call key: stored, OutLayer request 5240",
+      "BWso6e2mQR5Qmj8tCvxbF9J8SHkoqgVnbV3rWXLFfyi4"
+    ]
   ],
-  "superseded_accounts_deleted": [["nearbooks-v4.okf-kill-1792497882.testnet", "BYQQAY8QnDRiPaLEXYQXFe7oTmdWRciytwJzLdwx7LQt"]]
+  "previous_deployments": [
+    {
+      "contract": "nearbooks-v5.okf-kill-1792497882.testnet",
+      "code_sha256": "b9343afe68017cd5853e31a8550b7a021d172ec21704ca078fae998659206b18",
+      "code_size_bytes": 254824,
+      "build": "cargo-near 0.22.0, cargo near build non-reproducible-wasm, rustc 1.98.0",
+      "pin_delay_secs": 3600,
+      "transactions": [
+        [
+          "Create the contract account",
+          "2vtwcPHrCLoBGoqGQTaUou8xvhhbm5nHgCNxtYAQoXdj"
+        ],
+        [
+          "Deploy + new(owner, reporter, pin_delay_secs = 3600)",
+          "3q8BoMC36HdWW3ceEXanBzoCt5BBzYpaDkqW2Pfp41Si"
+        ],
+        [
+          "First pin (applies at once, event worker_pinned)",
+          "E926APVGKKTqtLAuToUvNwsCEUWJD8S8pKg24UPAaut1"
+        ],
+        [
+          "add_prediction P1",
+          "AyJyrAcFDdp1vF4LAm7cwPaMm6yJNzG7vSCy6riKzufg"
+        ],
+        [
+          "add_prediction P2",
+          "2v1rLYevSWs1wWpUBpWaWSH9JNJu4pfUiQimtZFiu3pS"
+        ],
+        [
+          "add_prediction P3",
+          "EFWxCqCsbzmdprfqq81WFHqRLLgWpHYYAjt8pABpwEPH"
+        ],
+        [
+          "add_prediction P4",
+          "3XP6epQd9BLJaxFDRVQERLhUv9PNvQQYH812EcGkau8L"
+        ],
+        [
+          "add_prediction demo 4 (resolves 2026-10-21)",
+          "58Ecj4BJjYoKChBTtd8we5bzUVTeaYboiYW8raVP7HdL"
+        ],
+        [
+          "add_prediction demo 5 (resolves 2026-10-21)",
+          "6XBikgFVCS15oQ1MFL21tfUqTd1xaUM1ErnqxP6bdLne"
+        ],
+        [
+          "add_prediction demo 6 (resolves 2026-10-21)",
+          "EMxWSSqbtgE95DK9tD6usL5sPUqTvdp6h5cY3ebRJwa8"
+        ],
+        [
+          "request_snapshot with a wrong 28-day block: worker refused, nothing stored, reserve refunded",
+          "EDyJbhSRc7m4dyV619TwpfqtUg3ueoQ5Yr3quC2csU6S"
+        ],
+        [
+          "request_snapshot(2026-10-20, 220726930, 216696053): stored, OutLayer request 5168",
+          "8s6bbc6aU84jgk3eAS8qq1a3ra6Kr8oguw2gHpNf7pMz"
+        ],
+        [
+          "propose_pin (event pin_proposed); apply_pin right after refused by the timelock",
+          "DBLitSRh6xKdpfCF5MA91okLpWygGoj3nKeQD2eAWczD"
+        ],
+        [
+          "cancel_pin_proposal (event pin_proposal_cancelled)",
+          "Fu7RF4rxjrbveQrbyzdhdy7eS8TAiDeJmLP6NciASfn8"
+        ],
+        [
+          "propose_pin again (time limit 60 s -> 90 s), applicable after 2026-10-20 17:01 UTC",
+          "Evxxf3CFJZJMyrTqUZHYNnQkc2wadrr2iiZSxGwW2cWC"
+        ]
+      ],
+      "status": "still live and unchanged: it carries the re-pin timelock demo (proposal applicable after 2026-10-20 17:01 UTC) and its own predictions 0-6; contract/testnet-attested.log, contract/testnet-resolve.log"
+    }
+  ],
+  "superseded_accounts_deleted": [
+    [
+      "nearbooks-v4.okf-kill-1792497882.testnet",
+      "BYQQAY8QnDRiPaLEXYQXFe7oTmdWRciytwJzLdwx7LQt"
+    ]
+  ]
 }

@@ -104,7 +104,7 @@ class FakeRpc(http.server.BaseHTTPRequestHandler):
         value = {"list_attested_snapshots": s["attested"][args.get("from_index", 0):][:args.get("limit", 30)],
                  "list_predictions": s["predictions"][args.get("from_index", 0):][:args.get("limit", 30)],
                  "get_config": [s["owner_id"], s["reporter_id"]], "get_pin_delay_secs": s["pin_delay_secs"], "list_pins": s["pins"],
-                 "get_pin_proposal": s["pin_proposal"], "get_earliest_date": s["earliest_date"]}[p["method_name"]]
+                 "get_pin_proposal": s["pin_proposal"], "get_earliest_date": s["earliest_date"], "get_keeper": s.get("keeper")}[p["method_name"]]
         body = json.dumps({"jsonrpc": "2.0", "id": req["id"], "result": {"result": list(json.dumps(value).encode()), "logs": [], "block_height": 4242}}).encode()
         self.send_response(200); self.send_header("content-type", "application/json"); self.send_header("content-length", str(len(body))); self.end_headers()
         self.wfile.write(body)
@@ -307,7 +307,7 @@ class TestChainFailures(unittest.TestCase):
             return (cache["attested"] if method == "list_attested_snapshots" else cache["predictions"]), "https://rpc.testnet.near.org", 7
         def fake_view(method, args=None, contract=None, timeout=10):
             return {"get_config": [cache["owner_id"], cache["reporter_id"]], "get_pin_delay_secs": 3600, "list_pins": cache["pins"],
-                    "get_pin_proposal": None, "get_earliest_date": cache["earliest_date"]}[method], "https://rpc.testnet.near.org", 7
+                    "get_pin_proposal": None, "get_earliest_date": cache["earliest_date"], "get_keeper": cache["keeper"]}[method], "https://rpc.testnet.near.org", 7
         def broken(*a, **k):
             raise chain.Unreachable("archival RPC down")
         saved = (chain._all, chain.view, chain.attestation_checks)
