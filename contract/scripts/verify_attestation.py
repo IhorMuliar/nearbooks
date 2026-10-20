@@ -19,9 +19,16 @@ calls), fetches the public OutLayer attestation it links to, then checks:
 Optionally, independently: the observation block is the first mainnet block of DATE (worker/scripts/first_block.py).
 Exit code 0 only if every check that ran passes.
 """
-import base64, hashlib, json, struct, subprocess, sys, tempfile, urllib.request
+import base64, hashlib, json, struct, subprocess, sys, tempfile, urllib.error, urllib.request
 
 RPC = "https://rpc.testnet.near.org"
+ATTESTATION_BASES = {"https://testnet-api.outlayer.ai", "https://api.outlayer.ai"}
+MAX_RESPONSE = 256 * 1024
+
+
+class NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, f"redirect to {newurl!r} refused", headers, fp)
 
 
 def post(url, payload):
@@ -68,6 +75,7 @@ def task_hash(att):
 def main(argv):
     wasm, dcap = opt(argv, "--wasm"), opt(argv, "--dcap")
     register = opt(argv, "--register", "worker.outlayer.testnet")
+    api = opt(argv, "--attestation-api", "https://testnet-api.outlayer.ai")
     contract = argv[1]
     if len(argv) > 2:
         snap = view(contract, "get_attested_snapshot", {"date": argv[2]})
@@ -78,14 +86,24 @@ def main(argv):
     a = snap["source"]["attested"]
     cfg = view(contract, "get_pin_for_date", {"date": snap["date"]})
     print(f"snapshot {snap['date']}: nonce {a['nonce']}, OutLayer request {a['request_id']}, mainnet block {a['block_height']} (ts {a['block_timestamp_ns']})")
-    print(f"attestation: {a['attestation']}")
-    with urllib.request.urlopen(a["attestation"], timeout=30) as r:
-        att = json.load(r)
+    # Never fetch a URL taken from contract state: rebuild it from the allowlisted API base and the numeric request id.
+    rid = a["request_id"]
+    if not isinstance(rid, int) or isinstance(rid, bool) or not 0 <= rid < 2**63 or api not in ATTESTATION_BASES:
+        sys.exit(f"refused: request id {rid!r} / attestation API {api!r} (allowed: {sorted(ATTESTATION_BASES)})")
+    url = f"{api}/attestations/by-request/{rid}"
+    print(f"attestation: {url}")
+    with urllib.request.build_opener(NoRedirect).open(url, timeout=30) as r:
+        body = r.read(MAX_RESPONSE + 1)
+    if len(body) > MAX_RESPONSE:
+        sys.exit("attestation response too large")
+    att = json.loads(body)
 
     checks = []
     def check(name, ok, detail=""):
         checks.append(bool(ok))
         print(f"{'PASS' if ok else 'FAIL'}  {name}{('  ' + detail) if detail else ''}")
+
+    check("snapshot's attestation link == the allowlisted URL for its request id", a["attestation"] == url)
 
     check("attestation.request_id == snapshot request_id", att.get("request_id") == a["request_id"], str(att.get("request_id")))
     check("attestation.wasm_hash == snapshot wasm_hash", att.get("wasm_hash") == a["wasm_hash"], a["wasm_hash"])

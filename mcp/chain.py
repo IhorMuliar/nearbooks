@@ -7,7 +7,7 @@
 Used by mcp/server.py (get_attested_snapshots, get_predictions). site/index.html does the same reads from the browser.
 The offline cache (site/contract-cache.json) is what both fall back to when the RPC cannot be reached.
 """
-import base64, hashlib, json, os, sys, time, urllib.request
+import base64, hashlib, ipaddress, json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 CONTRACT = os.environ.get("NEARBOOKS_CONTRACT", "nearbooks-v5.okf-kill-1792497882.testnet")
@@ -15,16 +15,66 @@ RPCS = [u for u in os.environ.get("NEARBOOKS_RPC", "https://rpc.testnet.near.org
 CACHE = os.environ.get("NEARBOOKS_CACHE", os.path.join(ROOT, "site", "contract-cache.json"))
 EXPLORER = "https://testnet.nearblocks.io"
 MICRO = 10**6
+# Network access is limited to these HTTPS hosts. URLs found in contract state are never fetched as given: the
+# attestation URL is rebuilt from an allowlisted base and the snapshot's numeric request id.
+RPC_HOSTS = {"rpc.testnet.near.org", "rpc.testnet.fastnear.com", "test.rpc.fastnear.com"}
+ATTESTATION_BASES = {"https://testnet-api.outlayer.ai", "https://api.outlayer.ai"}
+ATTESTATION_API = os.environ.get("NEARBOOKS_ATTESTATION_API", "https://testnet-api.outlayer.ai")
+# Tests run a fake RPC on 127.0.0.1; only this explicit switch lets a loopback http:// RPC through.
+ALLOW_LOOPBACK_RPC = os.environ.get("NEARBOOKS_RPC_ALLOW_LOOPBACK") == "1"
+MAX_RESPONSE_BYTES = 256 * 1024
 
 
 class Unreachable(Exception):
     pass
 
 
+class RefusedUrl(ValueError):
+    pass
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise urllib.error.HTTPError(req.full_url, code, f"redirect to {newurl!r} refused", headers, fp)
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect)
+
+
+def _is_loopback(host):
+    try:
+        return host == "localhost" or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def check_url(url, hosts, loopback_ok=False):
+    """Returns url if it is https on an allowlisted host (default port, no credentials); raises RefusedUrl otherwise."""
+    u = urllib.parse.urlsplit(url)
+    host = u.hostname or ""
+    if u.username or u.password:
+        raise RefusedUrl(f"refused {url!r}: credentials in URL")
+    if loopback_ok and _is_loopback(host) and u.scheme in ("http", "https"):
+        return url
+    if u.scheme != "https":
+        raise RefusedUrl(f"refused {url!r}: only https is allowed")
+    if host not in hosts or u.port not in (None, 443):
+        raise RefusedUrl(f"refused {url!r}: host not in the allowlist {sorted(hosts)}")
+    return url
+
+
+def _read(req, timeout):
+    with _OPENER.open(req, timeout=timeout) as r:
+        body = r.read(MAX_RESPONSE_BYTES + 1)
+    if len(body) > MAX_RESPONSE_BYTES:
+        raise ValueError(f"response larger than {MAX_RESPONSE_BYTES} bytes")
+    return json.loads(body)
+
+
 def _post(url, payload, timeout):
+    check_url(url, RPC_HOSTS, loopback_ok=ALLOW_LOOPBACK_RPC)
     req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"content-type": "application/json"})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
-        return json.load(r)
+    return _read(req, timeout)
 
 
 def view(method, args=None, contract=None, timeout=10):
@@ -35,6 +85,9 @@ def view(method, args=None, contract=None, timeout=10):
     for url in RPCS:
         try:
             r = _post(url, {"jsonrpc": "2.0", "id": "nb", "method": "query", "params": params}, timeout)
+        except RefusedUrl as e:
+            errors.append(str(e))
+            continue
         except (OSError, ValueError) as e:
             errors.append(f"{url}: {e}")
             continue
@@ -63,13 +116,26 @@ def worker_input(snap):
     return '{"n":"%d","d":"%s","b":"%d","b28":"%d"}' % (a["nonce"], snap["date"], a["block_height"], b28)
 
 
+def attestation_url(snap):
+    """The public attestation of a snapshot, built from the allowlisted API base and its numeric OutLayer request id
+    (the URL string stored in the contract is only compared with this, never fetched)."""
+    rid = snap["source"]["attested"]["request_id"]
+    if not isinstance(rid, int) or isinstance(rid, bool) or not 0 <= rid < 2**63:
+        raise RefusedUrl(f"refused request id {rid!r}")
+    if ATTESTATION_API not in ATTESTATION_BASES:
+        raise RefusedUrl(f"refused attestation API {ATTESTATION_API!r}: not in {sorted(ATTESTATION_BASES)}")
+    return f"{ATTESTATION_API}/attestations/by-request/{rid}"
+
+
 def attestation_checks(snap, timeout=15):
-    """Fetches the public OutLayer attestation the snapshot links to and compares its hashes with the snapshot. The TDX
+    """Fetches the public OutLayer attestation of the snapshot and compares its hashes with the snapshot. The TDX
     quote itself is not checked here (contract/scripts/verify_attestation.py does that)."""
     a = snap["source"]["attested"]
-    att = _post_get(a["attestation"], timeout)
+    url = attestation_url(snap)
+    att = _post_get(url, timeout)
     return {
         "transaction_hash": att.get("transaction_hash"),
+        "attestation_url_matches": a["attestation"] == url,
         "wasm_hash_matches": att.get("wasm_hash") == a["wasm_hash"] == att.get("executed_wasm_sha256"),
         "input_hash_matches": att.get("input_hash") == hashlib.sha256(worker_input(snap).encode()).hexdigest(),
         "output_hash_matches": att.get("output_hash") == a["output_sha256"],
@@ -78,8 +144,8 @@ def attestation_checks(snap, timeout=15):
 
 
 def _post_get(url, timeout):
-    with urllib.request.urlopen(url, timeout=timeout) as r:
-        return json.load(r)
+    check_url(url, {urllib.parse.urlsplit(b).hostname for b in ATTESTATION_BASES})
+    return _read(urllib.request.Request(url), timeout)
 
 
 def fetch_state(contract=None, with_attestations=False):
@@ -99,7 +165,7 @@ def fetch_state(contract=None, with_attestations=False):
         for s in attested:
             try:
                 s["attestation_checks"] = attestation_checks(s)
-            except (OSError, ValueError) as e:
+            except (OSError, ValueError) as e:  # RefusedUrl is a ValueError
                 s["attestation_checks"] = {"error": str(e)[:200]}
     return state
 
@@ -129,7 +195,7 @@ def snapshot_view(s):
     a = s["source"]["attested"]
     out = {"date": s["date"], "metrics": metrics_dict(s), "mainnet_block_height": a["block_height"], "wasm_hash": a["wasm_hash"],
            "outlayer_request_id": a["request_id"], "output_sha256": a["output_sha256"], "evidence_hash": s["evidence_hash"],
-           "attestation_url": a["attestation"], "requested_by": s["submitted_by"], "stored_in_testnet_block": s["block_height"],
+           "attestation_url": attestation_url(s), "requested_by": s["submitted_by"], "stored_in_testnet_block": s["block_height"],
            "stored_block_url": f"{EXPLORER}/blocks/{s['block_height']}"}
     chk = s.get("attestation_checks")
     if chk:

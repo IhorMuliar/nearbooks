@@ -90,6 +90,13 @@ class FakeRpc(http.server.BaseHTTPRequestHandler):
 
     def do_POST(self):
         req = json.loads(self.rfile.read(int(self.headers["content-length"])))
+        if self.path == "/redirect":
+            self.send_response(307); self.send_header("location", "http://169.254.169.254/latest/meta-data/"); self.send_header("content-length", "0"); self.end_headers()
+            return
+        if self.path == "/big":
+            body = b'{"x":"' + b"a" * (300 * 1024) + b'"}'
+            self.send_response(200); self.send_header("content-length", str(len(body))); self.end_headers(); self.wfile.write(body)
+            return
         p = req["params"]
         FakeRpc.calls.append(p["method_name"])
         args = json.loads(base64.b64decode(p["args_base64"]) or b"{}")
@@ -123,7 +130,7 @@ class TestMcpContract(unittest.TestCase):
         cls.httpd.shutdown()
 
     def ask(self, rpc, name, args=None):
-        s = McpSession({"NEARBOOKS_RPC": rpc, "NEARBOOKS_CACHE": CACHE})
+        s = McpSession({"NEARBOOKS_RPC": rpc, "NEARBOOKS_CACHE": CACHE, "NEARBOOKS_RPC_ALLOW_LOOPBACK": "1"})
         try:
             r = s.call("tools/call", {"name": name, "arguments": args or {}})["result"]
         finally:
@@ -172,6 +179,100 @@ class TestMcpContract(unittest.TestCase):
         FakeRpc.calls = []
         out = self.ask(self.url, "get_predictions", {"offline": True})
         self.assertEqual((out["mode"], FakeRpc.calls), ("offline", []))
+
+
+    def test_rpc_outside_the_allowlist_is_refused_not_contacted(self):
+        s = McpSession({"NEARBOOKS_RPC": "https://evil.example,http://rpc.testnet.near.org", "NEARBOOKS_CACHE": CACHE})
+        try:
+            out = json.loads(s.call("tools/call", {"name": "get_predictions", "arguments": {}})["result"]["content"][0]["text"])
+        finally:
+            s.close()
+        self.assertEqual(out["mode"], "offline")
+        self.assertIn("host not in the allowlist", out["reason"])
+        self.assertIn("only https is allowed", out["reason"])
+
+    def test_loopback_rpc_needs_the_explicit_switch(self):
+        s = McpSession({"NEARBOOKS_RPC": self.url, "NEARBOOKS_CACHE": CACHE, "NEARBOOKS_RPC_ALLOW_LOOPBACK": ""})
+        try:
+            out = json.loads(s.call("tools/call", {"name": "get_predictions", "arguments": {}})["result"]["content"][0]["text"])
+        finally:
+            s.close()
+        self.assertEqual(out["mode"], "offline")
+
+    def test_redirects_and_oversized_responses_are_refused(self):
+        old = chain.ALLOW_LOOPBACK_RPC
+        chain.ALLOW_LOOPBACK_RPC = True
+        try:
+            with self.assertRaises(OSError) as e:
+                chain._post(self.url + "/redirect", {}, 5)
+            self.assertIn("redirect", str(e.exception))
+            with self.assertRaisesRegex(ValueError, "larger than"):
+                chain._post(self.url + "/big", {}, 5)
+        finally:
+            chain.ALLOW_LOOPBACK_RPC = old
+
+
+class TestUrlAllowlist(unittest.TestCase):
+    def test_check_url(self):
+        ok = "https://rpc.testnet.near.org"
+        self.assertEqual(chain.check_url(ok, chain.RPC_HOSTS), ok)
+        for bad in ("http://rpc.testnet.near.org", "https://evil.example", "https://rpc.testnet.near.org:8443", "https://u:p@rpc.testnet.near.org",
+                    "https://rpc.testnet.near.org.evil.example", "file:///etc/passwd", "http://127.0.0.1:8080", "https://169.254.169.254/"):
+            with self.assertRaises(chain.RefusedUrl, msg=bad):
+                chain.check_url(bad, chain.RPC_HOSTS)
+        self.assertEqual(chain.check_url("http://127.0.0.1:8080", chain.RPC_HOSTS, loopback_ok=True), "http://127.0.0.1:8080")
+        with self.assertRaises(chain.RefusedUrl):
+            chain.check_url("http://10.0.0.1", chain.RPC_HOSTS, loopback_ok=True)
+
+    def test_attestation_url_is_rebuilt_not_taken_from_state(self):
+        with open(CACHE) as f:
+            snap = json.load(f)["attested"][0]
+        snap["source"]["attested"]["attestation"] = "http://169.254.169.254/latest/meta-data/"
+        url = chain.attestation_url(snap)
+        self.assertEqual(url, f"https://testnet-api.outlayer.ai/attestations/by-request/{snap['source']['attested']['request_id']}")
+        fetched = []
+        orig = chain._read
+        try:
+            chain._read = lambda req, timeout: fetched.append(req.full_url) or {}
+            self.assertFalse(chain.attestation_checks(snap)["attestation_url_matches"], "a tampered stored link is reported")
+        finally:
+            chain._read = orig
+        self.assertEqual(fetched, [url])
+        for rid in ("5168", -1, 2**63, True, 1.5):
+            snap["source"]["attested"]["request_id"] = rid
+            with self.assertRaises(chain.RefusedUrl, msg=repr(rid)):
+                chain.attestation_url(snap)
+
+
+class TestSiteStatic(unittest.TestCase):
+    """site/index.html: no build step, no external scripts or styles, and it only talks to allowlisted origins."""
+
+    @classmethod
+    def setUpClass(cls):
+        with open(os.path.join(ROOT, "site", "index.html")) as f:
+            cls.html = f.read()
+
+    def test_no_external_scripts_styles_or_fonts(self):
+        import re
+        self.assertEqual(re.findall(r"<script[^>]+src=", self.html), [])
+        self.assertEqual(re.findall(r"<link[^>]+href=", self.html), [])
+        self.assertNotIn("@import", self.html)
+        self.assertNotIn("url(", self.html)
+
+    def test_rpc_and_attestation_origins_match_the_python_allowlist(self):
+        import re
+        rpcs = re.search(r"const RPC_ALLOWED = \[([^\]]+)\]", self.html).group(1)
+        self.assertEqual({u.split("//")[1] for u in re.findall(r'"([^"]+)"', rpcs)}, chain.RPC_HOSTS)
+        self.assertIn(re.search(r'const ATTESTATION_API = "([^"]+)"', self.html).group(1), chain.ATTESTATION_BASES)
+        # fetch() is only ever called on an RPC from the allowlisted list, the built attestation URL or local files
+        targets = re.findall(r"fetch\(([^,)]+)", self.html)
+        self.assertEqual(sorted(set(t.strip() for t in targets)), ["path", "url"])
+        self.assertIn('.filter((u) => RPC_ALLOWED.includes(u))', self.html, "?rpc= overrides are filtered")
+        self.assertIn("redirect: \"error\"", self.html)
+
+    def test_cache_is_the_contract_the_site_reads(self):
+        with open(CACHE) as f:
+            self.assertIn(f'"{json.load(f)["contract"]}"', self.html)
 
 
 class TestChain(unittest.TestCase):
