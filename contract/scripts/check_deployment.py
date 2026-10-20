@@ -35,12 +35,19 @@ def reproducible_build(commit):
         return None, "needs docker and cargo-near (set CARGO_NEAR)"
     with tempfile.TemporaryDirectory() as tmp:
         out = os.path.join(tmp, "nearbooks.wasm")
-        r = subprocess.run([os.path.join(ROOT, "contract", "scripts", "repro_build.sh"), commit, out], env={**os.environ, "CARGO_NEAR": cargo_near},
-                           capture_output=True, text=True)
+        for attempt in (1, 2, 3):  # the container fetches crates from crates.io, whose CDN sometimes answers 500
+            if attempt > 1:
+                time.sleep(30)
+            r = subprocess.run([os.path.join(ROOT, "contract", "scripts", "repro_build.sh"), commit, out], env={**os.environ, "CARGO_NEAR": cargo_near},
+                               capture_output=True, text=True)
+            if r.returncode != 1:
+                break
+            errors = [l.strip() for l in r.stderr.splitlines() if l.strip().startswith("error")] or r.stderr.strip().splitlines()[-1:] or ["?"]
+            print(f"INFO  reproducible build attempt {attempt} failed: {errors[0][:160]}")
         if r.returncode == 2:
             return None, r.stderr.strip()
         if r.returncode:
-            raise SystemExit(f"reproducible build failed:\n{r.stderr}")
+            return "build failed", "see the INFO lines above"
         env = next((l for l in r.stdout.splitlines() if l.startswith("CARGO_NEAR_BUILD_ENVIRONMENT=")), "")
         return hashlib.sha256(open(out, "rb").read()).hexdigest(), env.split("=", 1)[-1]
 
