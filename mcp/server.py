@@ -45,7 +45,7 @@ def tool_get_metrics(args):
         "deflation_breakeven_volume_usd_per_day": m["deflation"]["breakeven_volume_usd_per_day"],
         "deflation_breakeven_volume_usd_per_day_at_1_6pct": m["deflation"]["breakeven_volume_usd_per_day_at_target"],
         "current_volume_usd_per_day_30d": m["deflation"]["volume_usd_per_day_30d"],
-        "sources": "FastNear transfers API, FastNear archival RPC, DefiLlama; see README findings table for the checks",
+        "sources": "FastNear transfers API, FastNear archival RPC, DefiLlama; see docs/findings.md for the checks",
     }
     section = args.get("section")
     if section:

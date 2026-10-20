@@ -57,7 +57,8 @@ class TestReadmeFacts(unittest.TestCase):
         tmp = tempfile.mkdtemp()
         try:
             os.makedirs(os.path.join(tmp, "docs"))
-            shutil.copy(os.path.join(ROOT, "docs", "findings.md"), os.path.join(tmp, "docs"))
+            for doc in verify.DOCS:
+                shutil.copy(os.path.join(ROOT, "docs", doc), os.path.join(tmp, "docs"))
             with open(os.path.join(ROOT, "README.md")) as f:
                 txt = f.read()
             readme = os.path.join(tmp, "README.md")
@@ -72,6 +73,28 @@ class TestReadmeFacts(unittest.TestCase):
                     self.assertIn("placeholders left unfilled: README.md: " + extra.strip(), out.getvalue())
         finally:
             shutil.rmtree(tmp)
+
+    def test_every_occurrence_of_a_block_is_checked(self):
+        m = load_json(METRICS)
+        blocks = verify.generated_blocks(m)
+        b, e, body = next(x for x in blocks if x[0] == readme_facts.marker("test-output")[0])
+        good = b + "\n" + body + "\n" + e
+        self.assertNotIn(b, verify.stale_blocks({"a": good, "b": good}, [(b, e, body)]))
+        self.assertIn(b, verify.stale_blocks({"a": good, "b": good.replace("OK", "FAILED")}, [(b, e, body)]))
+        self.assertIn(b, verify.stale_blocks({"a": "no block here"}, [(b, e, body)]))
+
+    def test_hand_written_hashes_must_be_in_the_records(self):
+        known = readme_facts.record_hashes()
+        d = load_json(os.path.join(ROOT, "contract", "deployment.json"))
+        tx = d["transactions"][0][1]
+        ok = f"tx `{tx}`, code `{d['code_sha256']}`, worker {d['worker_sha256'][:8]}\u2026{d['worker_sha256'][-4:]}, code_hash {readme_facts._b58(d['code_sha256'])[:8]}\u2026x"
+        self.assertEqual(readme_facts.hash_problems("t", ok.replace("\u2026x", ""), known), [])
+        self.assertEqual(len(readme_facts.hash_problems("t", f"tx `{tx[:-1]}A`", known)), 1)
+        self.assertEqual(len(readme_facts.hash_problems("t", "worker bbed939a\u20260000", known)), 1)
+        self.assertEqual(len(readme_facts.hash_problems("t", "code " + "ab" * 32, known)), 1)
+        for path in verify.doc_paths(os.path.join(ROOT, "README.md")):
+            with open(path) as f:
+                self.assertEqual(readme_facts.hash_problems(path, f.read(), known), [])
 
     def test_deployment_record_is_consistent(self):
         d = load_json(os.path.join(ROOT, "contract", "deployment.json"))

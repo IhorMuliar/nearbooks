@@ -7,6 +7,7 @@ drifts from them. `check_builds` also fails when a local build in contract/res o
 deployed hashes.
 """
 import glob, hashlib, json, os, re
+from common import CONFIG
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MICRO = 10**6
@@ -30,24 +31,73 @@ def test_counts():
 
 
 def summary_block(m, findings):
-    t, d, c = test_counts(), _load("contract/deployment.json"), _load("site/contract-cache.json")
+    t, c = test_counts(), _load("site/contract-cache.json")
     st = {}
     for p in c["predictions"]:
         st[p["status"]] = st.get(p["status"], 0) + 1
+    ok = sum(f["ok"] for f in findings)
     return "\n".join([
-        f"NEAR Books rebuilds NEAR Intents' revenue, buyback and issuance numbers from raw chain data and checks {len(findings)} findings against DefiLlama and published figures, offline, with `make verify`.",
-        f"A NEAR testnet contract stores attested daily snapshots of NEAR mainnet (read by a pinned worker inside OutLayer's Intel TDX enclave) and resolves dated predictions from them only: {len(c['attested'])} snapshot(s), {len(c['predictions'])} predictions ({', '.join(f'{v} {k}' for k, v in sorted(st.items()))}) as of block {c['block_height']:,}.",
-        f"A dashboard and an MCP server read that contract live; {t['python'] + t['contract'] + t['worker']} tests ({t['python']} Python, {t['contract']} contract, {t['worker']} worker). Testnet only.",
+        f"Status: {ok}/{len(findings)} findings pass offline (`make verify`). "
+        f"The testnet contract holds {len(c['attested'])} attested snapshot(s) and {len(c['predictions'])} predictions ({', '.join(f'{v} {k}' for k, v in sorted(st.items()))}) as of testnet block {c['block_height']:,}. "
+        f"{t['python'] + t['contract'] + t['worker']} tests ({t['python']} Python, {t['contract']} contract, {t['worker']} worker).",
     ])
 
 
 def verify_block(m, findings):
+    """The last lines of `make verify`, verbatim; the findings it lists are the table in docs/findings.md."""
     lines = ["$ make verify", "...",
-             *[f"{'PASS' if f['ok'] else 'FAIL'} {f['id']}  {f['claim']}" for f in findings],
              f"as_of {m['as_of']}: {sum(f['ok'] for f in findings)}/{len(findings)} findings hold -> " + ("ALL PASS" if all(f["ok"] for f in findings) else "SOME FAILED"),
              "python3 -I pipeline/verify.py data/snapshot-2026-10-20/metrics.json --check-readme README.md",
              "README generated blocks match the verified output, no template placeholders left; local builds match contract/deployment.json"]
     return "```\n" + "\n".join(lines) + "\n```"
+
+
+def key_findings_block(m, findings):
+    """A short table of the headline numbers. Every number is computed from metrics.json here, the same way
+    pipeline/verify.py computes it; the Check column is that finding's verdict."""
+    ok = {f["id"]: f["ok"] for f in findings}
+    rec, rev, bb, sup, h, d = m["reconciliation"], m["revenue"], m["buyback"], m["supply"], m["hsp029"]["windows"], m["deflation"]
+    ytd = rec["rows"][0]
+    se2 = 2 * rec["daily_residual_sd_usd"] * m["window"]["days"] ** 0.5 / rev["defillama_ytd_usd"] * 100
+    r, ab = bb["reconciliation"], bb["reconciliation"]["altcoinbuzz"]
+    lo_price = min(d["price_usd"], d["price_implied_by_transfers"]["min"])
+    hi_take = max(d["take_rate_bps_weekly"] + [d["take_rate_bps"]])
+    cons = d["net_issuance_near_per_day"] * lo_price / (hi_take / 1e4) / d["volume_usd_per_day_30d"]
+    pub, s = CONFIG["published_claims"], m.get("sample")
+    meta = "-"
+    if s:
+        a, b = (s["meta_tx_by_month"][k] for k in (s["full_months"][0], s["full_months"][-1]))
+        meta = f"{a['p'] * 100:.1f}% ({s['full_months'][0]}) -> {b['p'] * 100:.1f}% ({s['full_months'][-1]})"
+    rows = [
+        ("F1a", f"Intents revenue {m['window']['start']}..{m['window']['end']}, rebuilt from raw transfers, matches DefiLlama",
+         f"${ytd['onchain']:,.0f} vs ${ytd['defillama']:,.0f} ({ytd['delta_pct']:+.2f}%)",
+         f"daily native-NEAR inflows to the 3 revenue wallets (FastNear); tolerance +-{se2:.2f}% (2 standard errors)"),
+        ("F2a", "The buyback wallet's balance is fully explained by its transfers and fees",
+         f"{r['balance_near']:,.3f} NEAR, {r['unexplained_yocto']} yoctoNEAR unexplained",
+         f"integer sums over {r['rows']:,} FastNear rows vs the archival RPC balance"),
+        ("F2b", "Total supply rose in every sampled interval of 2026 (no net burn visible)",
+         f"{sup['increasing_intervals']}/{sup['intervals']} sampled intervals up, {sup['growth_pct']:+.2f}%",
+         "archival RPC block headers"),
+        ("F2c", "Share of revenue DefiLlama labels 'buyback' that reached the buyback wallet",
+         f"{bb['share_reached_pct']:.1f}% (DefiLlama implies 100%)",
+         f"wallet inflows since {bb['buyback_start']} vs DefiLlama dailyHoldersRevenue"),
+        ("F2f", "The 2.02M vs 1.51M NEAR gap Altcoin Buzz could not explain",
+         f"{ab['gap_near']:,.1f} NEAR gap, decomposition closes to {ab['gap_closure_near']:+.3f} NEAR",
+         "internal transfer - outflows - fees + revenue after the dashboard cutoff; published figures pinned in config.json"),
+        ("F3a, F3b", "HSP-029's treasury share and realised issuance reproduce",
+         f"{h['92']['treasury_share_pct']:.3f}% vs {pub['hsp029_treasury_share_pct']}%; {d['annualised_net_issuance_pct']:.3f}%/yr vs {pub['hsp029_realized_issuance_pct']}%/yr",
+         "archival RPC supply and treasury.near balance, 7/28/92-day windows"),
+        ("F4a, F4b", "Daily volume needed for net deflation, vs current volume",
+         f"${d['breakeven_volume_usd_per_day'] / 1e6:,.0f}M/day = {d['breakeven_over_current_volume']:.1f}x current; {d['breakeven_over_current_volume_at_target']:.1f}x at {d['target_issuance_pct']:g}% issuance",
+         f"DefiLlama volume, on-chain take rate and issuance; worst-case price and take rate still give {cons:.1f}x"),
+        ("F6a", "Share of transactions that are meta-transactions (NEP-366 Delegate)",
+         meta, f"seeded {s['blocks'] if s else 0}-block NEARData sample; the two 95% intervals do not overlap"),
+    ]
+    out = ["| ID | Finding | Number | How it is checked | Check |", "|---|---|---|---|---|"]
+    for fid, what, num, how in rows:
+        verdict = all(ok.get(i.strip(), False) for i in fid.split(","))
+        out.append(f"| {fid} | {what} | {num} | {how} | {'PASS' if verdict else 'FAIL'} |")
+    return "\n".join(out)
 
 
 def tests_block(m, findings):
@@ -128,9 +178,41 @@ def check_builds():
     return out
 
 
+B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+HEX64 = re.compile(r"\b[0-9a-f]{64}\b")
+TXHASH = re.compile(r"\b[1-9A-HJ-NP-Za-km-z]{43,44}\b")
+SHORT = re.compile(r"\b([0-9A-Za-z]{4,})\u2026([0-9A-Za-z]{3,})\b")
+
+
+def _b58(hexstr):
+    n, out = int(hexstr, 16), ""
+    while n:
+        n, r = divmod(n, 58)
+        out = B58[r] + out
+    return out
+
+
+def record_hashes():
+    """Every long hash token in the committed records (deployment.json, the contract cache, the worker list and
+    the testnet logs), plus the base58 form of each hex hash (NEAR shows code_hash in base58)."""
+    txt = "".join(_text(os.path.join(ROOT, rel)) for rel in ("contract/deployment.json", "site/contract-cache.json", "contract/known_workers.json"))
+    txt += "".join(_text(p) for p in sorted(glob.glob(os.path.join(ROOT, "contract", "testnet-*.log"))))
+    toks = {t for t in re.findall(r"[0-9A-Za-z]+", txt) if len(t) >= 32}
+    return toks | {_b58(h) for h in HEX64.findall(txt)}
+
+
+def hash_problems(name, doc, known=None):
+    """Hashes written into a document by hand (pasted command output, prose) must exist in the committed records:
+    full hex and base58 hashes literally, abbreviated ones (`abcd1234…ef01`) as the prefix and suffix of one."""
+    known = record_hashes() if known is None else known
+    bad = [h for h in HEX64.findall(doc) + TXHASH.findall(doc) if h not in known]
+    bad += [f"{a}\u2026{b}" for a, b in SHORT.findall(doc) if not any(t.startswith(a) and t.endswith(b) for t in known)]
+    return [f"{name}: {h} is not in contract/deployment.json, site/contract-cache.json, contract/known_workers.json or contract/testnet-*.log" for h in dict.fromkeys(bad)]
+
+
 def marker(name):
     return (f"<!-- {name}:begin (generated by `make readme`) -->", f"<!-- {name}:end -->")
 
 
-BLOCKS = {"summary": summary_block, "verify-output": verify_block, "test-output": tests_block,
+BLOCKS = {"summary": summary_block, "verify-output": verify_block, "key-findings": key_findings_block, "test-output": tests_block,
           "deployment": deployment_block, "attested": attested_block, "predictions": predictions_block}

@@ -4,7 +4,7 @@
     python3 pipeline/verify.py METRICS --markdown                                # table as Markdown
     python3 pipeline/verify.py METRICS --check-readme README.md                  # generated blocks current, no placeholders
 
-Findings are defined once, here; the README table is generated from this output (see `make readme`).
+Findings are defined once, here; the findings table in docs/findings.md and the key-findings table in the README are generated from this output (see `make readme`).
 """
 import json, math, os, re, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -152,7 +152,7 @@ def markdown(fs):
 
 
 def generated_blocks(m):
-    """(begin marker, end marker, body) for every generated block in README.md and docs/findings.md."""
+    """(begin marker, end marker, body) for every generated block in README.md, docs/findings.md and docs/deployment.md."""
     import report, readme_facts
     fs = findings(m)
     out = [(BEGIN, END, markdown(fs))]
@@ -170,10 +170,30 @@ def placeholders(txt):
     return list(dict.fromkeys(m.group(0) for m in PLACEHOLDER.finditer(txt)))
 
 
+DOCS = ("findings.md", "deployment.md")
+
+
 def doc_paths(readme):
-    """README plus the docs that carry generated blocks."""
-    extra = os.path.join(os.path.dirname(os.path.abspath(readme)), "docs", "findings.md")
-    return [readme] + ([extra] if os.path.exists(extra) else [])
+    """README plus the docs that carry generated blocks (docs/findings.md, docs/deployment.md)."""
+    base = os.path.join(os.path.dirname(os.path.abspath(readme)), "docs")
+    return [readme] + [p for p in (os.path.join(base, d) for d in DOCS) if os.path.exists(p)]
+
+
+def stale_blocks(docs, blocks):
+    """Begin markers of blocks that appear nowhere, or whose body differs from the generated one at any occurrence."""
+    out = []
+    for b, e, body in blocks:
+        seen = ok = 0
+        for txt in docs.values():
+            i = txt.find(b)
+            while i >= 0:
+                seen += 1
+                j = txt.find(e, i)
+                ok += j >= 0 and txt[i:j + len(e)] == b + "\n" + body + "\n" + e
+                i = txt.find(b, i + len(b))
+        if not seen or ok < seen:
+            out.append(b)
+    return out
 
 
 def main(argv):
@@ -183,22 +203,24 @@ def main(argv):
         print(markdown(fs)); return 0
     if "--check-readme" in argv:
         import readme_facts
-        txt, left = "", []
+        docs, left, hashes = {}, [], []
+        known = readme_facts.record_hashes()
         for path in doc_paths(argv[argv.index("--check-readme") + 1]):
             with open(path) as f:
-                doc = f.read()
-            txt += doc
-            left += [f"{os.path.basename(path)}: {p}" for p in placeholders(doc)]
-        blocks = generated_blocks(m)
-        stale = [b for b, e, body in blocks if b + "\n" + body + "\n" + e not in txt]
+                docs[path] = f.read()
+            left += [f"{os.path.basename(path)}: {p}" for p in placeholders(docs[path])]
+            hashes += readme_facts.hash_problems(os.path.basename(path), docs[path], known)
+        stale = stale_blocks(docs, generated_blocks(m))
         builds = readme_facts.check_builds()
         for problem in builds:
             print("BUILD MISMATCH: " + problem)
+        for problem in hashes:
+            print("UNKNOWN HASH: " + problem)
         if stale:
             print("README blocks stale or missing: " + ", ".join(stale) + " -> run `make readme`")
         if left:
             print("README template placeholders left unfilled: " + ", ".join(left) + " -> replace them with the real command output")
-        if stale or builds or left:
+        if stale or builds or left or hashes:
             return 1
         print("README generated blocks match the verified output, no template placeholders left; local builds match contract/deployment.json"); return 0
     print("\n".join(table(fs)))
