@@ -185,191 +185,23 @@ fn bad_hash_rejected() {
     c.submit_snapshot("2026-10-20".into(), vec![m("a", 1)], "abc".into());
 }
 
-// ------------------------------------------------------------ predictions
-
-fn add(c: &mut NearBooks, cmp: Comparator, threshold: i128, resolve_after: &str) -> u64 {
-    ctx(OWNER, T_2026_10_20);
-    c.add_prediction("claim".into(), "supply_total_near".into(), cmp, I128(threshold), resolve_after.into())
-}
-
-#[test]
-fn add_and_list_predictions() {
-    let mut c = fresh();
-    assert_eq!(add(&mut c, Comparator::Gt, 100, "2026-12-31"), 0);
-    assert_eq!(add(&mut c, Comparator::Lte, 5, "2027-01-31"), 1);
-    let p = c.get_prediction(1).unwrap();
-    assert_eq!((p.status, p.comparator, p.created_date.as_str()), (Status::Pending, Comparator::Lte, "2026-10-20"));
-    assert_eq!(c.list_predictions(None, None).len(), 2);
-    assert!(c.get_prediction(2).is_none());
-}
-
-#[test]
-#[should_panic(expected = "resolve_after must be in the future")]
-fn prediction_for_today_or_past_rejected() {
-    let mut c = fresh();
-    add(&mut c, Comparator::Gt, 1, "2026-10-20");
-}
-
-#[test]
-#[should_panic(expected = "no snapshot on/after resolve_after yet")]
-fn cannot_resolve_without_a_late_enough_snapshot() {
-    let mut c = fresh();
-    add(&mut c, Comparator::Gt, 1, "2026-12-31");
-    ctx(REPORTER, T_2026_10_20);
-    submit(&mut c, "2026-10-20", vec![m("supply_total_near", 5)]);
-    ctx(STRANGER, T_2026_10_20);
-    c.resolve_prediction(0);
-}
-
-fn december() -> u64 {
-    T_2026_10_20 + 72 * 86_400 // 2026-12-31
-}
-
-#[test]
-fn anyone_resolves_confirmed() {
-    let mut c = fresh();
-    add(&mut c, Comparator::Gt, 1_000, "2026-12-31");
-    ctx(REPORTER, december());
-    submit(&mut c, "2026-12-31", vec![m("supply_total_near", 1_001)]);
-    ctx(STRANGER, december());
-    let p = c.resolve_prediction(0);
-    assert_eq!(p.status, Status::Confirmed);
-    let r = p.resolution.unwrap();
-    assert_eq!((r.snapshot_date.as_str(), r.observed, r.resolved_by), ("2026-12-31", Some(I128(1_001)), acct(STRANGER)));
-    assert_eq!(c.get_prediction(0).unwrap().status, Status::Confirmed);
-}
-
-#[test]
-fn comparators_are_strict_where_they_say_so() {
-    // observed == threshold: gt/lt refute, gte/lte confirm
-    let mut c = fresh();
-    for cmp in [Comparator::Gt, Comparator::Gte, Comparator::Lt, Comparator::Lte] {
-        add(&mut c, cmp, 500, "2026-12-31");
-    }
-    ctx(REPORTER, december());
-    submit(&mut c, "2026-12-31", vec![m("supply_total_near", 500)]);
-    ctx(STRANGER, december());
-    let got: Vec<Status> = (0..4).map(|i| c.resolve_prediction(i).status).collect();
-    assert_eq!(got, vec![Status::Refuted, Status::Confirmed, Status::Refuted, Status::Confirmed]);
-}
-
-#[test]
-fn negative_values_compare_correctly() {
-    let mut c = fresh();
-    add(&mut c, Comparator::Lt, -10, "2026-12-31");
-    ctx(REPORTER, december());
-    submit(&mut c, "2026-12-31", vec![m("supply_total_near", -11)]);
-    ctx(STRANGER, december());
-    assert_eq!(c.resolve_prediction(0).status, Status::Confirmed);
-}
-
-#[test]
-fn first_eligible_snapshot_decides_even_if_later_ones_differ() {
-    let mut c = fresh();
-    add(&mut c, Comparator::Gt, 10, "2026-12-31");
-    ctx(REPORTER, december() - 86_400);
-    submit(&mut c, "2026-12-30", vec![m("supply_total_near", 1_000)]); // before resolve_after: ignored
-    ctx(REPORTER, december());
-    submit(&mut c, "2026-12-31", vec![m("supply_total_near", 5)]); // first eligible: 5 <= 10
-    ctx(REPORTER, december() + 86_400);
-    submit(&mut c, "2027-01-01", vec![m("supply_total_near", 9_999)]); // later snapshots cannot change the outcome
-    ctx(STRANGER, december() + 86_400);
-    let p = c.resolve_prediction(0);
-    assert_eq!(p.status, Status::Refuted);
-    let r = p.resolution.unwrap();
-    assert_eq!((r.snapshot_date.as_str(), r.observed), ("2026-12-31", Some(I128(5))));
-}
-
-#[test]
-fn missing_metric_in_first_eligible_snapshot_voids_and_later_snapshots_do_not_rescue() {
-    let mut c = fresh();
-    add(&mut c, Comparator::Gt, 10, "2026-12-31");
-    ctx(REPORTER, december());
-    submit(&mut c, "2026-12-31", vec![m("other_metric", 99)]); // lacks the metric
-    ctx(REPORTER, december() + 86_400);
-    submit(&mut c, "2027-01-01", vec![m("supply_total_near", 9_999)]); // would have confirmed; must not be consulted
-    ctx(STRANGER, december() + 86_400);
-    let p = c.resolve_prediction(0);
-    assert_eq!(p.status, Status::Void);
-    let r = p.resolution.unwrap();
-    assert_eq!((r.snapshot_date.as_str(), r.observed), ("2026-12-31", None));
-    assert_eq!(c.get_prediction(0).unwrap().status, Status::Void);
-}
-
-#[test]
-#[should_panic(expected = "prediction already resolved")]
-fn void_is_final() {
-    let mut c = fresh();
-    add(&mut c, Comparator::Gt, 10, "2026-12-31");
-    ctx(REPORTER, december());
-    submit(&mut c, "2026-12-31", vec![m("other_metric", 99)]);
-    ctx(STRANGER, december());
-    c.resolve_prediction(0);
-    c.resolve_prediction(0);
-}
-
-#[test]
-fn resolution_works_with_many_snapshots() {
-    // 200 daily snapshots (value = day index); the deciding one is the 100th, far past any fixed scan window.
-    // A later snapshot (value 101+) would flip the Gt prediction, so this also proves the first eligible one decides.
-    let mut c = fresh();
-    let target = date_from_unix_secs(T_2026_10_20 + 100 * 86_400);
-    ctx(OWNER, T_2026_10_20);
-    c.add_prediction("gte".into(), "supply_total_near".into(), Comparator::Gte, I128(100), target.clone());
-    c.add_prediction("gt".into(), "supply_total_near".into(), Comparator::Gt, I128(100), target.clone());
-    for d in 1..=200u64 {
-        let ts = T_2026_10_20 + d * 86_400;
-        ctx(REPORTER, ts);
-        submit(&mut c, &date_from_unix_secs(ts), vec![m("supply_total_near", d as i128)]);
-    }
-    assert_eq!(c.snapshot_count(), 200);
-    ctx(STRANGER, T_2026_10_20 + 200 * 86_400);
-    let (p0, p1) = (c.resolve_prediction(0), c.resolve_prediction(1));
-    assert_eq!((p0.status, p1.status), (Status::Confirmed, Status::Refuted));
-    let r = p0.resolution.unwrap();
-    assert_eq!((r.snapshot_date, r.observed), (target.clone(), Some(I128(100))));
-    assert_eq!(c.get_snapshot(target).unwrap().metrics[0].value.0, 100);
-}
-
-#[test]
-#[should_panic(expected = "prediction already resolved")]
-fn resolution_is_final() {
-    let mut c = fresh();
-    add(&mut c, Comparator::Gt, 1, "2026-12-31");
-    ctx(REPORTER, december());
-    submit(&mut c, "2026-12-31", vec![m("supply_total_near", 5)]);
-    ctx(STRANGER, december());
-    c.resolve_prediction(0);
-    c.resolve_prediction(0);
-}
-
-#[test]
-#[should_panic(expected = "no such prediction")]
-fn resolving_unknown_id_fails() {
-    let mut c = fresh();
-    c.resolve_prediction(7);
-}
-
-#[test]
-fn json_shapes_are_stable() {
-    let mut c = fresh();
-    add(&mut c, Comparator::Gte, 7, "2026-12-31");
-    let v = near_sdk::serde_json::to_value(c.get_prediction(0).unwrap()).unwrap();
-    assert_eq!(v["comparator"], "gte");
-    assert_eq!(v["status"], "pending");
-    assert_eq!(v["threshold"], "7"); // i128 is a decimal string in JSON
-    let args: Vec<Metric> = near_sdk::serde_json::from_str(r#"[{"key":"a","value":"-5"}]"#).unwrap();
-    assert_eq!(args[0].value.0, -5);
-}
-
 // ------------------------------------------------- attested snapshots (OutLayer)
 
-/// A real output of the pinned worker (local wasmtime run against mainnet, 2026-10-20), with `n` and `rid` set.
-fn worker_output(nonce: u64) -> String {
+/// First mainnet block of 2026-10-20 (worker/scripts/first_block.py) and its real worker output (local wasmtime
+/// run against mainnet archival RPC), with `n` and `rid` filled in by `out`.
+const B_1020: u64 = 220_726_930;
+const TS_1020: u64 = 1_792_454_400_548_428_142;
+const SUP_1020: &str = "1309428647101414191323016386004184";
+
+fn out(nonce: u64, date: &str, height: u64, ts_ns: u64, sup: &str) -> String {
     format!(
-        r#"{{"bb":"2026233799365693115946434570865","cs":"270875891412420848813311023","fb":"0","fe":"1917880330900068990542692568184","h":"220816586","ms":"3223","n":"{}","rc":"8","rd":"0","rid":"5200","rk":"8","rm":"0","rt":"","sha":"28f7cd9e36446bef82a8335154a08145545af2d57a1d80ebc838cdafcf8bcdb5","sup":"1309481349734847858820357371388774","t":"1792507586708543200","v":"1"}}"#,
-        nonce
+        r#"{{"bb":"2022180087915366303354191622511","cs":"270875891412420848813311023","d":"{}","fb":"0","fe":"1916643242806074001541587346866","h":"{}","ms":"3768","n":"{}","rc":"8","rd":"0","rid":"5200","rk":"8","rm":"0","rt":"","sha":"02701f609329428666c42c2ac1054348254954474ddb2f1bfb2feabe4f816dd5","sup":"{}","t":"{}","v":"2"}}"#,
+        date, height, nonce, sup, ts_ns
     )
+}
+
+fn worker_output(nonce: u64) -> String {
+    out(nonce, "2026-10-20", B_1020, TS_1020, SUP_1020)
 }
 
 fn pin(c: &mut NearBooks, hash: &str) {
@@ -377,28 +209,28 @@ fn pin(c: &mut NearBooks, hash: &str) {
     c.pin_worker(acct(OUTLAYER), format!("https://test.fastfs.io/x/outlayer.testnet/{}.wasm", hash), hash.into(), "https://testnet-api.outlayer.ai".into(), None, None);
 }
 
-/// `caller` calls request_snapshot with a deposit (milliNEAR) and 300 Tgas.
-fn request(c: &mut NearBooks, caller: &str, millinear: u128) -> u64 {
+/// `caller` calls request_snapshot(date, height) at unix time `now` with a deposit (milliNEAR) and 300 Tgas.
+fn request_at(c: &mut NearBooks, caller: &str, millinear: u128, date: &str, height: u64, now: u64) -> u64 {
     testing_env!(VMContextBuilder::new()
         .current_account_id(acct(CONTRACT))
         .predecessor_account_id(acct(caller))
         .signer_account_id(acct(caller))
         .attached_deposit(NearToken::from_millinear(millinear))
         .prepaid_gas(Gas::from_tgas(300))
-        .block_timestamp(T_2026_10_20 * 1_000_000_000)
+        .block_timestamp(now * 1_000_000_000)
         .build());
-    let _ = c.request_snapshot();
+    let _ = c.request_snapshot(date.into(), height);
     c.next_nonce - 1
 }
 
-/// The callback as the runtime delivers it: predecessor = this contract, one promise result.
-fn deliver(c: &mut NearBooks, nonce: u64, result: PromiseResult) -> String {
-    deliver_as(c, CONTRACT, nonce, result)
+fn request(c: &mut NearBooks, caller: &str, millinear: u128) -> u64 {
+    request_at(c, caller, millinear, "2026-10-20", B_1020, T_2026_10_20)
 }
 
-fn deliver_as(c: &mut NearBooks, caller: &str, nonce: u64, result: PromiseResult) -> String {
+/// The callback as the runtime delivers it: predecessor = this contract, one promise result.
+fn deliver_at(c: &mut NearBooks, caller: &str, nonce: u64, result: PromiseResult, now: u64) -> String {
     testing_env!(
-        VMContextBuilder::new().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(caller)).block_timestamp(T_2026_10_20 * 1_000_000_000).build(),
+        VMContextBuilder::new().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(caller)).block_timestamp(now * 1_000_000_000).build(),
         near_sdk::test_vm_config(),
         near_sdk::RuntimeFeesConfig::test(),
         Default::default(),
@@ -407,18 +239,38 @@ fn deliver_as(c: &mut NearBooks, caller: &str, nonce: u64, result: PromiseResult
     c.on_snapshot_result(nonce)
 }
 
+fn deliver(c: &mut NearBooks, nonce: u64, result: PromiseResult) -> String {
+    deliver_at(c, CONTRACT, nonce, result, T_2026_10_20)
+}
+
 fn ok_bytes(s: &str) -> PromiseResult {
     PromiseResult::Successful(s.as_bytes().to_vec())
 }
 
+/// Stores the attested snapshot for day 2026-10-20 + `k` with total supply `supply_micro` (micro-NEAR).
+fn attest(c: &mut NearBooks, k: u64, supply_micro: u128) -> String {
+    let noon = T_2026_10_20 + k * 86_400;
+    let date = date_from_unix_secs(noon);
+    let height = B_1020 + k * 1_000;
+    let nonce = request_at(c, STRANGER, 10, &date, height, noon);
+    let sup = (supply_micro * 1_000_000_000_000_000_000).to_string();
+    let r = deliver_at(c, CONTRACT, nonce, ok_bytes(&out(nonce, &date, height, (noon - 43_200) * 1_000_000_000 + 7, &sup)), noon);
+    assert!(r.starts_with("stored"), "{}", r);
+    date
+}
+
+fn supply(s: &Snapshot) -> i128 {
+    s.metrics.iter().find(|m| m.key == "supply_total_near").unwrap().value.0
+}
+
 #[test]
-fn request_snapshot_calls_outlayer_with_the_pinned_hash() {
+fn request_snapshot_calls_outlayer_with_the_pinned_hash_date_and_block() {
     let mut c = fresh();
     pin(&mut c, WASM);
     let nonce = request(&mut c, STRANGER, 10);
     assert_eq!(nonce, 0);
     let p = c.get_pending(0).unwrap();
-    assert_eq!((p.requester, p.wasm_hash.as_str(), p.deposit), (acct(STRANGER), WASM, NearToken::from_millinear(10)));
+    assert_eq!((p.requester, p.wasm_hash.as_str(), p.date.as_str(), p.mainnet_block_height), (acct(STRANGER), WASM, "2026-10-20", B_1020));
     let receipts = get_created_receipts();
     let to_outlayer = receipts.iter().find(|r| r.receiver_id == acct(OUTLAYER)).expect("a receipt to OutLayer");
     let MockAction::FunctionCallWeight { method_name, args, attached_deposit, .. } = &to_outlayer.actions[0] else { panic!("not a function call") };
@@ -427,7 +279,7 @@ fn request_snapshot_calls_outlayer_with_the_pinned_hash() {
     let a: Value = serde_json::from_slice(args).unwrap();
     assert_eq!(a["source"]["WasmUrl"]["hash"], WASM);
     assert_eq!(a["source"]["WasmUrl"]["build_target"], "wasm32-wasip2");
-    assert_eq!(a["input_data"], r#"{"n":"0"}"#);
+    assert_eq!(a["input_data"], r#"{"n":"0","d":"2026-10-20","b":"220726930"}"#);
     assert_eq!(a["response_format"], "Json");
     assert_eq!(a["payer_account_id"], STRANGER, "OutLayer refunds the unused deposit to the caller");
     assert_eq!(a["resource_limits"]["max_instructions"], DEFAULT_MAX_INSTRUCTIONS);
@@ -441,36 +293,38 @@ fn attested_snapshot_is_stored_with_source_tag() {
     let mut c = fresh();
     pin(&mut c, WASM);
     let nonce = request(&mut c, STRANGER, 10);
-    let out = worker_output(nonce);
-    assert_eq!(deliver(&mut c, nonce, ok_bytes(&out)), "stored attested snapshot 2026-10-20");
-    assert_eq!(c.snapshot_count(), 1);
+    let o = worker_output(nonce);
+    assert_eq!(deliver(&mut c, nonce, ok_bytes(&o)), "stored attested snapshot 2026-10-20");
+    assert_eq!((c.attested_count(), c.snapshot_count()), (1, 0), "attested and reported series are separate");
     assert!(c.get_pending(nonce).is_none(), "pending entry is consumed");
-    let s = c.latest_snapshot().unwrap();
+    let s = c.get_attested_snapshot("2026-10-20".into()).unwrap();
     assert_eq!(s.date, "2026-10-20");
     assert_eq!(s.submitted_by, acct(STRANGER));
-    assert_eq!(s.evidence_hash, "28f7cd9e36446bef82a8335154a08145545af2d57a1d80ebc838cdafcf8bcdb5");
+    assert_eq!(s.evidence_hash, "02701f609329428666c42c2ac1054348254954474ddb2f1bfb2feabe4f816dd5");
     assert_eq!(
         s.source,
         Source::Attested {
             nonce: 0,
             request_id: 5200,
             wasm_hash: WASM.into(),
-            block_height: 220_816_586,
-            output_sha256: hex(&env::sha256(out.as_bytes())),
+            block_height: B_1020,
+            block_timestamp_ns: U64(TS_1020),
+            output_sha256: hex(&env::sha256(o.as_bytes())),
             attestation: "https://testnet-api.outlayer.ai/attestations/by-request/5200".into(),
         }
     );
     let get = |k: &str| s.metrics.iter().find(|m| m.key == k).map(|m| m.value.0);
-    assert_eq!(get("supply_total_near"), Some(1_309_481_349_734_847)); // yocto / 1e18 = micro-NEAR
-    assert_eq!(get("buyback_wallet_near"), Some(2_026_233_799_365));
-    assert_eq!(get("fefundsadmin_wallet_near"), Some(1_917_880_330_900));
+    assert_eq!(get("supply_total_near"), Some(1_309_428_647_101_414)); // yocto / 1e18 = micro-NEAR
+    assert_eq!(get("buyback_wallet_near"), Some(2_022_180_087_915));
+    assert_eq!(get("fefundsadmin_wallet_near"), Some(1_916_643_242_806));
     assert_eq!(get("onecsfundsadmin_wallet_near"), Some(270_875_891));
     assert_eq!(get("intents_reserves_tokens_checked"), Some(8_000_000));
     assert_eq!(get("intents_reserves_tokens_in_deficit"), Some(0));
-    assert_eq!(get("mainnet_block_height"), Some(220_816_586_000_000));
-    // JSON shape third parties read
+    assert_eq!(get("mainnet_block_height"), Some(B_1020 as i128 * 1_000_000));
     let v = serde_json::to_value(&s).unwrap();
     assert_eq!(v["source"]["attested"]["request_id"], 5200);
+    assert_eq!(v["source"]["attested"]["block_timestamp_ns"], TS_1020.to_string());
+    assert_eq!(c.list_attested_snapshots(None, None).len(), 1);
     assert!(get_logs().iter().any(|l| l.contains(r#""event":"snapshot""#) && l.contains(r#""source":"attested""#)));
 }
 
@@ -482,6 +336,7 @@ fn reporter_path_is_tagged_reported() {
     let s = c.latest_snapshot().unwrap();
     assert_eq!(s.source, Source::Reported);
     assert_eq!(serde_json::to_value(&s).unwrap()["source"], "reported");
+    assert_eq!(c.attested_count(), 0);
 }
 
 #[test]
@@ -491,7 +346,7 @@ fn callback_from_outlayer_account_directly_is_rejected() {
     pin(&mut c, WASM);
     let nonce = request(&mut c, STRANGER, 10);
     // OutLayer (or anyone) calling the callback directly, with a perfectly valid payload, must fail.
-    deliver_as(&mut c, OUTLAYER, nonce, ok_bytes(&worker_output(nonce)));
+    deliver_at(&mut c, OUTLAYER, nonce, ok_bytes(&worker_output(nonce)), T_2026_10_20);
 }
 
 #[test]
@@ -500,7 +355,7 @@ fn callback_from_stranger_is_rejected() {
     let mut c = fresh();
     pin(&mut c, WASM);
     let nonce = request(&mut c, STRANGER, 10);
-    deliver_as(&mut c, STRANGER, nonce, ok_bytes(&worker_output(nonce)));
+    deliver_at(&mut c, STRANGER, nonce, ok_bytes(&worker_output(nonce)), T_2026_10_20);
 }
 
 #[test]
@@ -511,7 +366,7 @@ fn wrong_wasm_hash_is_rejected() {
     pin(&mut c, WASM2); // owner re-pins while the run is in flight: the old run no longer matches the pin
     let r = deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
     assert_eq!(r, "rejected: the pinned wasm hash changed while the run was in flight");
-    assert_eq!(c.snapshot_count(), 0);
+    assert_eq!(c.attested_count(), 0);
     assert!(c.get_pending(nonce).is_none());
     assert!(get_logs().iter().any(|l| l.contains("snapshot_rejected")));
 }
@@ -525,7 +380,7 @@ fn changed_outlayer_contract_is_rejected() {
     c.pin_worker(acct("evil-outlayer.testnet"), "https://x.example/w.wasm".into(), WASM.into(), "https://testnet-api.outlayer.ai".into(), None, None);
     let r = deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
     assert!(r.starts_with("rejected: the configured OutLayer contract changed"), "{}", r);
-    assert_eq!(c.snapshot_count(), 0);
+    assert_eq!(c.attested_count(), 0);
 }
 
 #[test]
@@ -535,16 +390,17 @@ fn malformed_output_is_rejected_and_nothing_is_stored() {
         ("not json".into(), "malformed worker output"),
         ("null".into(), "OutLayer reported the run as failed"),
         (r#""a string""#.into(), "malformed worker output"),
-        (good.replace(r#","v":"1""#, ""), "malformed worker output"),                         // missing field
-        (good.replace(r#""v":"1""#, r#""v":"1","x":"1""#), "malformed worker output"),        // unknown field
-        (good.replace(r#""v":"1""#, r#""v":"2""#), "unsupported worker output version"),
-        (good.replace(r#""n":"0""#, r#""n":"9""#), "nonce mismatch"),                         // answer for another request
+        (good.replace(r#","v":"2""#, ""), "malformed worker output"),                      // missing field
+        (good.replace(r#""v":"2""#, r#""v":"2","x":"1""#), "malformed worker output"),     // unknown field
+        (good.replace(r#""v":"2""#, r#""v":"1""#), "unsupported worker output version"),
+        (good.replace(r#""n":"0""#, r#""n":"9""#), "nonce mismatch"),                      // answer for another request
+        (good.replace(r#""d":"2026-10-20""#, r#""d":"2026-10-19""#), "different date"),
+        (good.replace(r#""h":"220726930""#, r#""h":"220726931""#), "different block"),     // not the block asked for
+        (good.replace(&TS_1020.to_string(), "1792454399000000000"), "not on the requested date"),
         (good.replace(r#""sup":"1309"#, r#""sup":"-1309"#), "sup must be a decimal string"),
         (good.replace(r#""rid":"5200""#, r#""rid":"""#), "rid must be a decimal string"),
-        (good.replace(r#""h":"220816586""#, r#""h":"99999999999999999999""#), "h out of range"),
         (good.replace(r#""rc":"8""#, r#""rc":"9""#), "inconsistent reserves fields"),
-        (good.replace(r#""sha":"28f7"#, r#""sha":"28F7"#), "evidence_hash must be 64 lowercase hex chars"),
-        (good.replace(r#""t":"1792507586708543200""#, r#""t":"1892507586708543200""#), "snapshot date is in the future"),
+        (good.replace(r#""sha":"0270"#, r#""sha":"027F"#), "evidence_hash must be 64 lowercase hex chars"),
     ];
     for (payload, want) in cases {
         let mut c = fresh();
@@ -553,7 +409,7 @@ fn malformed_output_is_rejected_and_nothing_is_stored() {
         assert_eq!(nonce, 0);
         let r = deliver(&mut c, nonce, ok_bytes(&payload));
         assert!(r.starts_with("rejected:") && r.contains(want), "payload {} -> {} (wanted {})", payload, r, want);
-        assert_eq!(c.snapshot_count(), 0, "{}", payload);
+        assert_eq!(c.attested_count(), 0, "{}", payload);
         assert!(c.get_pending(nonce).is_none());
     }
 }
@@ -565,46 +421,100 @@ fn oversized_output_is_rejected() {
     let nonce = request(&mut c, STRANGER, 10);
     let r = deliver(&mut c, nonce, ok_bytes(&"x".repeat(MAX_WORKER_OUTPUT + 1)));
     assert!(r.contains("too long"), "{}", r);
-    assert_eq!(c.snapshot_count(), 0);
+    assert_eq!(c.attested_count(), 0);
 }
 
 #[test]
-fn failed_outlayer_call_refunds_the_deposit_and_changes_nothing() {
+fn failed_outlayer_call_stores_nothing_and_sends_no_contract_funds() {
     let mut c = fresh();
     pin(&mut c, WASM);
     let nonce = request(&mut c, STRANGER, 25);
     let r = deliver(&mut c, nonce, PromiseResult::Failed);
-    assert_eq!(r, "rejected: the OutLayer call failed; deposit refunded");
-    assert_eq!(c.snapshot_count(), 0);
-    let refund = get_created_receipts().into_iter().find(|r| r.receiver_id == acct(STRANGER)).expect("refund receipt");
-    assert!(matches!(refund.actions[0], MockAction::Transfer { deposit, .. } if deposit == NearToken::from_millinear(25)));
+    assert_eq!(r, "rejected: the OutLayer call failed before running; nothing stored");
+    assert_eq!(c.attested_count(), 0);
+    assert!(c.get_pending(nonce).is_none());
+    // the callback creates no receipt at all: no transfer out of the contract's own balance
+    assert!(get_created_receipts().is_empty(), "{:?}", get_created_receipts().iter().map(|r| r.receiver_id.to_string()).collect::<Vec<_>>());
 }
 
 #[test]
-fn attested_and_reported_share_one_date_order() {
+fn no_callback_outcome_ever_transfers_funds() {
+    // every callback outcome on one contract; the storing one goes last because it fills the only date used
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    for result in [ok_bytes("null"), ok_bytes("garbage"), PromiseResult::Failed, ok_bytes("{}")] {
+        let nonce = request(&mut c, STRANGER, 10);
+        deliver(&mut c, nonce, result);
+        assert!(get_created_receipts().is_empty());
+    }
+    let nonce = request(&mut c, STRANGER, 10);
+    assert!(deliver(&mut c, nonce, ok_bytes(&worker_output(nonce))).starts_with("stored"));
+    assert!(get_created_receipts().is_empty());
+}
+
+#[test]
+fn one_attested_snapshot_per_date_first_valid_wins() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    // two runs for the same date are in flight at once (requesting is permissionless)
+    let n0 = request(&mut c, STRANGER, 10);
+    let n1 = request(&mut c, OWNER, 10);
+    assert!(deliver(&mut c, n1, ok_bytes(&worker_output(n1))).starts_with("stored"));
+    let r = deliver(&mut c, n0, ok_bytes(&worker_output(n0)));
+    assert_eq!(r, "rejected: an attested snapshot for that date already exists");
+    assert_eq!(c.attested_count(), 1);
+    assert_eq!(c.get_attested_snapshot("2026-10-20".into()).unwrap().submitted_by, acct(OWNER));
+}
+
+#[test]
+#[should_panic(expected = "an attested snapshot for that date already exists")]
+fn request_for_an_attested_date_is_refused_up_front() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let n = request(&mut c, STRANGER, 10);
+    deliver(&mut c, n, ok_bytes(&worker_output(n)));
+    request(&mut c, STRANGER, 10);
+}
+
+#[test]
+#[should_panic(expected = "that date has not started yet")]
+fn request_for_a_future_date_is_refused() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    request_at(&mut c, STRANGER, 10, "2026-10-21", B_1020, T_2026_10_20);
+}
+
+#[test]
+#[should_panic(expected = "date must be YYYY-MM-DD")]
+fn request_with_a_bad_date_is_refused() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    request_at(&mut c, STRANGER, 10, "20-10-2026", B_1020, T_2026_10_20);
+}
+
+#[test]
+fn dates_can_be_backfilled_in_any_order() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    attest(&mut c, 2, 300);
+    attest(&mut c, 0, 100); // an earlier, missed day: canonical, so filling it later changes nothing it could bias
+    attest(&mut c, 1, 200);
+    assert_eq!(c.attested_count(), 3);
+    let dates: Vec<String> = c.list_attested_snapshots(None, None).into_iter().map(|s| s.date).collect();
+    assert_eq!(dates, vec!["2026-10-22", "2026-10-20", "2026-10-21"]);
+    assert_eq!(supply(&c.get_attested_snapshot("2026-10-21".into()).unwrap()), 200);
+}
+
+#[test]
+fn reported_and_attested_series_do_not_block_each_other() {
     let mut c = fresh();
     ctx(REPORTER, T_2026_10_20);
     submit(&mut c, "2026-10-20", vec![m("supply_total_near", 1)]);
     pin(&mut c, WASM);
-    let nonce = request(&mut c, STRANGER, 10);
-    let r = deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
-    assert_eq!(r, "rejected: snapshot date must be later than the latest stored date");
-    assert_eq!(c.snapshot_count(), 1);
+    let n = request(&mut c, STRANGER, 10);
+    assert!(deliver(&mut c, n, ok_bytes(&worker_output(n))).starts_with("stored"));
+    assert_eq!((c.snapshot_count(), c.attested_count()), (1, 1));
     assert_eq!(c.latest_snapshot().unwrap().source, Source::Reported);
-}
-
-#[test]
-fn attested_snapshot_resolves_predictions_by_the_same_rule() {
-    let mut c = fresh();
-    ctx(OWNER, T_2026_10_20 - 86_400);
-    c.add_prediction("supply up".into(), "supply_total_near".into(), Comparator::Gt, I128(1_309_000_000_000_000), "2026-10-20".into());
-    c.add_prediction("missing".into(), "revenue_ytd_usd".into(), Comparator::Gt, I128(0), "2026-10-20".into());
-    pin(&mut c, WASM);
-    let nonce = request(&mut c, STRANGER, 10);
-    deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
-    ctx(STRANGER, T_2026_10_20);
-    assert_eq!(c.resolve_prediction(0).status, Status::Confirmed);
-    assert_eq!(c.resolve_prediction(1).status, Status::Void, "a metric the worker does not report voids, as before");
 }
 
 #[test]
@@ -668,4 +578,200 @@ fn repin_emits_event_with_previous_hash() {
     let ev = logs.iter().find(|l| l.contains("worker_pinned")).unwrap();
     assert!(ev.contains(&format!(r#""previous_wasm_hash":"{}""#, WASM)) && ev.contains(&format!(r#""wasm_hash":"{}""#, WASM2)), "{}", ev);
     assert_eq!(c.get_outlayer_config().unwrap().wasm_hash, WASM2);
+}
+
+// ------------------------------------------------------------ predictions
+
+fn add(c: &mut NearBooks, cmp: Comparator, threshold: i128, resolve_after: &str) -> u64 {
+    ctx(OWNER, T_2026_10_20);
+    c.add_prediction("claim".into(), "supply_total_near".into(), cmp, I128(threshold), resolve_after.into())
+}
+
+/// 2026-12-31 is day 72 after 2026-10-20.
+const DEC31: u64 = 72;
+
+#[test]
+fn add_and_list_predictions() {
+    let mut c = fresh();
+    assert_eq!(add(&mut c, Comparator::Gt, 100, "2026-12-31"), 0);
+    assert_eq!(add(&mut c, Comparator::Lte, 5, "2027-01-31"), 1);
+    let p = c.get_prediction(1).unwrap();
+    assert_eq!((p.status, p.comparator, p.created_date.as_str()), (Status::Pending, Comparator::Lte, "2026-10-20"));
+    assert_eq!(c.list_predictions(None, None).len(), 2);
+    assert!(c.get_prediction(2).is_none());
+}
+
+#[test]
+#[should_panic(expected = "resolve_after must be in the future")]
+fn prediction_for_today_or_past_rejected() {
+    let mut c = fresh();
+    add(&mut c, Comparator::Gt, 1, "2026-10-20");
+}
+
+#[test]
+fn anyone_resolves_confirmed_from_the_attested_snapshot() {
+    let mut c = fresh();
+    add(&mut c, Comparator::Gt, 1_000, "2026-12-31");
+    pin(&mut c, WASM);
+    assert_eq!(attest(&mut c, DEC31, 1_001), "2026-12-31");
+    ctx(STRANGER, T_2026_10_20 + DEC31 * 86_400);
+    let p = c.resolve_prediction(0);
+    assert_eq!(p.status, Status::Confirmed);
+    let r = p.resolution.unwrap();
+    assert_eq!((r.snapshot_date.as_str(), r.observed, r.resolved_by), ("2026-12-31", Some(I128(1_001)), acct(STRANGER)));
+    assert_eq!(c.get_prediction(0).unwrap().status, Status::Confirmed);
+}
+
+#[test]
+fn comparators_are_strict_where_they_say_so() {
+    // observed == threshold: gt/lt refute, gte/lte confirm
+    let mut c = fresh();
+    for cmp in [Comparator::Gt, Comparator::Gte, Comparator::Lt, Comparator::Lte] {
+        add(&mut c, cmp, 500, "2026-12-31");
+    }
+    pin(&mut c, WASM);
+    attest(&mut c, DEC31, 500);
+    ctx(STRANGER, T_2026_10_20 + DEC31 * 86_400);
+    let got: Vec<Status> = (0..4).map(|i| c.resolve_prediction(i).status).collect();
+    assert_eq!(got, vec![Status::Refuted, Status::Confirmed, Status::Refuted, Status::Confirmed]);
+}
+
+#[test]
+fn negative_values_compare_correctly() {
+    assert!(Comparator::Lt.holds(-11, -10));
+    assert!(!Comparator::Gt.holds(-11, -10));
+    assert!(Comparator::Gte.holds(-10, -10) && Comparator::Lte.holds(-10, -10));
+}
+
+#[test]
+fn the_snapshot_for_resolve_after_decides_not_neighbours() {
+    let mut c = fresh();
+    add(&mut c, Comparator::Gt, 10, "2026-12-31");
+    pin(&mut c, WASM);
+    attest(&mut c, DEC31 - 1, 1_000); // the day before: ignored
+    attest(&mut c, DEC31, 5); // the deciding day: 5 <= 10
+    attest(&mut c, DEC31 + 1, 9_999); // later days cannot change the outcome
+    ctx(STRANGER, T_2026_10_20 + (DEC31 + 1) * 86_400);
+    let p = c.resolve_prediction(0);
+    assert_eq!(p.status, Status::Refuted);
+    let r = p.resolution.unwrap();
+    assert_eq!((r.snapshot_date.as_str(), r.observed), ("2026-12-31", Some(I128(5))));
+}
+
+#[test]
+fn a_later_snapshot_cannot_stand_in_for_the_missing_deciding_one() {
+    // Griefing attempt: skip 2026-12-31 and attest 2027-01-01 first, hoping it decides. It does not; the prediction
+    // waits for the canonical 2026-12-31 snapshot, which anyone can still backfill.
+    let mut c = fresh();
+    add(&mut c, Comparator::Gt, 10, "2026-12-31");
+    pin(&mut c, WASM);
+    attest(&mut c, DEC31 + 1, 9_999);
+    ctx(STRANGER, T_2026_10_20 + (DEC31 + 1) * 86_400);
+    let early = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| c.resolve_prediction(0)));
+    assert!(early.is_err(), "must not resolve from 2027-01-01");
+    attest(&mut c, DEC31, 5);
+    ctx(STRANGER, T_2026_10_20 + (DEC31 + 1) * 86_400);
+    let p = c.resolve_prediction(0);
+    assert_eq!((p.status, p.resolution.unwrap().snapshot_date.as_str()), (Status::Refuted, "2026-12-31"));
+}
+
+#[test]
+#[should_panic(expected = "no attested snapshot for resolve_after yet")]
+fn reported_snapshots_never_resolve_predictions() {
+    let mut c = fresh();
+    add(&mut c, Comparator::Gt, 1, "2026-12-31");
+    ctx(REPORTER, T_2026_10_20 + DEC31 * 86_400);
+    submit(&mut c, "2026-12-31", vec![m("supply_total_near", 5)]);
+    ctx(STRANGER, T_2026_10_20 + DEC31 * 86_400);
+    c.resolve_prediction(0);
+}
+
+#[test]
+#[should_panic(expected = "no attested snapshot for resolve_after yet")]
+fn cannot_resolve_before_the_deciding_snapshot_exists() {
+    let mut c = fresh();
+    add(&mut c, Comparator::Gt, 1, "2026-12-31");
+    pin(&mut c, WASM);
+    let n = request(&mut c, STRANGER, 10);
+    deliver(&mut c, n, ok_bytes(&worker_output(n)));
+    ctx(STRANGER, T_2026_10_20);
+    c.resolve_prediction(0);
+}
+
+#[test]
+fn metric_the_worker_does_not_report_voids() {
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20);
+    c.add_prediction("revenue".into(), "revenue_ytd_usd".into(), Comparator::Gt, I128(0), "2026-12-31".into());
+    pin(&mut c, WASM);
+    attest(&mut c, DEC31, 1);
+    ctx(STRANGER, T_2026_10_20 + DEC31 * 86_400);
+    let p = c.resolve_prediction(0);
+    assert_eq!(p.status, Status::Void);
+    assert_eq!(p.resolution.unwrap().observed, None);
+    assert_eq!(c.get_prediction(0).unwrap().status, Status::Void);
+}
+
+#[test]
+#[should_panic(expected = "prediction already resolved")]
+fn void_is_final() {
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20);
+    c.add_prediction("revenue".into(), "revenue_ytd_usd".into(), Comparator::Gt, I128(0), "2026-12-31".into());
+    pin(&mut c, WASM);
+    attest(&mut c, DEC31, 1);
+    ctx(STRANGER, T_2026_10_20 + DEC31 * 86_400);
+    c.resolve_prediction(0);
+    c.resolve_prediction(0);
+}
+
+#[test]
+fn resolution_works_with_many_snapshots() {
+    // 200 daily attested snapshots (supply = day index); the deciding one is day 100.
+    let mut c = fresh();
+    let target = date_from_unix_secs(T_2026_10_20 + 100 * 86_400);
+    ctx(OWNER, T_2026_10_20);
+    c.add_prediction("gte".into(), "supply_total_near".into(), Comparator::Gte, I128(100), target.clone());
+    c.add_prediction("gt".into(), "supply_total_near".into(), Comparator::Gt, I128(100), target.clone());
+    pin(&mut c, WASM);
+    for d in 1..=200u64 {
+        attest(&mut c, d, d as u128);
+    }
+    assert_eq!(c.attested_count(), 200);
+    ctx(STRANGER, T_2026_10_20 + 200 * 86_400);
+    let (p0, p1) = (c.resolve_prediction(0), c.resolve_prediction(1));
+    assert_eq!((p0.status, p1.status), (Status::Confirmed, Status::Refuted));
+    let r = p0.resolution.unwrap();
+    assert_eq!((r.snapshot_date, r.observed), (target.clone(), Some(I128(100))));
+}
+
+#[test]
+#[should_panic(expected = "prediction already resolved")]
+fn resolution_is_final() {
+    let mut c = fresh();
+    add(&mut c, Comparator::Gt, 1, "2026-12-31");
+    pin(&mut c, WASM);
+    attest(&mut c, DEC31, 5);
+    ctx(STRANGER, T_2026_10_20 + DEC31 * 86_400);
+    c.resolve_prediction(0);
+    c.resolve_prediction(0);
+}
+
+#[test]
+#[should_panic(expected = "no such prediction")]
+fn resolving_unknown_id_fails() {
+    let mut c = fresh();
+    c.resolve_prediction(7);
+}
+
+#[test]
+fn json_shapes_are_stable() {
+    let mut c = fresh();
+    add(&mut c, Comparator::Gte, 7, "2026-12-31");
+    let v = serde_json::to_value(c.get_prediction(0).unwrap()).unwrap();
+    assert_eq!(v["comparator"], "gte");
+    assert_eq!(v["status"], "pending");
+    assert_eq!(v["threshold"], "7"); // i128 is a decimal string in JSON
+    let args: Vec<Metric> = serde_json::from_str(r#"[{"key":"a","value":"-5"}]"#).unwrap();
+    assert_eq!(args[0].value.0, -5);
 }
