@@ -1,9 +1,10 @@
 """Print the height of the first NEAR mainnet block of a UTC day (stdlib only, network).
 
-    python3 -I worker/scripts/first_block.py YYYY-MM-DD
+    python3 -I worker/scripts/first_block.py YYYY-MM-DD            # first block of that day
+    python3 -I worker/scripts/first_block.py YYYY-MM-DD --pair     # "B B28": also the first block 28 days earlier
 
-That block is the canonical observation point the worker checks (prev.timestamp < D 00:00 UTC <= block.timestamp)
-and the `block_height` argument of `request_snapshot(date, block_height)`. Binary search over heights on the archival
+That block is the canonical observation point the worker checks (prev.timestamp < D 00:00 UTC <= block.timestamp).
+`--pair` prints the two arguments of `request_snapshot(date, block_height, block_height_28d)`. Binary search over heights on the archival
 RPC, skipping heights that have no block, backing off on HTTP 429.
 """
 import calendar, json, sys, time, urllib.error, urllib.request
@@ -39,8 +40,7 @@ def block_at_or_after(h, top):
     return None
 
 
-def main():
-    date = sys.argv[1]
+def first_block(date):
     midnight = calendar.timegm(time.strptime(date, "%Y-%m-%d")) * 10**9
     top = rpc({"finality": "final"})
     if int(top["timestamp_nanosec"]) < midnight:
@@ -57,7 +57,16 @@ def main():
         else:
             lo = h + 1
     h, ts = block_at_or_after(lo, top["height"])
-    print(h)
+    return h
+
+
+def main():
+    date = sys.argv[1]
+    if "--pair" in sys.argv:
+        earlier = time.strftime("%Y-%m-%d", time.gmtime(calendar.timegm(time.strptime(date, "%Y-%m-%d")) - 28 * 86400))
+        print(first_block(date), first_block(earlier))
+    else:
+        print(first_block(date))
 
 
 if __name__ == "__main__":

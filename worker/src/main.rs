@@ -1,4 +1,4 @@
-//! OutLayer entrypoint (wasm32-wasip2): stdin = `{"n":"<nonce>","d":"YYYY-MM-DD","b":"<height>"}`, stdout = the snapshot JSON (see lib.rs).
+//! OutLayer entrypoint (wasm32-wasip2): stdin = `{"n":"<nonce>","d":"YYYY-MM-DD","b":"<height>","b28":"<height>"}`, stdout = the snapshot JSON (see lib.rs).
 #[cfg(target_os = "wasi")]
 struct Wasi;
 

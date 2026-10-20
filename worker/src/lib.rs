@@ -1,10 +1,11 @@
 //! NEAR Books OutLayer worker: reads NEAR mainnet state over HTTPS JSON-RPC (archival) and prints one compact
 //! JSON object for the `nearbooks` contract.
 //!
-//! Canonical observation point. The caller names a UTC date D and a block height B. The worker fetches block B and
-//! its predecessor (`prev_hash`) and fails unless `prev.timestamp < D 00:00:00 UTC <= B.timestamp`, i.e. B is the
-//! first block of day D. Every number is then read AT block B, so the snapshot for D is the same whoever triggers it
-//! and whenever they do; nobody can pick a convenient moment.
+//! Canonical observation points. The caller names a UTC date D, the block height B and the block height B28. The
+//! worker fetches each block and its predecessor (`prev_hash`) and fails unless `prev.timestamp < D 00:00:00 UTC <=
+//! B.timestamp` (B is the first block of day D) and the same for B28 and D minus 28 days. Every number is then read
+//! AT those blocks, so the snapshot for D is the same whoever triggers it and whenever they do; nobody can pick a
+//! convenient moment.
 //!
 //! Read at B:
 //! * height, timestamp and `total_supply` from the block header,
@@ -13,19 +14,25 @@
 //!   against `<token>.ft_balance_of("intents.near")`. A token is in deficit when the ledger owes more than the
 //!   token contract says intents.near holds.
 //!
-//! Output (all values are strings, keys sorted, compact; about 390 bytes, OutLayer's on-chain limit is ~900):
-//! `{"bb","cs","fe"` wallet balances in yoctoNEAR, `"d"` the date D, `"fb"` responses served by the fallback RPC,
-//! `"h"` block height B, `"ms"` wall time, `"n"` the caller's nonce echoed back, `"rc"` tokens checked, `"rd"` tokens
-//! in deficit, `"rk"` tokens configured, `"rm"` max deficit in parts per million of mt_supply, `"rt"` symbol with the
-//! max deficit, `"rid"` OutLayer request id, `"sha"` sha256 of the concatenated raw RPC response bodies in call
-//! order, `"sup"` total supply in yoctoNEAR, `"t"` block timestamp (ns), `"v"` format version`}`.
+//! Read at B28 (28 days earlier): `total_supply` and the same three wallet balances. The contract derives the
+//! trailing-28-day net issuance and the revenue wallets' 28-day gain from the two observations.
+//!
+//! Output (all values are strings, keys sorted, compact; about 560 bytes, OutLayer's on-chain limit is ~900):
+//! `{"bb","cs","fe"` wallet balances at B in yoctoNEAR, `"bb28","cs28","fe28"` the same at B28, `"d"` the date D,
+//! `"fb"` responses served by the fallback RPC, `"h"` block height B, `"h28"` block height B28, `"ms"` wall time,
+//! `"n"` the caller's nonce echoed back, `"rc"` tokens checked, `"rd"` tokens in deficit, `"rk"` tokens configured,
+//! `"rm"` max deficit in parts per million of mt_supply, `"rt"` symbol with the max deficit, `"rid"` OutLayer
+//! request id, `"sha"` sha256 of the concatenated raw RPC response bodies in call order, `"sup"` / `"sup28"` total
+//! supply at B / B28 in yoctoNEAR, `"t"` block timestamp of B (ns), `"v"` format version`}`.
 //!
 //! The HTTP transport and the sleep are injected so the logic runs under `cargo test` with canned responses.
 
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
 
-pub const FORMAT_VERSION: &str = "2";
+pub const FORMAT_VERSION: &str = "3";
+/// The second observation point is the first block of the day this many days before D.
+pub const LOOKBACK_DAYS: u64 = 28;
 /// Archival first (the observation block can be days old); the non-archival endpoint only helps for recent days.
 pub const RPC_URLS: [&str; 2] = ["https://archival-rpc.mainnet.fastnear.com", "https://rpc.mainnet.near.org"];
 /// Attempts per RPC call, alternating endpoints, with exponential backoff (FastNear answers bursts with HTTP 429).
@@ -139,12 +146,40 @@ pub struct Ctx {
     pub sleep: Box<dyn Fn(u64)>,
 }
 
-/// What the contract asks for: nonce to echo, the UTC date D, and the claimed first block of D.
+/// What the contract asks for: nonce to echo, the UTC date D, the claimed first block of D and the claimed first
+/// block of D minus [`LOOKBACK_DAYS`].
 #[derive(Debug, PartialEq)]
 pub struct Request {
     pub nonce: String,
     pub date: String,
     pub height: u64,
+    pub height_28: u64,
+}
+
+/// Header fields of a block that was checked to be the first block at or after `midnight`.
+struct FirstBlock {
+    height: u64,
+    ts: u64,
+    supply: String,
+}
+
+/// Fetches block `height` and its predecessor and checks the canonical rule: `prev.timestamp < midnight <= ts`.
+fn first_block<T: Transport>(rpc: &mut Rpc<T>, height: u64, midnight: u64, day: &str) -> Result<FirstBlock, String> {
+    let block = rpc.call("block", json!({"block_id": height}))?;
+    let header = block.get("header").ok_or("block: no header")?;
+    let got = header.get("height").and_then(Value::as_u64).ok_or("block: no height")?;
+    if got != height {
+        return Err(format!("block: asked for {}, got {}", height, got));
+    }
+    let ts = timestamp_ns(header).ok_or("block: no timestamp")?;
+    let supply = digits(header.get("total_supply"), "total_supply")?;
+    let prev_hash = header.get("prev_hash").and_then(Value::as_str).ok_or("block: no prev_hash")?.to_string();
+    let prev = rpc.call("block", json!({"block_id": prev_hash}))?;
+    let prev_ts = prev.get("header").and_then(timestamp_ns).ok_or("prev block: no timestamp")?;
+    if !(prev_ts < midnight && midnight <= ts) {
+        return Err(format!("block {} is not the first block of {} (prev {} / block {} vs midnight {})", height, day, prev_ts, ts, midnight));
+    }
+    Ok(FirstBlock { height, ts, supply })
 }
 
 /// Runs the whole job and returns the output JSON (compact, sorted keys).
@@ -153,29 +188,17 @@ pub fn run<T: Transport>(transport: &mut T, ctx: &Ctx) -> Result<String, String>
     let midnight = midnight_ns(&req.date).ok_or("input: d is not a valid date")?;
     let mut rpc = Rpc::new(transport, ctx.sleep.as_ref());
 
-    let block = rpc.call("block", json!({"block_id": req.height}))?;
-    let header = block.get("header").ok_or("block: no header")?;
-    let height = header.get("height").and_then(Value::as_u64).ok_or("block: no height")?;
-    if height != req.height {
-        return Err(format!("block: asked for {}, got {}", req.height, height));
-    }
-    let ts = timestamp_ns(header).ok_or("block: no timestamp")?;
-    let supply = digits(header.get("total_supply"), "total_supply")?;
-    let prev_hash = header.get("prev_hash").and_then(Value::as_str).ok_or("block: no prev_hash")?.to_string();
-    let prev = rpc.call("block", json!({"block_id": prev_hash}))?;
-    let prev_ts = prev.get("header").and_then(timestamp_ns).ok_or("prev block: no timestamp")?;
-    // The canonical rule: B is the first block whose timestamp is at or after D 00:00 UTC.
-    if !(prev_ts < midnight && midnight <= ts) {
-        return Err(format!(
-            "block {} is not the first block of {} (prev {} / block {} vs midnight {})",
-            height, req.date, prev_ts, ts, midnight
-        ));
-    }
+    let b = first_block(&mut rpc, req.height, midnight, &req.date)?;
+    let midnight_28 = midnight - LOOKBACK_DAYS * 86_400 * 1_000_000_000;
+    let b28 = first_block(&mut rpc, req.height_28, midnight_28, &format!("{} minus {} days", req.date, LOOKBACK_DAYS))?;
+    let height = b.height;
 
     let mut out = Map::new();
-    for (key, account) in WALLETS {
-        let acc = rpc.call("query", json!({"request_type": "view_account", "block_id": height, "account_id": account}))?;
-        out.insert(key.into(), Value::String(digits(acc.get("amount"), account)?));
+    for (suffix, at) in [("", height), ("28", b28.height)] {
+        for (key, account) in WALLETS {
+            let acc = rpc.call("query", json!({"request_type": "view_account", "block_id": at, "account_id": account}))?;
+            out.insert(format!("{}{}", key, suffix), Value::String(digits(acc.get("amount"), account)?));
+        }
     }
 
     let (mut checked, mut in_deficit, mut max_ppm, mut max_sym) = (0u32, 0u32, 0u128, "");
@@ -200,6 +223,7 @@ pub fn run<T: Transport>(transport: &mut T, ctx: &Ctx) -> Result<String, String>
     out.insert("d".into(), req.date.into());
     out.insert("fb".into(), rpc.fallback_hits.to_string().into());
     out.insert("h".into(), height.to_string().into());
+    out.insert("h28".into(), b28.height.to_string().into());
     out.insert("ms".into(), (ctx.elapsed_ms)().to_string().into());
     out.insert("n".into(), req.nonce.into());
     out.insert("rc".into(), checked.to_string().into());
@@ -209,14 +233,15 @@ pub fn run<T: Transport>(transport: &mut T, ctx: &Ctx) -> Result<String, String>
     out.insert("rt".into(), max_sym.into());
     out.insert("rid".into(), ctx.request_id.clone().into());
     out.insert("sha".into(), rpc.digest_hex().into());
-    out.insert("sup".into(), supply.into());
-    out.insert("t".into(), ts.to_string().into());
+    out.insert("sup".into(), b.supply.into());
+    out.insert("sup28".into(), b28.supply.into());
+    out.insert("t".into(), b.ts.to_string().into());
     out.insert("v".into(), FORMAT_VERSION.into());
     // serde_json's default Map is a BTreeMap, so keys come out sorted and the bytes are canonical.
     Ok(Value::Object(out).to_string())
 }
 
-/// Input is `{"n":"<nonce>","d":"YYYY-MM-DD","b":"<height>"}` (the contract's `worker_input`).
+/// Input is `{"n":"<nonce>","d":"YYYY-MM-DD","b":"<height>","b28":"<height>"}` (the contract's `worker_input`).
 pub fn parse_request(input: &str) -> Result<Request, String> {
     let v: Value = serde_json::from_str(input).map_err(|e| format!("input: {}", e))?;
     let field = |k: &str| v.get(k).and_then(Value::as_str).ok_or_else(|| format!("input: missing {}", k));
@@ -227,7 +252,12 @@ pub fn parse_request(input: &str) -> Result<Request, String> {
     let date = field("d")?;
     midnight_ns(date).ok_or("input: d must be YYYY-MM-DD")?;
     let height = field("b")?.parse::<u64>().map_err(|_| "input: b must be a block height")?;
-    Ok(Request { nonce: nonce.into(), date: date.into(), height })
+    let height_28 = field("b28")?.parse::<u64>().map_err(|_| "input: b28 must be a block height")?;
+    if height_28 >= height {
+        return Err("input: b28 must be below b".into());
+    }
+    midnight_ns(date).filter(|m| *m >= LOOKBACK_DAYS * 86_400 * 1_000_000_000).ok_or("input: d is too early")?;
+    Ok(Request { nonce: nonce.into(), date: date.into(), height, height_28 })
 }
 
 /// Unix nanoseconds of `YYYY-MM-DD` 00:00:00 UTC (days-from-civil), or None if the date is not a real day.
