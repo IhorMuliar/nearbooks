@@ -17,10 +17,15 @@ def _load(rel):
         return json.load(f)
 
 
+def _text(path):
+    with open(path) as f:
+        return f.read()
+
+
 def test_counts():
     """Static counts; they equal what the runners report (unittest counts test methods, cargo counts #[test])."""
-    py = sum(len(re.findall(r"^    def test_", open(p).read(), re.M)) for p in sorted(glob.glob(os.path.join(ROOT, "tests", "test_*.py"))))
-    rs = lambda rel: len(re.findall(r"^#\[test\]", open(os.path.join(ROOT, rel)).read(), re.M))
+    py = sum(len(re.findall(r"^    def test_", _text(p), re.M)) for p in sorted(glob.glob(os.path.join(ROOT, "tests", "test_*.py"))))
+    rs = lambda rel: len(re.findall(r"^#\[test\]", _text(os.path.join(ROOT, rel)), re.M))
     return {"python": py, "contract": rs("contract/src/tests.rs"), "worker": rs("worker/src/tests.rs")}
 
 

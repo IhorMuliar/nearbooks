@@ -53,8 +53,10 @@ class TestReadmeFacts(unittest.TestCase):
         with open(os.path.join(ROOT, "contract", "testnet-attested.log")) as f:
             log = f.read()
         self.assertIn(f"contract wasm sha256: {d['code_sha256']}", log, "the logged deploy used this build")
+        with open(os.path.join(ROOT, "contract", "testnet-resolve.log")) as f:
+            log += f.read()
         for _, tx in d["transactions"]:
-            self.assertTrue(tx in log or tx in open(os.path.join(ROOT, "contract", "testnet-resolve.log")).read(), tx)
+            self.assertIn(tx, log)
 
 
 if __name__ == "__main__":
