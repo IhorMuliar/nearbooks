@@ -2,14 +2,15 @@
 SNAPSHOT ?= data/snapshot-2026-10-20
 PY       ?= python3 -I
 
-.PHONY: help data verify verify-live test test-py test-contract wasm readme site clean
+.PHONY: help data verify verify-live test test-py test-contract test-worker wasm worker readme site clean
 
 help:
 	@echo "make verify        recompute + assert findings from the committed snapshot (offline, ~2 s)"
 	@echo "make data          fetch fresh raw data into data/live (network, ~6 min because of API rate limits)"
 	@echo "make verify-live   make data, then recompute + assert on the fresh data"
-	@echo "make test          python tests (pipeline, MCP) + contract unit tests"
+	@echo "make test          python tests (pipeline, MCP) + contract and worker unit tests"
 	@echo "make wasm          build contract/ to wasm"
+	@echo "make worker        build the OutLayer worker (wasm32-wasip2) and print the sha256 the contract pins"
 	@echo "make site          serve the dashboard at http://127.0.0.1:8000/site/"
 
 # --- offline path: committed snapshot -> metrics.json -> assertions
@@ -30,7 +31,7 @@ verify-live: data
 readme:
 	$(PY) pipeline/update_readme.py $(SNAPSHOT)/metrics.json README.md
 
-test: test-py test-contract
+test: test-py test-contract test-worker
 
 test-py:
 	$(PY) -m unittest discover -s tests -t . -v
@@ -38,11 +39,17 @@ test-py:
 test-contract:
 	cd contract && cargo test
 
+test-worker:
+	cd worker && cargo test --locked
+
 wasm:
 	cd contract && ./build.sh
+
+worker:
+	cd worker && ./build.sh
 
 site:
 	python3 -m http.server 8000 --bind 127.0.0.1
 
 clean:
-	rm -rf data/live contract/target
+	rm -rf data/live contract/target worker/target

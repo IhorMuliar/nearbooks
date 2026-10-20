@@ -1,10 +1,16 @@
 use super::*;
-use near_sdk::test_utils::VMContextBuilder;
-use near_sdk::testing_env;
+use near_sdk::mock::MockAction;
+use near_sdk::test_utils::{get_created_receipts, get_logs, VMContextBuilder};
+use near_sdk::serde_json::{self, Value};
+use near_sdk::{testing_env, Gas, NearToken, PromiseResult};
 
 const OWNER: &str = "owner.testnet";
 const REPORTER: &str = "reporter.testnet";
 const STRANGER: &str = "stranger.testnet";
+const CONTRACT: &str = "nearbooks.testnet";
+const OUTLAYER: &str = "outlayer.testnet";
+const WASM: &str = "746273ae673a657a26f94f5b548c8906d79f2422987e0ffded04e4a83d813eb1";
+const WASM2: &str = "1111111111111111111111111111111111111111111111111111111111111111";
 const HASH: &str = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
 /// 2026-10-20T12:00:00Z
 const T_2026_10_20: u64 = 1_792_497_600;
@@ -15,7 +21,7 @@ fn acct(s: &str) -> AccountId {
 
 /// Sets the caller and the block time (unix seconds).
 fn ctx(caller: &str, unix_secs: u64) {
-    testing_env!(VMContextBuilder::new().predecessor_account_id(acct(caller)).block_timestamp(unix_secs * 1_000_000_000).build());
+    testing_env!(VMContextBuilder::new().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(caller)).block_timestamp(unix_secs * 1_000_000_000).build());
 }
 
 fn fresh() -> NearBooks {
@@ -354,4 +360,312 @@ fn json_shapes_are_stable() {
     assert_eq!(v["threshold"], "7"); // i128 is a decimal string in JSON
     let args: Vec<Metric> = near_sdk::serde_json::from_str(r#"[{"key":"a","value":"-5"}]"#).unwrap();
     assert_eq!(args[0].value.0, -5);
+}
+
+// ------------------------------------------------- attested snapshots (OutLayer)
+
+/// A real output of the pinned worker (local wasmtime run against mainnet, 2026-10-20), with `n` and `rid` set.
+fn worker_output(nonce: u64) -> String {
+    format!(
+        r#"{{"bb":"2026233799365693115946434570865","cs":"270875891412420848813311023","fb":"0","fe":"1917880330900068990542692568184","h":"220816586","ms":"3223","n":"{}","rc":"8","rd":"0","rid":"5200","rk":"8","rm":"0","rt":"","sha":"28f7cd9e36446bef82a8335154a08145545af2d57a1d80ebc838cdafcf8bcdb5","sup":"1309481349734847858820357371388774","t":"1792507586708543200","v":"1"}}"#,
+        nonce
+    )
+}
+
+fn pin(c: &mut NearBooks, hash: &str) {
+    ctx(OWNER, T_2026_10_20);
+    c.pin_worker(acct(OUTLAYER), format!("https://test.fastfs.io/x/outlayer.testnet/{}.wasm", hash), hash.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+}
+
+/// `caller` calls request_snapshot with a deposit (milliNEAR) and 300 Tgas.
+fn request(c: &mut NearBooks, caller: &str, millinear: u128) -> u64 {
+    testing_env!(VMContextBuilder::new()
+        .current_account_id(acct(CONTRACT))
+        .predecessor_account_id(acct(caller))
+        .signer_account_id(acct(caller))
+        .attached_deposit(NearToken::from_millinear(millinear))
+        .prepaid_gas(Gas::from_tgas(300))
+        .block_timestamp(T_2026_10_20 * 1_000_000_000)
+        .build());
+    let _ = c.request_snapshot();
+    c.next_nonce - 1
+}
+
+/// The callback as the runtime delivers it: predecessor = this contract, one promise result.
+fn deliver(c: &mut NearBooks, nonce: u64, result: PromiseResult) -> String {
+    deliver_as(c, CONTRACT, nonce, result)
+}
+
+fn deliver_as(c: &mut NearBooks, caller: &str, nonce: u64, result: PromiseResult) -> String {
+    testing_env!(
+        VMContextBuilder::new().current_account_id(acct(CONTRACT)).predecessor_account_id(acct(caller)).block_timestamp(T_2026_10_20 * 1_000_000_000).build(),
+        near_sdk::test_vm_config(),
+        near_sdk::RuntimeFeesConfig::test(),
+        Default::default(),
+        vec![result]
+    );
+    c.on_snapshot_result(nonce)
+}
+
+fn ok_bytes(s: &str) -> PromiseResult {
+    PromiseResult::Successful(s.as_bytes().to_vec())
+}
+
+#[test]
+fn request_snapshot_calls_outlayer_with_the_pinned_hash() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 10);
+    assert_eq!(nonce, 0);
+    let p = c.get_pending(0).unwrap();
+    assert_eq!((p.requester, p.wasm_hash.as_str(), p.deposit), (acct(STRANGER), WASM, NearToken::from_millinear(10)));
+    let receipts = get_created_receipts();
+    let to_outlayer = receipts.iter().find(|r| r.receiver_id == acct(OUTLAYER)).expect("a receipt to OutLayer");
+    let MockAction::FunctionCallWeight { method_name, args, attached_deposit, .. } = &to_outlayer.actions[0] else { panic!("not a function call") };
+    assert_eq!(method_name, b"request_execution");
+    assert_eq!(*attached_deposit, NearToken::from_millinear(10));
+    let a: Value = serde_json::from_slice(args).unwrap();
+    assert_eq!(a["source"]["WasmUrl"]["hash"], WASM);
+    assert_eq!(a["source"]["WasmUrl"]["build_target"], "wasm32-wasip2");
+    assert_eq!(a["input_data"], r#"{"n":"0"}"#);
+    assert_eq!(a["response_format"], "Json");
+    assert_eq!(a["payer_account_id"], STRANGER, "OutLayer refunds the unused deposit to the caller");
+    assert_eq!(a["resource_limits"]["max_instructions"], DEFAULT_MAX_INSTRUCTIONS);
+    let callback = receipts.iter().find(|r| r.receiver_id == acct(CONTRACT)).expect("a callback receipt");
+    let MockAction::FunctionCallWeight { method_name, args, .. } = &callback.actions[0] else { panic!() };
+    assert_eq!((method_name.as_slice(), args.as_slice()), (b"on_snapshot_result".as_slice(), br#"{"nonce":0}"#.as_slice()));
+}
+
+#[test]
+fn attested_snapshot_is_stored_with_source_tag() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 10);
+    let out = worker_output(nonce);
+    assert_eq!(deliver(&mut c, nonce, ok_bytes(&out)), "stored attested snapshot 2026-10-20");
+    assert_eq!(c.snapshot_count(), 1);
+    assert!(c.get_pending(nonce).is_none(), "pending entry is consumed");
+    let s = c.latest_snapshot().unwrap();
+    assert_eq!(s.date, "2026-10-20");
+    assert_eq!(s.submitted_by, acct(STRANGER));
+    assert_eq!(s.evidence_hash, "28f7cd9e36446bef82a8335154a08145545af2d57a1d80ebc838cdafcf8bcdb5");
+    assert_eq!(
+        s.source,
+        Source::Attested {
+            nonce: 0,
+            request_id: 5200,
+            wasm_hash: WASM.into(),
+            block_height: 220_816_586,
+            output_sha256: hex(&env::sha256(out.as_bytes())),
+            attestation: "https://testnet-api.outlayer.ai/attestations/by-request/5200".into(),
+        }
+    );
+    let get = |k: &str| s.metrics.iter().find(|m| m.key == k).map(|m| m.value.0);
+    assert_eq!(get("supply_total_near"), Some(1_309_481_349_734_847)); // yocto / 1e18 = micro-NEAR
+    assert_eq!(get("buyback_wallet_near"), Some(2_026_233_799_365));
+    assert_eq!(get("fefundsadmin_wallet_near"), Some(1_917_880_330_900));
+    assert_eq!(get("onecsfundsadmin_wallet_near"), Some(270_875_891));
+    assert_eq!(get("intents_reserves_tokens_checked"), Some(8_000_000));
+    assert_eq!(get("intents_reserves_tokens_in_deficit"), Some(0));
+    assert_eq!(get("mainnet_block_height"), Some(220_816_586_000_000));
+    // JSON shape third parties read
+    let v = serde_json::to_value(&s).unwrap();
+    assert_eq!(v["source"]["attested"]["request_id"], 5200);
+    assert!(get_logs().iter().any(|l| l.contains(r#""event":"snapshot""#) && l.contains(r#""source":"attested""#)));
+}
+
+#[test]
+fn reporter_path_is_tagged_reported() {
+    let mut c = fresh();
+    ctx(REPORTER, T_2026_10_20);
+    submit(&mut c, "2026-10-20", vec![m("supply_total_near", 1)]);
+    let s = c.latest_snapshot().unwrap();
+    assert_eq!(s.source, Source::Reported);
+    assert_eq!(serde_json::to_value(&s).unwrap()["source"], "reported");
+}
+
+#[test]
+#[should_panic(expected = "only this contract can deliver OutLayer results")]
+fn callback_from_outlayer_account_directly_is_rejected() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 10);
+    // OutLayer (or anyone) calling the callback directly, with a perfectly valid payload, must fail.
+    deliver_as(&mut c, OUTLAYER, nonce, ok_bytes(&worker_output(nonce)));
+}
+
+#[test]
+#[should_panic(expected = "only this contract can deliver OutLayer results")]
+fn callback_from_stranger_is_rejected() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 10);
+    deliver_as(&mut c, STRANGER, nonce, ok_bytes(&worker_output(nonce)));
+}
+
+#[test]
+fn wrong_wasm_hash_is_rejected() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 10);
+    pin(&mut c, WASM2); // owner re-pins while the run is in flight: the old run no longer matches the pin
+    let r = deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
+    assert_eq!(r, "rejected: the pinned wasm hash changed while the run was in flight");
+    assert_eq!(c.snapshot_count(), 0);
+    assert!(c.get_pending(nonce).is_none());
+    assert!(get_logs().iter().any(|l| l.contains("snapshot_rejected")));
+}
+
+#[test]
+fn changed_outlayer_contract_is_rejected() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 10);
+    ctx(OWNER, T_2026_10_20);
+    c.pin_worker(acct("evil-outlayer.testnet"), "https://x.example/w.wasm".into(), WASM.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+    let r = deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
+    assert!(r.starts_with("rejected: the configured OutLayer contract changed"), "{}", r);
+    assert_eq!(c.snapshot_count(), 0);
+}
+
+#[test]
+fn malformed_output_is_rejected_and_nothing_is_stored() {
+    let good = worker_output(0);
+    let cases: Vec<(String, &str)> = vec![
+        ("not json".into(), "malformed worker output"),
+        ("null".into(), "OutLayer reported the run as failed"),
+        (r#""a string""#.into(), "malformed worker output"),
+        (good.replace(r#","v":"1""#, ""), "malformed worker output"),                         // missing field
+        (good.replace(r#""v":"1""#, r#""v":"1","x":"1""#), "malformed worker output"),        // unknown field
+        (good.replace(r#""v":"1""#, r#""v":"2""#), "unsupported worker output version"),
+        (good.replace(r#""n":"0""#, r#""n":"9""#), "nonce mismatch"),                         // answer for another request
+        (good.replace(r#""sup":"1309"#, r#""sup":"-1309"#), "sup must be a decimal string"),
+        (good.replace(r#""rid":"5200""#, r#""rid":"""#), "rid must be a decimal string"),
+        (good.replace(r#""h":"220816586""#, r#""h":"99999999999999999999""#), "h out of range"),
+        (good.replace(r#""rc":"8""#, r#""rc":"9""#), "inconsistent reserves fields"),
+        (good.replace(r#""sha":"28f7"#, r#""sha":"28F7"#), "evidence_hash must be 64 lowercase hex chars"),
+        (good.replace(r#""t":"1792507586708543200""#, r#""t":"1892507586708543200""#), "snapshot date is in the future"),
+    ];
+    for (payload, want) in cases {
+        let mut c = fresh();
+        pin(&mut c, WASM);
+        let nonce = request(&mut c, STRANGER, 10);
+        assert_eq!(nonce, 0);
+        let r = deliver(&mut c, nonce, ok_bytes(&payload));
+        assert!(r.starts_with("rejected:") && r.contains(want), "payload {} -> {} (wanted {})", payload, r, want);
+        assert_eq!(c.snapshot_count(), 0, "{}", payload);
+        assert!(c.get_pending(nonce).is_none());
+    }
+}
+
+#[test]
+fn oversized_output_is_rejected() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 10);
+    let r = deliver(&mut c, nonce, ok_bytes(&"x".repeat(MAX_WORKER_OUTPUT + 1)));
+    assert!(r.contains("too long"), "{}", r);
+    assert_eq!(c.snapshot_count(), 0);
+}
+
+#[test]
+fn failed_outlayer_call_refunds_the_deposit_and_changes_nothing() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 25);
+    let r = deliver(&mut c, nonce, PromiseResult::Failed);
+    assert_eq!(r, "rejected: the OutLayer call failed; deposit refunded");
+    assert_eq!(c.snapshot_count(), 0);
+    let refund = get_created_receipts().into_iter().find(|r| r.receiver_id == acct(STRANGER)).expect("refund receipt");
+    assert!(matches!(refund.actions[0], MockAction::Transfer { deposit, .. } if deposit == NearToken::from_millinear(25)));
+}
+
+#[test]
+fn attested_and_reported_share_one_date_order() {
+    let mut c = fresh();
+    ctx(REPORTER, T_2026_10_20);
+    submit(&mut c, "2026-10-20", vec![m("supply_total_near", 1)]);
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 10);
+    let r = deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
+    assert_eq!(r, "rejected: snapshot date must be later than the latest stored date");
+    assert_eq!(c.snapshot_count(), 1);
+    assert_eq!(c.latest_snapshot().unwrap().source, Source::Reported);
+}
+
+#[test]
+fn attested_snapshot_resolves_predictions_by_the_same_rule() {
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20 - 86_400);
+    c.add_prediction("supply up".into(), "supply_total_near".into(), Comparator::Gt, I128(1_309_000_000_000_000), "2026-10-20".into());
+    c.add_prediction("missing".into(), "revenue_ytd_usd".into(), Comparator::Gt, I128(0), "2026-10-20".into());
+    pin(&mut c, WASM);
+    let nonce = request(&mut c, STRANGER, 10);
+    deliver(&mut c, nonce, ok_bytes(&worker_output(nonce)));
+    ctx(STRANGER, T_2026_10_20);
+    assert_eq!(c.resolve_prediction(0).status, Status::Confirmed);
+    assert_eq!(c.resolve_prediction(1).status, Status::Void, "a metric the worker does not report voids, as before");
+}
+
+#[test]
+fn each_nonce_is_answered_once() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    let n0 = request(&mut c, STRANGER, 10);
+    let n1 = request(&mut c, STRANGER, 10);
+    assert_eq!((n0, n1), (0, 1));
+    // the answer to request 0 delivered for request 1 is refused (the nonce is inside the attested output)
+    let r = deliver(&mut c, n1, ok_bytes(&worker_output(n0)));
+    assert!(r.contains("nonce mismatch"), "{}", r);
+    assert!(deliver(&mut c, n0, ok_bytes(&worker_output(n0))).starts_with("stored"));
+}
+
+#[test]
+#[should_panic(expected = "unknown request nonce")]
+fn unknown_nonce_panics() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    deliver(&mut c, 3, ok_bytes(&worker_output(3)));
+}
+
+#[test]
+#[should_panic(expected = "the OutLayer worker is not configured")]
+fn request_needs_a_pinned_worker() {
+    let mut c = fresh();
+    request(&mut c, STRANGER, 10);
+}
+
+#[test]
+#[should_panic(expected = "attach at least 0.01 NEAR")]
+fn request_needs_a_deposit() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    request(&mut c, STRANGER, 9);
+}
+
+#[test]
+#[should_panic(expected = "only the owner can pin the worker")]
+fn only_owner_pins_the_worker() {
+    let mut c = fresh();
+    ctx(REPORTER, T_2026_10_20);
+    c.pin_worker(acct(OUTLAYER), "https://a/b.wasm".into(), WASM.into(), "https://testnet-api.outlayer.ai".into(), None, None);
+}
+
+#[test]
+#[should_panic(expected = "wasm_hash must be 64 lowercase hex chars")]
+fn pin_validates_the_hash() {
+    let mut c = fresh();
+    ctx(OWNER, T_2026_10_20);
+    c.pin_worker(acct(OUTLAYER), "https://a/b.wasm".into(), "ABC".into(), "https://testnet-api.outlayer.ai".into(), None, None);
+}
+
+#[test]
+fn repin_emits_event_with_previous_hash() {
+    let mut c = fresh();
+    pin(&mut c, WASM);
+    pin(&mut c, WASM2);
+    let logs = get_logs();
+    let ev = logs.iter().find(|l| l.contains("worker_pinned")).unwrap();
+    assert!(ev.contains(&format!(r#""previous_wasm_hash":"{}""#, WASM)) && ev.contains(&format!(r#""wasm_hash":"{}""#, WASM2)), "{}", ev);
+    assert_eq!(c.get_outlayer_config().unwrap().wasm_hash, WASM2);
 }
