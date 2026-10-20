@@ -39,13 +39,51 @@ README generated blocks match the verified output; local builds match contract/d
 ```
 <!-- verify-output:end -->
 
-**2. Check an attested snapshot yourself** (network, about 10 s). This reads the snapshot from the contract and fetches OutLayer's public attestation. It binds the TDX quote to this run and checks the quote's measurements against OutLayer's on-chain list. With `--dcap` it also verifies Intel's signature chain.
+**2. Check an attested snapshot yourself** (network, about 20 s). This reads the snapshot from the contract and fetches OutLayer's public attestation. It binds the TDX quote to this run and checks the quote's measurements against OutLayer's on-chain list. With `--dcap` it also verifies Intel's signature chain.
 
-<!-- ATTEST_OUTPUT -->
+```
+$ python3 -I contract/scripts/verify_attestation.py nearbooks-v5.okf-kill-1792497882.testnet 2026-10-20
+snapshot 2026-10-20: nonce 1, OutLayer request 5168, mainnet block 220726930 (ts 1792454400548428142)
+attestation: https://testnet-api.outlayer.ai/attestations/by-request/5168
+PASS  snapshot's attestation link == the allowlisted URL for its request id
+PASS  attestation.request_id == snapshot request_id  5168
+PASS  attestation.wasm_hash == snapshot wasm_hash  bbed939a…7963
+PASS  attestation.executed_wasm_sha256 == wasm_hash
+PASS  snapshot wasm_hash == the contract's pin for that date  outlayer.testnet
+PASS  wasm_hash is a worker this repo vouches for (contract/known_workers.json)  format 3 (28-day lookback), commit 422a4e6
+INFO  current pin: bbed939a…7963 (same); waiting proposal: {...}
+PASS  attestation.input_hash == sha256(contract input)  {"n":"1","d":"2026-10-20","b":"220726930","b28":"216696053"}
+PASS  attestation.output_hash == snapshot output_sha256  e6ca46c3…cab6
+PASS  transaction calls this contract's request_snapshot  8s6bbc6aU84jgk3eAS8qq1a3ra6Kr8oguw2gHpNf7pMz
+PASS  OutLayer receipt returned bytes hashing to output_hash
+PASS  stored metrics == attested output (all 13, incl. the 28-day ones recomputed here)  {"bb":"2022180087915366303354191622511",...}
+INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 b92bf4e72e3b8608... (= worker_measurement)
+PASS  quote report_data == sha256(task fields): the quote is bound to this run  53fe7390…fb01
+PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (110 approved sets)
+SKIP  Intel DCAP signature chain (pass --dcap /path/to/dcap-qvl)
+13/13 checks pass
+```
+
+Append `--wasm worker/res/nearbooks-worker.wasm` (after `make worker`) to also compare your own build, and `--dcap "$(command -v dcap-qvl)"` (`cargo install dcap-qvl-cli`) for Intel's chain. With both, the run ends with `PASS  local worker build sha256 == wasm_hash`, `PASS  Intel DCAP signature chain verifies (dcap-qvl)  TCB status UpToDate` and `15/15 checks pass`.
 
 **3. See which prediction the chain decided** (MCP server, network). `get_predictions` reads the contract live over JSON-RPC. If the RPC is unreachable it falls back to `site/contract-cache.json` and says `"mode": "offline"`.
 
-<!-- MCP_OUTPUT -->
+```
+$ printf '%s\n' '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18"}}' \
+    '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"get_predictions","arguments":{}}}' \
+  | python3 -I mcp/server.py | tail -1 \
+  | python3 -I -c 'import json,sys; r=json.loads(json.load(sys.stdin)["result"]["content"][0]["text"]); print(r["mode"], r["contract"], "block", r["block_height"]); [print(p["id"], p["resolve_after"], p["status"], p["observed"]) for p in r["predictions"]]'
+live nearbooks-v5.okf-kill-1792497882.testnet block 273993830
+0 2026-12-31 pending None
+1 2026-12-31 pending None
+2 2027-01-31 pending None
+3 2027-01-31 pending None
+4 2026-10-21 pending None
+5 2026-10-21 pending None
+6 2026-10-21 pending None
+```
+
+Nothing is decided yet: the earliest predictions (the demos 4-6) are decided by the 2026-10-21 snapshot. Drop the last pipe to see the full JSON (claim, rule, threshold, `decided_by_snapshot`).
 
 **4. Open the dashboard** (`make site`, then http://127.0.0.1:8000/site/). The page reads the snapshots, predictions and pin history from the testnet contract in the browser. A snapshot is marked **verified** only if all of these hold:
 - its worker hash is in `contract/known_workers.json`,
@@ -55,7 +93,19 @@ README generated blocks match the verified output; local builds match contract/d
 
 Without RPC access the page shows an "offline data" badge and the committed copy. Pipeline numbers carry a separate "pipeline · snapshot 2026-10-20" tag. A headless Chromium run of `tests/browser_check.mjs`:
 
-<!-- BROWSER_OUTPUT -->
+```
+$ make site    # first terminal
+$ npm install --prefix /tmp/pw playwright-core && npx --prefix /tmp/pw playwright-core install chromium-headless-shell
+$ PLAYWRIGHT_CORE=/tmp/pw/node_modules/playwright-core/index.mjs node tests/browser_check.mjs http://127.0.0.1:8000/site/
+PASS live badge: liveAttested data and predictions read just now from nearbooks-v5.okf-kill-1792497882.testnet (NEAR testnet, block 273,993,762, via rpc.testnet.fastnear.com).
+PASS 1 attested row(s), verified (all seven checks ok): 2026-10-20 220,726,930 bbed939a…7963 VERIFIEDKNOWN WORKER OKPIN OKTX OKLINK OKWASM OKINPUT OKOUTPUT OK txattestationstored block
+PASS predictions: 0:PENDING 1:PENDING 2:PENDING 3:PENDING 4:PENDING 5:PENDING 6:PENDING
+PASS section tags: attested · live / attested · live / attested · live / pipeline · snapshot 2026-10-20
+PASS offline: offline dataThe testnet RPC could not be reached (https://rpc.testnet.near.org: Failed to fetch; ...
+PASS ?contract= is ignored
+PASS hosts contacted: 127.0.0.1, rpc.testnet.near.org, testnet-api.outlayer.ai, archival-rpc.testnet.near.org
+PASS 390 px wide: no page-level horizontal overflow
+```
 
 **5. Run the tests** (`make test`). These are the Python tests (pipeline, MCP, site and URL allowlist checks), the contract unit tests and the worker unit tests:
 
@@ -71,7 +121,19 @@ test result: ok. 13 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out   (w
 
 **6. Compare the deployment with the chain** (`make verify-deploy`, network). The on-chain `code_hash` must be the hash of the current build, and the pin for today must be the published worker:
 
-<!-- DEPLOY_OUTPUT -->
+```
+$ make verify-deploy
+python3 -I contract/scripts/check_deployment.py
+PASS  on-chain code_hash == base58(deployment code_sha256)  DTxcnSTH…6nJb vs DTxcnSTH…6nJb
+PASS  pin for today == deployment worker_sha256  bbed939a…7963
+PASS  pinned worker is in contract/known_workers.json
+INFO  waiting pin proposal: {...}
+PASS  local contract/res/nearbooks.wasm == deployed  b9343afe…6b18
+PASS  local worker/res/nearbooks-worker.wasm == deployed  bbed939a…7963
+5/5 deployment checks pass
+```
+
+The two `local` lines appear after `make wasm` and `make worker`; without those builds they say `SKIP ... not built` and the run ends `3/3 deployment checks pass`.
 
 ## Architecture
 
@@ -190,7 +252,7 @@ The claims are dated and falsifiable, and there are no stakes. P1-P4 come from `
 | 6 (demo) | Volume needed for net deflation exceeds 2x current volume at the first block of the resolve date (the old P4 metric, which the worker does not compute; expected void). | `breakeven_over_current_volume > 2.000` | 2026-10-21 | **pending** | - |
 <!-- predictions:end -->
 
-<!-- RESOLUTION_NOTE -->
+**Resolution status.** No prediction has been resolved yet. The demo predictions 4-6 are decided only by the attested snapshot of 2026-10-21, which can be requested once the first mainnet block of 2026-10-21 (UTC) exists. After that snapshot is attested and `resolve_prediction` has been called, the outcome of each demo (expected confirmed, refuted and void) will be recorded in the table above and in `contract/testnet-resolve.log`.
 
 ## Trust assumptions and limits
 
