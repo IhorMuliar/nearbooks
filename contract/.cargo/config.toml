@@ -1,0 +1,4 @@
+# near-sdk >= 5.2x selects real NEAR host functions only under `--cfg near` (cargo-near sets this for you).
+# Without it a plain wasm build links pure-Rust fallbacks: panics become bare `unreachable` traps and hashes are not host-backed.
+[target.wasm32-unknown-unknown]
+rustflags = ["--cfg", "near"]

@@ -1,0 +1,19 @@
+{
+ "as_of": "2026-10-20",
+ "head_height": 220800718,
+ "head_timestamp_ns": "1792498049134349790",
+ "fetched_unix": 1792498409,
+ "year_start": "2026-01-01",
+ "sha256": {
+  "llama_holders_revenue.json": "8bdf420773e8725fb4f1cfec81240091dafde44cbd29e7cda8d67410988b0331",
+  "llama_revenue.json": "16ee3da7166373655d5fa21c29b157bf0499b1bff979676ef0e427a1c025a6f2",
+  "llama_volume.json": "81fd7c2ae8bd588821002cc579a6f55465397272d6d9f6b4f8a6292e6b2c17a2",
+  "price.json": "c2f31791a80f29954197e79bf5bb3fd4c83becd95f736dbfa9f030ae8fe9f4a9",
+  "rpc_balances.json": "24a41ccb4688f9f1ac36ad09b5c16164c00fdec5cc2f966ee7a77654b74e41a1",
+  "rpc_hsp029.json": "02a04c27b3420a13dbec4c5bbf41e6e194006a3c9f0a9a5b2d57a27976006598",
+  "rpc_supply_samples.json": "5772bcb8d4b05d59cac57b5e46643029ee01ff39eb76c2c9af3c9a813b345e17",
+  "transfers_1csfundsadmin.sputnik-dao.near.jsonl": "5ade210aa38532e16a5a5b75e23e2f73822b38b5bfcbc6133625fd2a82967965",
+  "transfers_buybacks.multisignature.near.jsonl": "46dc8f9529d6e4697cbd4f933b0df11741b0b14cc7c5e42b6ead2f8ab5845c74",
+  "transfers_fefundsadmin.sputnik-dao.near.jsonl": "905eb74537256ffc8ba2cb3f02078b5bfe8f80b2fc4bfb25900f5cb9cecb65db"
+ }
+}

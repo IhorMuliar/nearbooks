@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NEAR Books: NEAR Intents revenue, audited from chain data</title>
+<style>
+  :root { --bg:#f7f6f2; --fg:#1b1b1a; --mut:#6b6a66; --line:#dcdad2; --card:#fff; --ok:#1f7a4d; --bad:#b3261e; --a:#1d4ed8; --b:#c2410c; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14140f; --fg:#ecebe5; --mut:#9a988f; --line:#33322b; --card:#1c1c16; --ok:#4cc38a; --bad:#ff7b72; --a:#7aa2ff; --b:#ff9d5c; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif; background:var(--bg); color:var(--fg); }
+  main { max-width:1040px; margin:0 auto; padding:28px 18px 60px; }
+  h1 { font-size:26px; margin:0 0 4px; } h2 { font-size:18px; margin:34px 0 10px; }
+  .sub { color:var(--mut); margin:0 0 18px; } .mono { font-family:ui-monospace,Menlo,monospace; font-size:13px; }
+  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(210px,1fr)); gap:10px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; }
+  .card .k { color:var(--mut); font-size:12px; text-transform:uppercase; letter-spacing:.04em; } .card .v { font-size:22px; font-weight:650; margin-top:2px; } .card .n { color:var(--mut); font-size:12px; }
+  table { width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--line); border-radius:8px; overflow:hidden; }
+  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; } th { font-size:12px; color:var(--mut); text-transform:uppercase; letter-spacing:.04em; }
+  td.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .pos { color:var(--ok); } .neg { color:var(--bad); }
+  .panel { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .calc { display:grid; grid-template-columns:1fr 1fr; gap:18px; } @media (max-width:760px) { .calc { grid-template-columns:1fr; } }
+  label { display:flex; justify-content:space-between; font-size:13px; margin-top:10px; } input[type=range] { width:100%; }
+  .seg { display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; } .seg button { border:0; background:transparent; color:var(--fg); padding:6px 12px; cursor:pointer; font:inherit; }
+  .seg button[aria-pressed=true] { background:var(--fg); color:var(--bg); }
+  button.pre { border:1px solid var(--line); background:transparent; color:var(--fg); border-radius:6px; padding:5px 10px; cursor:pointer; font:inherit; margin:0 6px 6px 0; }
+  .out { font-size:13px; } .out div { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed var(--line); } .verdict { font-weight:650; font-size:17px; margin:8px 0; }
+  svg text { fill:var(--mut); font-size:11px; } .legend span { margin-right:14px; } .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; }
+  #err { color:var(--bad); } footer { color:var(--mut); font-size:12px; margin-top:34px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>NEAR Books</h1>
+  <p class="sub">NEAR Intents revenue, buybacks and issuance, rebuilt from public chain data. Every number below is read from <span class="mono">metrics.json</span>, produced by <span class="mono">pipeline/compute.py</span>.</p>
+  <div id="err"></div>
+  <div class="cards" id="cards"></div>
+
+  <h2>Reconciliation: rebuilt from the chain vs DefiLlama</h2>
+  <table id="recon"><thead><tr><th>Item</th><th style="text-align:right">On-chain rebuild</th><th style="text-align:right">DefiLlama</th><th style="text-align:right">Delta</th></tr></thead><tbody></tbody></table>
+  <p class="sub" style="margin-top:10px">Cumulative captured revenue (USD), 2026 to date</p>
+  <div class="panel"><div class="legend"><span><i class="sw" style="background:var(--a)"></i>on-chain inflows to the three revenue wallets</span><span><i class="sw" style="background:var(--b)"></i>DefiLlama dailyRevenue</span></div><div id="chart"></div></div>
+  <table id="monthly" style="margin-top:12px"><thead><tr><th>Month</th><th style="text-align:right">On-chain</th><th style="text-align:right">DefiLlama</th><th style="text-align:right">Delta</th></tr></thead><tbody></tbody></table>
+
+  <h2>Deflation calculator</h2>
+  <p class="sub">Net-deflationary means: NEAR bought back per day exceeds net NEAR issued per day. Defaults are the measured values; move the sliders to test a scenario.</p>
+  <div class="panel calc">
+    <div>
+      <div id="presets"></div>
+      <label><span>NEAR price</span><b id="vPrice"></b></label><input type="range" id="sPrice" min="1" max="20" step="0.05">
+      <label><span>Intents volume per day</span><b id="vVol"></b></label><input type="range" id="sVol" min="20" max="2000" step="5">
+      <label><span>Take (captured revenue / volume)</span><b id="vTake"></b></label><input type="range" id="sTake" min="1" max="20" step="0.05">
+      <label><span>Max issuance rate (protocol cap)</span><b id="vIss"></b></label><input type="range" id="sIss" min="0.5" max="3" step="0.05">
+      <label style="margin-top:14px"><span>What happens to the bought-back NEAR</span></label>
+      <div class="seg" id="mode"><button data-m="burn" aria-pressed="false">Burn</button><button data-m="hold" aria-pressed="true">Hold in multisig</button></div>
+    </div>
+    <div class="out" id="out"></div>
+  </div>
+
+  <h2>Predictions (no stakes, resolved on-chain)</h2>
+  <table id="preds"><thead><tr><th>ID</th><th>Claim</th><th>Rule</th><th style="text-align:right">Now</th><th>Resolves after</th></tr></thead><tbody></tbody></table>
+
+  <footer id="foot"></footer>
+</main>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+const fmt = (x, d = 0) => x.toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
+const usd = (x) => "$" + (Math.abs(x) >= 1e9 ? fmt(x / 1e9, 2) + "B" : Math.abs(x) >= 1e6 ? fmt(x / 1e6, 2) + "M" : fmt(x));
+const pct = (x) => (x >= 0 ? "+" : "") + fmt(x, 2) + "%";
+const cmpSym = { gt: ">", gte: ">=", lt: "<", lte: "<=" };
+function el(tag, text, cls) { const e = document.createElement(tag); if (text !== undefined) e.textContent = text; if (cls) e.className = cls; return e; }
+function row(tb, cells) { const tr = el("tr"); cells.forEach(([t, c]) => tr.appendChild(el("td", t, c))); tb.appendChild(tr); }
+
+async function load() {
+  for (const p of ["metrics.json", "../data/snapshot-2026-10-20/metrics.json"]) {
+    try { const r = await fetch(p); if (r.ok) return await r.json(); } catch (e) { /* try next */ }
+  }
+  throw new Error("metrics.json not found. Serve the repo over HTTP (python3 -m http.server) rather than opening the file directly.");
+}
+
+function cards(m) {
+  const d = m.deflation, c = [
+    ["Captured revenue, 2026 YTD", usd(m.revenue.ytd_usd), `${m.window.start} to ${m.window.end}; DefiLlama ${usd(m.revenue.defillama_ytd_usd)}`],
+    ["Last 30 days", usd(m.revenue.last30d_usd), `${usd(m.revenue.last30d_usd / 30)}/day`],
+    ["Buyback wallet balance", fmt(m.buyback.balance_near_rpc) + " NEAR", `${m.buyback.outflow_count} outflows, ${fmt(m.buyback.outflow_near)} NEAR total`],
+    ["Supply growth since Jan 1", "+" + fmt(m.supply.growth_near / 1e6, 2) + "M NEAR", `${m.supply.increasing_intervals}/${m.supply.intervals} sampled intervals up`],
+    ["Net issuance (28d)", fmt(d.net_issuance_near_per_day) + " NEAR/day", `${usd(d.net_issuance_usd_per_day)}/day at $${fmt(d.price_usd, 2)}`],
+    ["Deflation break-even volume", usd(d.breakeven_volume_usd_per_day) + "/day", `${fmt(d.breakeven_over_current_volume, 1)}x today's ${usd(d.volume_usd_per_day_30d)}/day`],
+  ];
+  c.forEach(([k, v, n]) => { const x = el("div", undefined, "card"); x.append(el("div", k, "k"), el("div", v, "v"), el("div", n, "n")); $("cards").appendChild(x); });
+}
+
+function recon(m) {
+  const tb = $("recon").tBodies[0];
+  m.reconciliation.rows.forEach((r) => {
+    const isPct = r.unit.startsWith("%"), isR = r.unit.startsWith("r over");
+    const f = (v) => v === null ? "n/a" : isR ? fmt(v, 4) : isPct ? fmt(v, 1) + "%" : usd(v);
+    row(tb, [[r.item + (isR || isPct ? ` (${r.unit})` : "")], [f(r.onchain), "num"], [f(r.defillama), "num"], [r.delta_pct === null ? "" : pct(r.delta_pct), "num " + (Math.abs(r.delta_pct || 0) < 1 ? "pos" : "neg")]]);
+  });
+  const mb = $("monthly").tBodies[0];
+  m.reconciliation.monthly.forEach((r) => row(mb, [[r.month], [usd(r.onchain_usd), "num"], [usd(r.defillama_usd), "num"], [pct(r.delta_pct), "num"]]));
+  const D = m.revenue.daily, W = 960, H = 220, P = { l: 52, r: 8, t: 8, b: 22 };
+  let a = 0, b = 0; const A = D.map((d) => (a += d.onchain_usd)), B = D.map((d) => (b += d.defillama_usd));
+  const mx = Math.max(a, b), X = (i) => P.l + (i / (D.length - 1)) * (W - P.l - P.r), Y = (v) => H - P.b - (v / mx) * (H - P.t - P.b);
+  const path = (S) => S.map((v, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join("");
+  let g = "";
+  for (let k = 0; k <= 4; k++) { const v = (mx * k) / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${P.l - 6}" y="${Y(v) + 4}" text-anchor="end">${usd(v)}</text>`; }
+  [0, Math.floor(D.length / 2), D.length - 1].forEach((i) => (g += `<text x="${X(i)}" y="${H - 6}" text-anchor="${i ? (i === D.length - 1 ? "end" : "middle") : "start"}">${D[i].date}</text>`));
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Cumulative captured revenue, on-chain rebuild vs DefiLlama">${g}<path d="${path(B)}" fill="none" stroke="var(--b)" stroke-width="3" opacity=".55"/><path d="${path(A)}" fill="none" stroke="var(--a)" stroke-width="1.6"/></svg>`;
+}
+
+function calc(m) {
+  const d = m.deflation, supply = m.supply.last_near, S = { price: d.price_usd, vol: d.volume_usd_per_day_30d / 1e6, take: d.take_rate_bps, iss: d.issuance_cap_pct, mode: "hold" };
+  const feeBurn = d.fee_burn_near_per_day_estimate, T = { price: ["sPrice", "vPrice", (v) => "$" + fmt(v, 2)], vol: ["sVol", "vVol", (v) => "$" + fmt(v) + "M"], take: ["sTake", "vTake", (v) => fmt(v, 2) + " bps"], iss: ["sIss", "vIss", (v) => fmt(v, 2) + "%"] };
+  function render() {
+    const issuance = (supply * S.iss) / 100 / 365 - feeBurn, buyback = (S.vol * 1e6 * S.take / 1e4) / S.price, be = (issuance * S.price) / (S.take / 1e4) / 1e6;
+    const supplyDelta = S.mode === "burn" ? issuance - buyback : issuance, floatDelta = issuance - buyback;
+    const o = $("out"); o.replaceChildren();
+    const defl = supplyDelta < 0, v = el("div", defl ? "Total supply shrinks" : "Total supply still grows", "verdict " + (defl ? "pos" : "neg")); o.appendChild(v);
+    [["Net issuance (after fee burn estimate)", fmt(issuance) + " NEAR/day"], ["Buyback at this volume and take", fmt(buyback) + " NEAR/day"],
+     ["Change in total supply", (supplyDelta >= 0 ? "+" : "") + fmt(supplyDelta) + " NEAR/day"], ["Change in freely held NEAR (supply minus multisig holdings)", (floatDelta >= 0 ? "+" : "") + fmt(floatDelta) + " NEAR/day"],
+     ["Break-even volume for these inputs", "$" + fmt(be) + "M/day"], ["Break-even vs today's volume", fmt(be / (d.volume_usd_per_day_30d / 1e6), 2) + "x"]].forEach(([k, val]) => { const r = el("div"); r.append(el("span", k), el("b", val)); o.appendChild(r); });
+    o.appendChild(el("p", S.mode === "burn" ? "Burn mode assumes the bought-back NEAR is destroyed. On-chain evidence says it is not (see F2)." : "Hold mode matches today's behaviour: bought-back NEAR sits in buybacks.multisignature.near, so total supply is unaffected.", "sub"));
+  }
+  Object.entries(T).forEach(([k, [sid, vid, f]]) => { const s = $(sid); s.value = S[k]; s.oninput = () => { S[k] = parseFloat(s.value); $(vid).textContent = f(S[k]); render(); }; $(vid).textContent = f(S[k]); });
+  const sync = () => Object.entries(T).forEach(([k, [sid, vid, f]]) => { $(sid).value = S[k]; $(vid).textContent = f(S[k]); });
+  [["Today (measured)", () => Object.assign(S, { price: d.price_usd, vol: d.volume_usd_per_day_30d / 1e6, take: d.take_rate_bps, iss: d.issuance_cap_pct })],
+   ["HSP-029 target (1.6%)", () => Object.assign(S, { iss: d.target_issuance_pct })],
+   ["Break-even volume", () => Object.assign(S, { vol: Math.min(2000, d.breakeven_volume_usd_per_day / 1e6) })]].forEach(([t, fn]) => { const b = el("button", t, "pre"); b.onclick = () => { fn(); sync(); render(); }; $("presets").appendChild(b); });
+  document.querySelectorAll("#mode button").forEach((b) => (b.onclick = () => { S.mode = b.dataset.m; document.querySelectorAll("#mode button").forEach((x) => x.setAttribute("aria-pressed", x === b)); render(); }));
+  render();
+}
+
+function preds(m) {
+  const tb = $("preds").tBodies[0];
+  m.predictions.forEach((p) => row(tb, [[p.id], [p.claim], [`${p.metric} ${cmpSym[p.comparator]} ${fmt(p.threshold, 2)}`, "mono"], [fmt(p.current_value, 2), "num"], [p.resolve_after]]));
+}
+
+load().then((m) => {
+  cards(m); recon(m); calc(m); preds(m);
+  $("foot").textContent = `Data as of ${m.as_of} (chain head ${fmt(m.head_height)}). Sources: FastNear transfers API, FastNear archival RPC, DefiLlama. Reproduce with "make verify". Not financial advice.`;
+}).catch((e) => { $("err").textContent = e.message; });
+</script>
+</body>
+</html>

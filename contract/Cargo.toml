@@ -1,0 +1,25 @@
+[package]
+name = "nearbooks"
+version = "0.1.0"
+edition = "2021"
+license = "MIT"
+description = "On-chain metric snapshots and dated falsifiable predictions for the NEAR Books audit"
+rust-version = "1.86"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+near-sdk = "~5.29"
+
+[dev-dependencies]
+near-sdk = { version = "~5.29", features = ["unit-testing"] }
+
+
+[profile.release]
+codegen-units = 1
+opt-level = "z"
+lto = true
+debug = false
+panic = "abort"
+overflow-checks = true

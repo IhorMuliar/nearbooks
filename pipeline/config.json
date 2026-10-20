@@ -1,0 +1,29 @@
+{
+  "_comment": "Everything the pipeline assumes that is not read from the network. Each entry has a source.",
+  "revenue_wallets": [
+    "fefundsadmin.sputnik-dao.near",
+    "1csfundsadmin.sputnik-dao.near",
+    "buybacks.multisignature.near"
+  ],
+  "buyback_wallet": "buybacks.multisignature.near",
+  "treasury_account": "treasury.near",
+  "year_start": "2026-01-01",
+  "supply_sample_step_blocks": 1000000,
+  "hsp029_windows_days": [7, 28, 92],
+  "protocol_issuance_cap_pct": 2.5,
+  "proposed_issuance_target_pct": 1.6,
+  "published_claims": {
+    "hsp029_treasury_share_pct": 10.13,
+    "hsp029_realized_issuance_pct": 2.45,
+    "source": "HSP-029 text (Context + Reproducibility sections), https://houseofstake.org/proposals/29 and https://gov.near.org/t/42644 ; measured there at block 216,701,043 on 2026-09-22"
+  },
+  "protocol_issuance_source": "HSP-029 text, https://houseofstake.org/proposals/29 (cap 2.5% -> 1.6% target); parameter of the protocol, not measurable from RPC",
+  "endpoints": {
+    "transfers": "https://transfers.main.fastnear.com/v0/transfers",
+    "archival_rpc": "https://archival-rpc.mainnet.fastnear.com",
+    "llama_revenue": "https://api.llama.fi/summary/fees/near-intents?dataType=dailyRevenue",
+    "llama_holders_revenue": "https://api.llama.fi/summary/fees/near-intents?dataType=dailyHoldersRevenue",
+    "llama_volume": "https://api.llama.fi/summary/dexs/near-intents?dataType=dailyVolume",
+    "price": "https://coins.llama.fi/prices/current/coingecko:near"
+  }
+}

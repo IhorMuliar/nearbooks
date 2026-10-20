@@ -1,0 +1,38 @@
+owner/contract account: nbproto-owner-1696.testnet   reporter account: nbproto-rep-1696.testnet
+-- create accounts (faucet-sponsored)
+k35Y4jPAE8oVHGFnjJV38bxLjykJhD1rLN9vMfoZGhe
+3dUxy6oZoDUHyYhmHsmws5hPkpm8CZKjw6j7u6VQf9Ts
+-- deploy + init (owner=nbproto-owner-1696.testnet reporter=nbproto-rep-1696.testnet)
+C3vKYWYEtFPXUgJhX7guN5n1gMFwnsSPr1WG3uDrwUDg
+-- give the reporter a function-call key that can only call submit_snapshot on the contract
+DEaDWGBca3YrqZWMupa2joJsEn1bBY4t8BoLRHw5eMWx
+function-call key: ed25519:8UcJs25HpfXkVJxPv38uMnk2867TZg11qoyp1PG4qhEq
+-- NEGATIVE: the owner is not the reporter
+Smart contract panicked: only the reporter can submit snapshots
+-- reporter submits the snapshot using ONLY its function-call key
+Fnvem2YpsFJrf6d3vepf16nP38dVa1dQq58jd6aC5bHa
+-- NEGATIVE: same date again (append-only)
+Smart contract panicked: snapshot date must be later than the latest stored date
+-- owner registers the predictions
+YP5LTqcrG84RReEEB51W4LFSpW6CvrY9Hu8yY5NAfas
+7z7zpnzSTyRTM6rAfRmKQYPbVPPUVehCvKbMeVN5fVus
+CKnw9m5La47BFqgRmg8K6Ef4fpFiEZbe73uwESUKWfny
+FWcwatFfkqaKcP8SPCq9Ny7DbkgbeUuFhLoRPBxG3sTg
+-- NEGATIVE: anyone tries to resolve P1 before a snapshot on/after 2026-12-31 exists
+Smart contract panicked: no snapshot on/after resolve_after yet
+-- NEGATIVE: the reporter's function-call key cannot call anything but submit_snapshot
+Transaction method name <resolve_prediction> isn't allowed by the access key
+-- views
+1
+    "id": 0,
+    "resolve_after": "2026-12-31",
+    "status": "pending",
+    "id": 1,
+    "resolve_after": "2026-12-31",
+    "status": "pending",
+    "id": 2,
+    "resolve_after": "2027-01-31",
+    "status": "pending",
+    "id": 3,
+    "resolve_after": "2027-01-31",
+    "status": "pending",

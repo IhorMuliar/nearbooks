@@ -1,0 +1,10 @@
+data/live/
+contract/target/
+contract/res/
+.tools/
+.tools-cli/
+__pycache__/
+*.pyc
+.env
+*.key
+.near-credentials/

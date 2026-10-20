@@ -1,0 +1,14 @@
+owner/contract account: nbproto-owner-1696.testnet   reporter account: nbproto-rep-1696.testnet
+-- REUSE mode: redeploying the current build onto the existing accounts (no init call)
+HFyqaEt3zwJJiKH81crAwHdHBFWJCjLcj4CStFysw51o
+-- state survived the redeploy (snapshot_count, predictions)
+1
+      4     "status": "pending",
+-- NEGATIVE: the owner is not the reporter
+Smart contract panicked: only the reporter can submit snapshots
+-- NEGATIVE: same date again (append-only), signed with the function-call key
+Smart contract panicked: snapshot date must be later than the latest stored date
+-- NEGATIVE: resolve P1 before a snapshot on/after 2026-12-31 exists
+Smart contract panicked: no snapshot on/after resolve_after yet
+-- NEGATIVE: the reporter's function-call key cannot call anything but submit_snapshot
+Transaction method name <resolve_prediction> isn't allowed by the access key

@@ -1,0 +1,2087 @@
+{
+ "as_of": "2026-10-20",
+ "head_height": 220800718,
+ "window": {
+  "start": "2026-01-01",
+  "end": "2026-10-19",
+  "days": 292,
+  "last30_start": "2026-09-20"
+ },
+ "revenue": {
+  "ytd_usd": 7518637.612172455,
+  "ytd_near": 3568606.9418627564,
+  "last30d_usd": 2302510.3238297785,
+  "per_wallet": {
+   "fefundsadmin.sputnik-dao.near": {
+    "near": 1489126.1386442762,
+    "usd": 2887970.321666589,
+    "n": 1221
+   },
+   "1csfundsadmin.sputnik-dao.near": {
+    "near": 555343.3729285753,
+    "usd": 682340.7742769583,
+    "n": 514
+   },
+   "buybacks.multisignature.near": {
+    "near": 1524137.4302899048,
+    "usd": 3948326.5162289087,
+    "n": 2721
+   }
+  },
+  "non_near_inflows_usd_excluded": 1134672.5723492412,
+  "defillama_ytd_usd": 7561260.05,
+  "defillama_last30d_usd": 2308206.0,
+  "defillama_total30d_field_usd": 2308206,
+  "volume_ytd_usd": 25728957889.0,
+  "volume_last30d_usd": 4467479948.0,
+  "daily": [
+   {
+    "date": "2026-01-01",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-02",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-03",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-04",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-05",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-06",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-07",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-08",
+    "onchain_usd": 0.16699999999999998,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-09",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-10",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-11",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-12",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-13",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-14",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-15",
+    "onchain_usd": 351580.11097000004,
+    "defillama_usd": 355826.0
+   },
+   {
+    "date": "2026-01-16",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-17",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-18",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-19",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-20",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-21",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-22",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-23",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-24",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-25",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-26",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-27",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-28",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-29",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-30",
+    "onchain_usd": 0.0,
+    "defillama_usd": 0.0
+   },
+   {
+    "date": "2026-01-31",
+    "onchain_usd": 3563.1629571670696,
+    "defillama_usd": 3414.0
+   },
+   {
+    "date": "2026-02-01",
+    "onchain_usd": 3129.0300555585436,
+    "defillama_usd": 3109.0
+   },
+   {
+    "date": "2026-02-02",
+    "onchain_usd": 281588.7854891976,
+    "defillama_usd": 274415.0
+   },
+   {
+    "date": "2026-02-03",
+    "onchain_usd": 7620.007625335614,
+    "defillama_usd": 7492.0
+   },
+   {
+    "date": "2026-02-04",
+    "onchain_usd": 13738.91290518874,
+    "defillama_usd": 13624.0
+   },
+   {
+    "date": "2026-02-05",
+    "onchain_usd": 9096.86516363247,
+    "defillama_usd": 8059.0
+   },
+   {
+    "date": "2026-02-06",
+    "onchain_usd": 71902.51951033327,
+    "defillama_usd": 77249.0
+   },
+   {
+    "date": "2026-02-07",
+    "onchain_usd": 3886.2944366759543,
+    "defillama_usd": 3865.0
+   },
+   {
+    "date": "2026-02-08",
+    "onchain_usd": 2553.6285819272343,
+    "defillama_usd": 2490.0
+   },
+   {
+    "date": "2026-02-09",
+    "onchain_usd": 9430.028003668653,
+    "defillama_usd": 9593.0
+   },
+   {
+    "date": "2026-02-10",
+    "onchain_usd": 8356.710750958087,
+    "defillama_usd": 8296.0
+   },
+   {
+    "date": "2026-02-11",
+    "onchain_usd": 10643.531502133106,
+    "defillama_usd": 10629.0
+   },
+   {
+    "date": "2026-02-12",
+    "onchain_usd": 11464.245441311245,
+    "defillama_usd": 11312.0
+   },
+   {
+    "date": "2026-02-13",
+    "onchain_usd": 7754.616472200506,
+    "defillama_usd": 8122.0
+   },
+   {
+    "date": "2026-02-14",
+    "onchain_usd": 6941.793515553988,
+    "defillama_usd": 7063.0
+   },
+   {
+    "date": "2026-02-15",
+    "onchain_usd": 12050.47771844126,
+    "defillama_usd": 11845.0
+   },
+   {
+    "date": "2026-02-16",
+    "onchain_usd": 1189.2205495297587,
+    "defillama_usd": 1199.0
+   },
+   {
+    "date": "2026-02-17",
+    "onchain_usd": 1026.407097287099,
+    "defillama_usd": 1026.0
+   },
+   {
+    "date": "2026-02-18",
+    "onchain_usd": 2008.9527298978335,
+    "defillama_usd": 1976.0
+   },
+   {
+    "date": "2026-02-19",
+    "onchain_usd": 1160.040486048971,
+    "defillama_usd": 1169.0
+   },
+   {
+    "date": "2026-02-20",
+    "onchain_usd": 1020.1159439381539,
+    "defillama_usd": 1031.0
+   },
+   {
+    "date": "2026-02-21",
+    "onchain_usd": 1327.5281986106743,
+    "defillama_usd": 1309.0
+   },
+   {
+    "date": "2026-02-22",
+    "onchain_usd": 1393.2903455627074,
+    "defillama_usd": 1406.0
+   },
+   {
+    "date": "2026-02-23",
+    "onchain_usd": 6395.160153042767,
+    "defillama_usd": 6275.0
+   },
+   {
+    "date": "2026-02-24",
+    "onchain_usd": 8088.831261299887,
+    "defillama_usd": 8053.0
+   },
+   {
+    "date": "2026-02-25",
+    "onchain_usd": 12018.798589695523,
+    "defillama_usd": 14022.0
+   },
+   {
+    "date": "2026-02-26",
+    "onchain_usd": 149091.81841154167,
+    "defillama_usd": 151977.0
+   },
+   {
+    "date": "2026-02-27",
+    "onchain_usd": 15743.331908689435,
+    "defillama_usd": 15284.0
+   },
+   {
+    "date": "2026-02-28",
+    "onchain_usd": 1129.766953451857,
+    "defillama_usd": 1237.0
+   },
+   {
+    "date": "2026-03-01",
+    "onchain_usd": 3762.221695442341,
+    "defillama_usd": 3700.0
+   },
+   {
+    "date": "2026-03-02",
+    "onchain_usd": 18991.679067687426,
+    "defillama_usd": 20717.0
+   },
+   {
+    "date": "2026-03-03",
+    "onchain_usd": 15067.620536401822,
+    "defillama_usd": 14843.0
+   },
+   {
+    "date": "2026-03-04",
+    "onchain_usd": 9338.958589642809,
+    "defillama_usd": 8995.0
+   },
+   {
+    "date": "2026-03-05",
+    "onchain_usd": 2016.4858580404516,
+    "defillama_usd": 2001.0
+   },
+   {
+    "date": "2026-03-06",
+    "onchain_usd": 3599.4525193528866,
+    "defillama_usd": 3548.0
+   },
+   {
+    "date": "2026-03-07",
+    "onchain_usd": 7687.667379180465,
+    "defillama_usd": 7631.0
+   },
+   {
+    "date": "2026-03-08",
+    "onchain_usd": 4240.699284798378,
+    "defillama_usd": 4212.0
+   },
+   {
+    "date": "2026-03-09",
+    "onchain_usd": 4285.819161441719,
+    "defillama_usd": 4269.0
+   },
+   {
+    "date": "2026-03-10",
+    "onchain_usd": 10247.359097052657,
+    "defillama_usd": 10070.0
+   },
+   {
+    "date": "2026-03-11",
+    "onchain_usd": 11138.052235396859,
+    "defillama_usd": 11192.0
+   },
+   {
+    "date": "2026-03-12",
+    "onchain_usd": 42796.42410623042,
+    "defillama_usd": 44350.0
+   },
+   {
+    "date": "2026-03-13",
+    "onchain_usd": 20989.732266925952,
+    "defillama_usd": 20759.0
+   },
+   {
+    "date": "2026-03-14",
+    "onchain_usd": 6547.580602983934,
+    "defillama_usd": 6600.0
+   },
+   {
+    "date": "2026-03-15",
+    "onchain_usd": 8875.233811906182,
+    "defillama_usd": 8896.0
+   },
+   {
+    "date": "2026-03-16",
+    "onchain_usd": 13742.006515337636,
+    "defillama_usd": 14441.0
+   },
+   {
+    "date": "2026-03-17",
+    "onchain_usd": 12133.630719077684,
+    "defillama_usd": 12050.0
+   },
+   {
+    "date": "2026-03-18",
+    "onchain_usd": 11907.327792243135,
+    "defillama_usd": 11787.0
+   },
+   {
+    "date": "2026-03-19",
+    "onchain_usd": 11767.764158219059,
+    "defillama_usd": 11703.0
+   },
+   {
+    "date": "2026-03-20",
+    "onchain_usd": 7988.178793708256,
+    "defillama_usd": 7843.0
+   },
+   {
+    "date": "2026-03-21",
+    "onchain_usd": 6910.576410666851,
+    "defillama_usd": 6740.0
+   },
+   {
+    "date": "2026-03-22",
+    "onchain_usd": 6955.9244964970385,
+    "defillama_usd": 6876.0
+   },
+   {
+    "date": "2026-03-23",
+    "onchain_usd": 15517.248170484494,
+    "defillama_usd": 15697.0
+   },
+   {
+    "date": "2026-03-24",
+    "onchain_usd": 6486.9123772203275,
+    "defillama_usd": 6477.0
+   },
+   {
+    "date": "2026-03-25",
+    "onchain_usd": 7465.131268980347,
+    "defillama_usd": 7405.0
+   },
+   {
+    "date": "2026-03-26",
+    "onchain_usd": 6785.833110214135,
+    "defillama_usd": 6731.0
+   },
+   {
+    "date": "2026-03-27",
+    "onchain_usd": 251699.10928850764,
+    "defillama_usd": 249361.0
+   },
+   {
+    "date": "2026-03-28",
+    "onchain_usd": 8376.575337444192,
+    "defillama_usd": 8349.0
+   },
+   {
+    "date": "2026-03-29",
+    "onchain_usd": 4223.465439149695,
+    "defillama_usd": 4217.0
+   },
+   {
+    "date": "2026-03-30",
+    "onchain_usd": 8452.036638701422,
+    "defillama_usd": 8269.0
+   },
+   {
+    "date": "2026-03-31",
+    "onchain_usd": 13695.65474971338,
+    "defillama_usd": 13731.0
+   },
+   {
+    "date": "2026-04-01",
+    "onchain_usd": 10445.326394512533,
+    "defillama_usd": 10280.0
+   },
+   {
+    "date": "2026-04-02",
+    "onchain_usd": 11104.751201639214,
+    "defillama_usd": 11188.0
+   },
+   {
+    "date": "2026-04-03",
+    "onchain_usd": 7549.287018818312,
+    "defillama_usd": 7575.0
+   },
+   {
+    "date": "2026-04-04",
+    "onchain_usd": 3382.6329793042596,
+    "defillama_usd": 3432.0
+   },
+   {
+    "date": "2026-04-05",
+    "onchain_usd": 4204.751419894939,
+    "defillama_usd": 4210.0
+   },
+   {
+    "date": "2026-04-06",
+    "onchain_usd": 5820.865990557834,
+    "defillama_usd": 5689.0
+   },
+   {
+    "date": "2026-04-07",
+    "onchain_usd": 10353.085697041872,
+    "defillama_usd": 10767.0
+   },
+   {
+    "date": "2026-04-08",
+    "onchain_usd": 12198.384481216579,
+    "defillama_usd": 12073.0
+   },
+   {
+    "date": "2026-04-09",
+    "onchain_usd": 10886.898523858152,
+    "defillama_usd": 11028.0
+   },
+   {
+    "date": "2026-04-10",
+    "onchain_usd": 11914.893661821794,
+    "defillama_usd": 11886.0
+   },
+   {
+    "date": "2026-04-11",
+    "onchain_usd": 2116.5468345897916,
+    "defillama_usd": 2146.0
+   },
+   {
+    "date": "2026-04-12",
+    "onchain_usd": 6759.394078662848,
+    "defillama_usd": 6796.0
+   },
+   {
+    "date": "2026-04-13",
+    "onchain_usd": 16264.106350235288,
+    "defillama_usd": 16610.0
+   },
+   {
+    "date": "2026-04-14",
+    "onchain_usd": 10602.529886037573,
+    "defillama_usd": 10353.0
+   },
+   {
+    "date": "2026-04-15",
+    "onchain_usd": 9521.61018294552,
+    "defillama_usd": 9655.0
+   },
+   {
+    "date": "2026-04-16",
+    "onchain_usd": 3961.586409853704,
+    "defillama_usd": 4007.0
+   },
+   {
+    "date": "2026-04-17",
+    "onchain_usd": 9193.964327243822,
+    "defillama_usd": 9178.0
+   },
+   {
+    "date": "2026-04-18",
+    "onchain_usd": 4788.476574574287,
+    "defillama_usd": 4653.0
+   },
+   {
+    "date": "2026-04-19",
+    "onchain_usd": 11428.023759345018,
+    "defillama_usd": 11211.0
+   },
+   {
+    "date": "2026-04-20",
+    "onchain_usd": 8150.916371444825,
+    "defillama_usd": 8199.0
+   },
+   {
+    "date": "2026-04-21",
+    "onchain_usd": 4506.590341357044,
+    "defillama_usd": 4552.0
+   },
+   {
+    "date": "2026-04-22",
+    "onchain_usd": 0.4782844,
+    "defillama_usd": 0.05
+   },
+   {
+    "date": "2026-04-23",
+    "onchain_usd": 27997.805888761395,
+    "defillama_usd": 28301.0
+   },
+   {
+    "date": "2026-04-24",
+    "onchain_usd": 5265.116803964425,
+    "defillama_usd": 5251.0
+   },
+   {
+    "date": "2026-04-25",
+    "onchain_usd": 4489.959534592996,
+    "defillama_usd": 4481.0
+   },
+   {
+    "date": "2026-04-26",
+    "onchain_usd": 6067.191406197259,
+    "defillama_usd": 6046.0
+   },
+   {
+    "date": "2026-04-27",
+    "onchain_usd": 10617.59781441928,
+    "defillama_usd": 10607.0
+   },
+   {
+    "date": "2026-04-28",
+    "onchain_usd": 6351.568617270705,
+    "defillama_usd": 6321.0
+   },
+   {
+    "date": "2026-04-29",
+    "onchain_usd": 11186.513627316275,
+    "defillama_usd": 11075.0
+   },
+   {
+    "date": "2026-04-30",
+    "onchain_usd": 11336.640892825693,
+    "defillama_usd": 11170.0
+   },
+   {
+    "date": "2026-05-01",
+    "onchain_usd": 13347.071085164851,
+    "defillama_usd": 13243.0
+   },
+   {
+    "date": "2026-05-02",
+    "onchain_usd": 5608.049456594536,
+    "defillama_usd": 5635.0
+   },
+   {
+    "date": "2026-05-03",
+    "onchain_usd": 8371.437896744697,
+    "defillama_usd": 8367.0
+   },
+   {
+    "date": "2026-05-04",
+    "onchain_usd": 9450.747115508286,
+    "defillama_usd": 9387.0
+   },
+   {
+    "date": "2026-05-05",
+    "onchain_usd": 22118.38400769774,
+    "defillama_usd": 22234.0
+   },
+   {
+    "date": "2026-05-06",
+    "onchain_usd": 21393.35488927881,
+    "defillama_usd": 22443.0
+   },
+   {
+    "date": "2026-05-07",
+    "onchain_usd": 12170.305136709188,
+    "defillama_usd": 12037.0
+   },
+   {
+    "date": "2026-05-08",
+    "onchain_usd": 13296.623601617714,
+    "defillama_usd": 13748.0
+   },
+   {
+    "date": "2026-05-09",
+    "onchain_usd": 6780.977496999782,
+    "defillama_usd": 6734.0
+   },
+   {
+    "date": "2026-05-10",
+    "onchain_usd": 7519.331424463046,
+    "defillama_usd": 7514.0
+   },
+   {
+    "date": "2026-05-11",
+    "onchain_usd": 14230.464054739059,
+    "defillama_usd": 14360.0
+   },
+   {
+    "date": "2026-05-12",
+    "onchain_usd": 13787.993442927642,
+    "defillama_usd": 14074.0
+   },
+   {
+    "date": "2026-05-13",
+    "onchain_usd": 6792.872248056569,
+    "defillama_usd": 6693.0
+   },
+   {
+    "date": "2026-05-14",
+    "onchain_usd": 14070.031204891564,
+    "defillama_usd": 13953.0
+   },
+   {
+    "date": "2026-05-15",
+    "onchain_usd": 17813.09564228206,
+    "defillama_usd": 17798.0
+   },
+   {
+    "date": "2026-05-16",
+    "onchain_usd": 13624.38130581896,
+    "defillama_usd": 13616.0
+   },
+   {
+    "date": "2026-05-17",
+    "onchain_usd": 10881.097158983775,
+    "defillama_usd": 10759.0
+   },
+   {
+    "date": "2026-05-18",
+    "onchain_usd": 14918.94614868558,
+    "defillama_usd": 15825.0
+   },
+   {
+    "date": "2026-05-19",
+    "onchain_usd": 14148.392632182185,
+    "defillama_usd": 13886.0
+   },
+   {
+    "date": "2026-05-20",
+    "onchain_usd": 13500.021080565219,
+    "defillama_usd": 13757.0
+   },
+   {
+    "date": "2026-05-21",
+    "onchain_usd": 17682.07330781913,
+    "defillama_usd": 19047.0
+   },
+   {
+    "date": "2026-05-22",
+    "onchain_usd": 29133.357092748374,
+    "defillama_usd": 28131.0
+   },
+   {
+    "date": "2026-05-23",
+    "onchain_usd": 54251.70661095079,
+    "defillama_usd": 58520.0
+   },
+   {
+    "date": "2026-05-24",
+    "onchain_usd": 21959.551539980723,
+    "defillama_usd": 21810.0
+   },
+   {
+    "date": "2026-05-25",
+    "onchain_usd": 39889.437709467755,
+    "defillama_usd": 41873.0
+   },
+   {
+    "date": "2026-05-26",
+    "onchain_usd": 74347.94638034336,
+    "defillama_usd": 68154.0
+   },
+   {
+    "date": "2026-05-27",
+    "onchain_usd": 32037.74906054508,
+    "defillama_usd": 31306.0
+   },
+   {
+    "date": "2026-05-28",
+    "onchain_usd": 15495.37518770468,
+    "defillama_usd": 15804.0
+   },
+   {
+    "date": "2026-05-29",
+    "onchain_usd": 14535.777391183503,
+    "defillama_usd": 13852.0
+   },
+   {
+    "date": "2026-05-30",
+    "onchain_usd": 32649.00797868006,
+    "defillama_usd": 30963.0
+   },
+   {
+    "date": "2026-05-31",
+    "onchain_usd": 33494.067336219276,
+    "defillama_usd": 34091.0
+   },
+   {
+    "date": "2026-06-01",
+    "onchain_usd": 30114.2443050786,
+    "defillama_usd": 32456.0
+   },
+   {
+    "date": "2026-06-02",
+    "onchain_usd": 29430.85575256837,
+    "defillama_usd": 29401.0
+   },
+   {
+    "date": "2026-06-03",
+    "onchain_usd": 25862.36488898358,
+    "defillama_usd": 25729.0
+   },
+   {
+    "date": "2026-06-04",
+    "onchain_usd": 46858.46337920715,
+    "defillama_usd": 44465.0
+   },
+   {
+    "date": "2026-06-05",
+    "onchain_usd": 150792.08587407094,
+    "defillama_usd": 142586.0
+   },
+   {
+    "date": "2026-06-06",
+    "onchain_usd": 16211.53356985175,
+    "defillama_usd": 15855.0
+   },
+   {
+    "date": "2026-06-07",
+    "onchain_usd": 20820.654198720724,
+    "defillama_usd": 21674.0
+   },
+   {
+    "date": "2026-06-08",
+    "onchain_usd": 21669.262469890844,
+    "defillama_usd": 21467.0
+   },
+   {
+    "date": "2026-06-09",
+    "onchain_usd": 19517.56285847213,
+    "defillama_usd": 19579.0
+   },
+   {
+    "date": "2026-06-10",
+    "onchain_usd": 19100.031674418115,
+    "defillama_usd": 18332.0
+   },
+   {
+    "date": "2026-06-11",
+    "onchain_usd": 9570.17238570134,
+    "defillama_usd": 9681.0
+   },
+   {
+    "date": "2026-06-12",
+    "onchain_usd": 18202.312862886127,
+    "defillama_usd": 17720.0
+   },
+   {
+    "date": "2026-06-13",
+    "onchain_usd": 6896.225684350387,
+    "defillama_usd": 7110.0
+   },
+   {
+    "date": "2026-06-14",
+    "onchain_usd": 12812.419471832889,
+    "defillama_usd": 13143.0
+   },
+   {
+    "date": "2026-06-15",
+    "onchain_usd": 31772.538089240534,
+    "defillama_usd": 31151.0
+   },
+   {
+    "date": "2026-06-16",
+    "onchain_usd": 17416.59181434546,
+    "defillama_usd": 16965.0
+   },
+   {
+    "date": "2026-06-17",
+    "onchain_usd": 15611.811204572832,
+    "defillama_usd": 14968.0
+   },
+   {
+    "date": "2026-06-18",
+    "onchain_usd": 11453.977132076896,
+    "defillama_usd": 11592.0
+   },
+   {
+    "date": "2026-06-19",
+    "onchain_usd": 6803.9289139329885,
+    "defillama_usd": 6931.0
+   },
+   {
+    "date": "2026-06-20",
+    "onchain_usd": 16380.903278480651,
+    "defillama_usd": 16708.0
+   },
+   {
+    "date": "2026-06-21",
+    "onchain_usd": 7548.766253591178,
+    "defillama_usd": 7279.0
+   },
+   {
+    "date": "2026-06-22",
+    "onchain_usd": 13406.921675668495,
+    "defillama_usd": 12905.0
+   },
+   {
+    "date": "2026-06-23",
+    "onchain_usd": 9516.952534767164,
+    "defillama_usd": 9400.0
+   },
+   {
+    "date": "2026-06-24",
+    "onchain_usd": 15362.291045526465,
+    "defillama_usd": 15666.0
+   },
+   {
+    "date": "2026-06-25",
+    "onchain_usd": 11215.511319220457,
+    "defillama_usd": 10905.0
+   },
+   {
+    "date": "2026-06-26",
+    "onchain_usd": 9759.075306340475,
+    "defillama_usd": 9781.0
+   },
+   {
+    "date": "2026-06-27",
+    "onchain_usd": 4170.89232561848,
+    "defillama_usd": 4218.0
+   },
+   {
+    "date": "2026-06-28",
+    "onchain_usd": 9709.677216133003,
+    "defillama_usd": 9571.0
+   },
+   {
+    "date": "2026-06-29",
+    "onchain_usd": 12011.426096102217,
+    "defillama_usd": 12034.0
+   },
+   {
+    "date": "2026-06-30",
+    "onchain_usd": 10355.515610581364,
+    "defillama_usd": 10203.0
+   },
+   {
+    "date": "2026-07-01",
+    "onchain_usd": 14521.782612980898,
+    "defillama_usd": 14453.0
+   },
+   {
+    "date": "2026-07-02",
+    "onchain_usd": 16086.599528569817,
+    "defillama_usd": 16345.0
+   },
+   {
+    "date": "2026-07-03",
+    "onchain_usd": 15979.555827242712,
+    "defillama_usd": 16289.0
+   },
+   {
+    "date": "2026-07-04",
+    "onchain_usd": 7801.089566325122,
+    "defillama_usd": 7762.0
+   },
+   {
+    "date": "2026-07-05",
+    "onchain_usd": 10770.50581861875,
+    "defillama_usd": 10972.0
+   },
+   {
+    "date": "2026-07-06",
+    "onchain_usd": 18393.940620893616,
+    "defillama_usd": 18685.0
+   },
+   {
+    "date": "2026-07-07",
+    "onchain_usd": 17212.584389883665,
+    "defillama_usd": 16817.0
+   },
+   {
+    "date": "2026-07-08",
+    "onchain_usd": 24220.06944474802,
+    "defillama_usd": 24175.0
+   },
+   {
+    "date": "2026-07-09",
+    "onchain_usd": 16779.404268184575,
+    "defillama_usd": 16791.0
+   },
+   {
+    "date": "2026-07-10",
+    "onchain_usd": 14240.072034348865,
+    "defillama_usd": 14060.0
+   },
+   {
+    "date": "2026-07-11",
+    "onchain_usd": 7467.045322024851,
+    "defillama_usd": 7323.0
+   },
+   {
+    "date": "2026-07-12",
+    "onchain_usd": 10594.91597713771,
+    "defillama_usd": 10580.0
+   },
+   {
+    "date": "2026-07-13",
+    "onchain_usd": 12800.260609060355,
+    "defillama_usd": 12904.0
+   },
+   {
+    "date": "2026-07-14",
+    "onchain_usd": 19589.192839882136,
+    "defillama_usd": 34286.0
+   },
+   {
+    "date": "2026-07-15",
+    "onchain_usd": 19329.878469240623,
+    "defillama_usd": 19489.0
+   },
+   {
+    "date": "2026-07-16",
+    "onchain_usd": 21803.52373135186,
+    "defillama_usd": 21064.0
+   },
+   {
+    "date": "2026-07-17",
+    "onchain_usd": 17694.039003584134,
+    "defillama_usd": 17612.0
+   },
+   {
+    "date": "2026-07-18",
+    "onchain_usd": 18262.13754838628,
+    "defillama_usd": 18400.0
+   },
+   {
+    "date": "2026-07-19",
+    "onchain_usd": 10845.556150282984,
+    "defillama_usd": 10812.0
+   },
+   {
+    "date": "2026-07-20",
+    "onchain_usd": 13188.7001409748,
+    "defillama_usd": 13349.0
+   },
+   {
+    "date": "2026-07-21",
+    "onchain_usd": 23052.740421721915,
+    "defillama_usd": 22589.0
+   },
+   {
+    "date": "2026-07-22",
+    "onchain_usd": 44396.83630532052,
+    "defillama_usd": 44044.0
+   },
+   {
+    "date": "2026-07-23",
+    "onchain_usd": 14303.626161066044,
+    "defillama_usd": 14289.0
+   },
+   {
+    "date": "2026-07-24",
+    "onchain_usd": 10041.98802799628,
+    "defillama_usd": 9704.0
+   },
+   {
+    "date": "2026-07-25",
+    "onchain_usd": 6872.905749669897,
+    "defillama_usd": 6833.0
+   },
+   {
+    "date": "2026-07-26",
+    "onchain_usd": 11590.93270312935,
+    "defillama_usd": 11776.0
+   },
+   {
+    "date": "2026-07-27",
+    "onchain_usd": 15144.754563618839,
+    "defillama_usd": 14181.0
+   },
+   {
+    "date": "2026-07-28",
+    "onchain_usd": 12195.640689630714,
+    "defillama_usd": 11953.0
+   },
+   {
+    "date": "2026-07-29",
+    "onchain_usd": 14235.605079705152,
+    "defillama_usd": 14308.0
+   },
+   {
+    "date": "2026-07-30",
+    "onchain_usd": 16995.92922738687,
+    "defillama_usd": 17473.0
+   },
+   {
+    "date": "2026-07-31",
+    "onchain_usd": 15337.26702960933,
+    "defillama_usd": 15546.0
+   },
+   {
+    "date": "2026-08-01",
+    "onchain_usd": 13527.888617646631,
+    "defillama_usd": 13576.0
+   },
+   {
+    "date": "2026-08-02",
+    "onchain_usd": 5281.696750759463,
+    "defillama_usd": 5354.0
+   },
+   {
+    "date": "2026-08-03",
+    "onchain_usd": 11741.104782665298,
+    "defillama_usd": 11733.0
+   },
+   {
+    "date": "2026-08-04",
+    "onchain_usd": 11969.941519585813,
+    "defillama_usd": 11864.0
+   },
+   {
+    "date": "2026-08-05",
+    "onchain_usd": 15979.500412465386,
+    "defillama_usd": 15939.0
+   },
+   {
+    "date": "2026-08-06",
+    "onchain_usd": 10873.833849332834,
+    "defillama_usd": 10715.0
+   },
+   {
+    "date": "2026-08-07",
+    "onchain_usd": 22128.852063282284,
+    "defillama_usd": 21552.0
+   },
+   {
+    "date": "2026-08-08",
+    "onchain_usd": 13600.91949751505,
+    "defillama_usd": 13749.0
+   },
+   {
+    "date": "2026-08-09",
+    "onchain_usd": 16914.741205294245,
+    "defillama_usd": 16602.0
+   },
+   {
+    "date": "2026-08-10",
+    "onchain_usd": 13410.950601902372,
+    "defillama_usd": 13215.0
+   },
+   {
+    "date": "2026-08-11",
+    "onchain_usd": 17853.694360956568,
+    "defillama_usd": 18369.0
+   },
+   {
+    "date": "2026-08-12",
+    "onchain_usd": 17999.81382548879,
+    "defillama_usd": 18006.0
+   },
+   {
+    "date": "2026-08-13",
+    "onchain_usd": 8965.15918553789,
+    "defillama_usd": 8915.0
+   },
+   {
+    "date": "2026-08-14",
+    "onchain_usd": 15593.685757579999,
+    "defillama_usd": 15902.0
+   },
+   {
+    "date": "2026-08-15",
+    "onchain_usd": 7300.958211681944,
+    "defillama_usd": 7223.0
+   },
+   {
+    "date": "2026-08-16",
+    "onchain_usd": 6512.9513092664765,
+    "defillama_usd": 6492.0
+   },
+   {
+    "date": "2026-08-17",
+    "onchain_usd": 25781.726658191506,
+    "defillama_usd": 25889.0
+   },
+   {
+    "date": "2026-08-18",
+    "onchain_usd": 15712.990498570767,
+    "defillama_usd": 15352.0
+   },
+   {
+    "date": "2026-08-19",
+    "onchain_usd": 57996.659135849506,
+    "defillama_usd": 60832.0
+   },
+   {
+    "date": "2026-08-20",
+    "onchain_usd": 39388.63287242661,
+    "defillama_usd": 39966.0
+   },
+   {
+    "date": "2026-08-21",
+    "onchain_usd": 68431.0428398605,
+    "defillama_usd": 71250.0
+   },
+   {
+    "date": "2026-08-22",
+    "onchain_usd": 39125.743317722496,
+    "defillama_usd": 37752.0
+   },
+   {
+    "date": "2026-08-23",
+    "onchain_usd": 31453.76319915197,
+    "defillama_usd": 32726.0
+   },
+   {
+    "date": "2026-08-24",
+    "onchain_usd": 37755.435917717645,
+    "defillama_usd": 37127.0
+   },
+   {
+    "date": "2026-08-25",
+    "onchain_usd": 28186.944745210018,
+    "defillama_usd": 27170.0
+   },
+   {
+    "date": "2026-08-26",
+    "onchain_usd": 35773.41643111744,
+    "defillama_usd": 36945.0
+   },
+   {
+    "date": "2026-08-27",
+    "onchain_usd": 24925.32609889153,
+    "defillama_usd": 25295.0
+   },
+   {
+    "date": "2026-08-28",
+    "onchain_usd": 26709.766893567063,
+    "defillama_usd": 26210.0
+   },
+   {
+    "date": "2026-08-29",
+    "onchain_usd": 25818.806948911693,
+    "defillama_usd": 26382.0
+   },
+   {
+    "date": "2026-08-30",
+    "onchain_usd": 28127.497389012544,
+    "defillama_usd": 27238.0
+   },
+   {
+    "date": "2026-08-31",
+    "onchain_usd": 23154.496250593576,
+    "defillama_usd": 23922.0
+   },
+   {
+    "date": "2026-09-01",
+    "onchain_usd": 23855.665293985876,
+    "defillama_usd": 23011.0
+   },
+   {
+    "date": "2026-09-02",
+    "onchain_usd": 29461.845800155137,
+    "defillama_usd": 29958.0
+   },
+   {
+    "date": "2026-09-03",
+    "onchain_usd": 64998.858991262365,
+    "defillama_usd": 64906.0
+   },
+   {
+    "date": "2026-09-04",
+    "onchain_usd": 101191.99058165897,
+    "defillama_usd": 109183.0
+   },
+   {
+    "date": "2026-09-05",
+    "onchain_usd": 29265.006895744384,
+    "defillama_usd": 28981.0
+   },
+   {
+    "date": "2026-09-06",
+    "onchain_usd": 67162.57498941355,
+    "defillama_usd": 68915.0
+   },
+   {
+    "date": "2026-09-07",
+    "onchain_usd": 21897.49458933524,
+    "defillama_usd": 21453.0
+   },
+   {
+    "date": "2026-09-08",
+    "onchain_usd": 26057.98205818638,
+    "defillama_usd": 26021.0
+   },
+   {
+    "date": "2026-09-09",
+    "onchain_usd": 40054.82296300827,
+    "defillama_usd": 39358.0
+   },
+   {
+    "date": "2026-09-10",
+    "onchain_usd": 35209.50881533526,
+    "defillama_usd": 35167.0
+   },
+   {
+    "date": "2026-09-11",
+    "onchain_usd": 39854.314810474774,
+    "defillama_usd": 37305.0
+   },
+   {
+    "date": "2026-09-12",
+    "onchain_usd": 27770.710714748962,
+    "defillama_usd": 27755.0
+   },
+   {
+    "date": "2026-09-13",
+    "onchain_usd": 31184.904159546382,
+    "defillama_usd": 30849.0
+   },
+   {
+    "date": "2026-09-14",
+    "onchain_usd": 34663.292435246665,
+    "defillama_usd": 34816.0
+   },
+   {
+    "date": "2026-09-15",
+    "onchain_usd": 33325.12715122381,
+    "defillama_usd": 32832.0
+   },
+   {
+    "date": "2026-09-16",
+    "onchain_usd": 38204.78382992001,
+    "defillama_usd": 40751.0
+   },
+   {
+    "date": "2026-09-17",
+    "onchain_usd": 93259.55909895866,
+    "defillama_usd": 102442.0
+   },
+   {
+    "date": "2026-09-18",
+    "onchain_usd": 119081.10794386036,
+    "defillama_usd": 127733.0
+   },
+   {
+    "date": "2026-09-19",
+    "onchain_usd": 61172.112831260645,
+    "defillama_usd": 59836.0
+   },
+   {
+    "date": "2026-09-20",
+    "onchain_usd": 44647.403281044826,
+    "defillama_usd": 47877.0
+   },
+   {
+    "date": "2026-09-21",
+    "onchain_usd": 120079.9855775126,
+    "defillama_usd": 120972.0
+   },
+   {
+    "date": "2026-09-22",
+    "onchain_usd": 116650.74559461772,
+    "defillama_usd": 115821.0
+   },
+   {
+    "date": "2026-09-23",
+    "onchain_usd": 111478.74136635316,
+    "defillama_usd": 107775.0
+   },
+   {
+    "date": "2026-09-24",
+    "onchain_usd": 76766.6852572551,
+    "defillama_usd": 79756.0
+   },
+   {
+    "date": "2026-09-25",
+    "onchain_usd": 91509.16124152728,
+    "defillama_usd": 93621.0
+   },
+   {
+    "date": "2026-09-26",
+    "onchain_usd": 40009.21293419313,
+    "defillama_usd": 41268.0
+   },
+   {
+    "date": "2026-09-27",
+    "onchain_usd": 46296.90132426827,
+    "defillama_usd": 47489.0
+   },
+   {
+    "date": "2026-09-28",
+    "onchain_usd": 68459.22824597184,
+    "defillama_usd": 65755.0
+   },
+   {
+    "date": "2026-09-29",
+    "onchain_usd": 73301.31986404445,
+    "defillama_usd": 74042.0
+   },
+   {
+    "date": "2026-09-30",
+    "onchain_usd": 101691.6208662625,
+    "defillama_usd": 103865.0
+   },
+   {
+    "date": "2026-10-01",
+    "onchain_usd": 74668.74798185876,
+    "defillama_usd": 71388.0
+   },
+   {
+    "date": "2026-10-02",
+    "onchain_usd": 55704.58783387966,
+    "defillama_usd": 54327.0
+   },
+   {
+    "date": "2026-10-03",
+    "onchain_usd": 25172.704781393302,
+    "defillama_usd": 25842.0
+   },
+   {
+    "date": "2026-10-04",
+    "onchain_usd": 143807.43068335834,
+    "defillama_usd": 146154.0
+   },
+   {
+    "date": "2026-10-05",
+    "onchain_usd": 51419.09706638492,
+    "defillama_usd": 53207.0
+   },
+   {
+    "date": "2026-10-06",
+    "onchain_usd": 62761.42746011366,
+    "defillama_usd": 61629.0
+   },
+   {
+    "date": "2026-10-07",
+    "onchain_usd": 61237.86883864599,
+    "defillama_usd": 63423.0
+   },
+   {
+    "date": "2026-10-08",
+    "onchain_usd": 131124.20674376548,
+    "defillama_usd": 118720.0
+   },
+   {
+    "date": "2026-10-09",
+    "onchain_usd": 110878.62870614993,
+    "defillama_usd": 113449.0
+   },
+   {
+    "date": "2026-10-10",
+    "onchain_usd": 77025.13969114573,
+    "defillama_usd": 78515.0
+   },
+   {
+    "date": "2026-10-11",
+    "onchain_usd": 77640.40256487875,
+    "defillama_usd": 81286.0
+   },
+   {
+    "date": "2026-10-12",
+    "onchain_usd": 69239.97435214,
+    "defillama_usd": 62759.0
+   },
+   {
+    "date": "2026-10-13",
+    "onchain_usd": 57423.443678231546,
+    "defillama_usd": 56520.0
+   },
+   {
+    "date": "2026-10-14",
+    "onchain_usd": 83818.35735420372,
+    "defillama_usd": 82736.0
+   },
+   {
+    "date": "2026-10-15",
+    "onchain_usd": 150459.3574619016,
+    "defillama_usd": 162768.0
+   },
+   {
+    "date": "2026-10-16",
+    "onchain_usd": 47306.13378491649,
+    "defillama_usd": 46209.0
+   },
+   {
+    "date": "2026-10-17",
+    "onchain_usd": 33101.79922058251,
+    "defillama_usd": 32347.0
+   },
+   {
+    "date": "2026-10-18",
+    "onchain_usd": 44873.565499374025,
+    "defillama_usd": 46225.0
+   },
+   {
+    "date": "2026-10-19",
+    "onchain_usd": 53956.44457380314,
+    "defillama_usd": 52461.0
+   }
+  ]
+ },
+ "reconciliation": {
+  "rows": [
+   {
+    "item": "Captured revenue 2026-01-01..2026-10-19",
+    "onchain": 7518637.612172455,
+    "defillama": 7561260.05,
+    "delta_pct": -0.5636949072733599,
+    "unit": "USD"
+   },
+   {
+    "item": "Captured revenue last 30d (to 2026-10-19)",
+    "onchain": 2302510.3238297785,
+    "defillama": 2308206.0,
+    "delta_pct": -0.24675770577762268,
+    "unit": "USD"
+   },
+   {
+    "item": "DefiLlama 'buyback' (HoldersRevenue) 2026-02-23..2026-10-19 vs all captured revenue same days",
+    "onchain": 6694211.168722296,
+    "defillama": 6735741.05,
+    "delta_pct": -0.6165599444726833,
+    "unit": "USD"
+   },
+   {
+    "item": "Share of that revenue (in NEAR) that reached the buyback wallet 2026-02-23..2026-10-19",
+    "onchain": 68.98361928204359,
+    "defillama": 100.0,
+    "delta_pct": null,
+    "unit": "% of NEAR (DefiLlama labels all of it as buyback)"
+   },
+   {
+    "item": "Daily Pearson r (on-chain vs DefiLlama revenue)",
+    "onchain": 0.9986927587825876,
+    "defillama": null,
+    "delta_pct": null,
+    "unit": "r over 292 days"
+   }
+  ],
+  "monthly": [
+   {
+    "month": "2026-01",
+    "onchain_usd": 355143.44092716713,
+    "defillama_usd": 359240.0,
+    "delta_pct": -1.1403404612050028
+   },
+   {
+    "month": "2026-02",
+    "onchain_usd": 661750.7098007125,
+    "defillama_usd": 663127.0,
+    "delta_pct": -0.20754549268654499
+   },
+   {
+    "month": "2026-03",
+    "onchain_usd": 563692.3614786495,
+    "defillama_usd": 563460.0,
+    "delta_pct": 0.041238327236992056
+   },
+   {
+    "month": "2026-04",
+    "onchain_usd": 258467.49535470325,
+    "defillama_usd": 258740.05,
+    "delta_pct": -0.10533917934109072
+   },
+   {
+    "month": "2026-05",
+    "onchain_usd": 619299.6266255539,
+    "defillama_usd": 619614.0,
+    "delta_pct": -0.05073697083119999
+   },
+   {
+    "month": "2026-06",
+    "onchain_usd": 630354.9691922315,
+    "defillama_usd": 619475.0,
+    "delta_pct": 1.756320947936807
+   },
+   {
+    "month": "2026-07",
+    "onchain_usd": 491749.0798625767,
+    "defillama_usd": 504864.0,
+    "delta_pct": -2.597713470840335
+   },
+   {
+    "month": "2026-08",
+    "onchain_usd": 717997.941147756,
+    "defillama_usd": 723262.0,
+    "delta_pct": -0.7278218477182574
+   },
+   {
+    "month": "2026-09",
+    "onchain_usd": 1808562.6695063766,
+    "defillama_usd": 1839513.0,
+    "delta_pct": -1.6825285004032797
+   },
+   {
+    "month": "2026-10",
+    "onchain_usd": 1411619.3182767276,
+    "defillama_usd": 1409965.0,
+    "delta_pct": 0.11733044981454555
+   }
+  ],
+  "pearson_by_lag": {
+   "-3": 0.20486574228165236,
+   "-2": 0.21234590232259265,
+   "-1": 0.2525624691766967,
+   "0": 0.9986927587825876,
+   "1": 0.25036268043976323,
+   "2": 0.210345044879337,
+   "3": 0.20113834501513947
+  },
+  "pearson_lag0": 0.9986927587825876,
+  "bias_z": -1.2212689936070877,
+  "daily_residual_sd_usd": 2042.3752038842736,
+  "defillama_methodology_holders": "NEAR buyback text quoted from DefiLlama methodology: 'used to buy back $NEAR on the open market (not burned)'"
+ },
+ "buyback": {
+  "wallet": "buybacks.multisignature.near",
+  "balance_near_rpc": 2024301.6071215146,
+  "balance_near_from_last_transfer": 2024301.6071215146,
+  "inflow_external_near": 1526258.949496053,
+  "inflow_external_usd": 3958483.909641833,
+  "inflow_internal_near": 510068.0,
+  "revenue_near_since_buyback_start": 2948823.8678416335,
+  "reached_buyback_wallet_near_since_start": 2034205.4302899046,
+  "share_reached_pct": 68.98361928204359,
+  "buyback_start": "2026-02-23",
+  "inflow_internal_n": 3,
+  "largest_internal_hop": [
+   502793.0,
+   "2026-09-09",
+   "1csfundsadmin.sputnik-dao.near"
+  ],
+  "outflow_count": 3,
+  "outflow_near": 12025.0,
+  "monthly_inflow": {
+   "2026-03": {
+    "external_near": 65.14879514833713,
+    "internal_near": 0.0
+   },
+   "2026-04": {
+    "external_near": 34608.55428020031,
+    "internal_near": 0.0
+   },
+   "2026-05": {
+    "external_near": 227942.65873213258,
+    "internal_near": 0.0
+   },
+   "2026-06": {
+    "external_near": 223883.4846581604,
+    "internal_near": 0.0
+   },
+   "2026-07": {
+    "external_near": 180967.62449993906,
+    "internal_near": 7274.0
+   },
+   "2026-08": {
+    "external_near": 278124.2066755586,
+    "internal_near": 1.0
+   },
+   "2026-09": {
+    "external_near": 404085.3343813218,
+    "internal_near": 502793.0
+   },
+   "2026-10": {
+    "external_near": 176581.93747359206,
+    "internal_near": 0.0
+   }
+  },
+  "all_wallets": {
+   "fefundsadmin.sputnik-dao.near": {
+    "balance_near": 1917105.3059927735,
+    "opening_near": 427518.1017239185,
+    "net_transfers_near": 1489587.2018309755,
+    "balance_residual_near": 0.002437879564240575,
+    "outflow_count": 10,
+    "outflow_near": 0.9999999999999999,
+    "outflow_top_counterparties": [
+     [
+      "aurorafinance1.n...",
+      10
+     ]
+    ]
+   },
+   "1csfundsadmin.sputnik-dao.near": {
+    "balance_near": 270.87589141242086,
+    "opening_near": 6.00006626053214,
+    "net_transfers_near": 264.87292857621816,
+    "balance_residual_near": 0.0028965756705474632,
+    "outflow_count": 10,
+    "outflow_near": 555078.5,
+    "outflow_top_counterparties": [
+     [
+      "f7e23b5d988c35bd...",
+      3
+     ],
+     [
+      "buybacks.multisi...",
+      3
+     ],
+     [
+      "fdd59b04d49c7f53...",
+      2
+     ]
+    ]
+   },
+   "buybacks.multisignature.near": {
+    "balance_near": 2024301.6071215146,
+    "opening_near": 0.0,
+    "net_transfers_near": 2024301.949496053,
+    "balance_residual_near": -0.3423745383042842,
+    "outflow_count": 3,
+    "outflow_near": 12025.0,
+    "outflow_top_counterparties": [
+     [
+      "nf-payments.near",
+      2
+     ],
+     [
+      "508aa18569e5a59d...",
+      1
+     ]
+    ]
+   }
+  }
+ },
+ "supply": {
+  "samples": 43,
+  "first_near": 1283940416.7581332,
+  "last_near": 1309454856.5442514,
+  "growth_near": 25514439.78611827,
+  "growth_pct": 1.9871981170699993,
+  "increasing_intervals": 42,
+  "intervals": 42,
+  "annualised_growth_pct": 2.4857837042690623,
+  "series": [
+   {
+    "height": 179199136,
+    "date": "2026-01-01",
+    "total_supply_near": 1283940416.7581332
+   },
+   {
+    "height": 180199136,
+    "date": "2026-01-08",
+    "total_supply_near": 1284541637.7740903
+   },
+   {
+    "height": 181199136,
+    "date": "2026-01-15",
+    "total_supply_near": 1285165517.4082367
+   },
+   {
+    "height": 182199136,
+    "date": "2026-01-22",
+    "total_supply_near": 1285765468.925715
+   },
+   {
+    "height": 183199136,
+    "date": "2026-01-29",
+    "total_supply_near": 1286363363.3705745
+   },
+   {
+    "height": 184199136,
+    "date": "2026-02-05",
+    "total_supply_near": 1286964862.166462
+   },
+   {
+    "height": 185199136,
+    "date": "2026-02-12",
+    "total_supply_near": 1287557154.111133
+   },
+   {
+    "height": 186199136,
+    "date": "2026-02-19",
+    "total_supply_near": 1288155301.665727
+   },
+   {
+    "height": 187199136,
+    "date": "2026-02-26",
+    "total_supply_near": 1288754647.4315283
+   },
+   {
+    "height": 188199136,
+    "date": "2026-03-05",
+    "total_supply_near": 1289383137.0016975
+   },
+   {
+    "height": 189199136,
+    "date": "2026-03-12",
+    "total_supply_near": 1289978814.4915051
+   },
+   {
+    "height": 190199136,
+    "date": "2026-03-19",
+    "total_supply_near": 1290576362.5507355
+   },
+   {
+    "height": 191199136,
+    "date": "2026-03-26",
+    "total_supply_near": 1291170344.951263
+   },
+   {
+    "height": 192199136,
+    "date": "2026-04-02",
+    "total_supply_near": 1291765501.6755698
+   },
+   {
+    "height": 193199136,
+    "date": "2026-04-09",
+    "total_supply_near": 1292366121.4190588
+   },
+   {
+    "height": 194199136,
+    "date": "2026-04-16",
+    "total_supply_near": 1292998183.5431786
+   },
+   {
+    "height": 195199136,
+    "date": "2026-04-23",
+    "total_supply_near": 1293606831.5238225
+   },
+   {
+    "height": 196199136,
+    "date": "2026-04-30",
+    "total_supply_near": 1294208998.4453979
+   },
+   {
+    "height": 197199136,
+    "date": "2026-05-06",
+    "total_supply_near": 1294808801.2178228
+   },
+   {
+    "height": 198199136,
+    "date": "2026-05-13",
+    "total_supply_near": 1295414558.0888512
+   },
+   {
+    "height": 199199136,
+    "date": "2026-05-20",
+    "total_supply_near": 1296031527.0654213
+   },
+   {
+    "height": 200199136,
+    "date": "2026-05-27",
+    "total_supply_near": 1296643033.6709607
+   },
+   {
+    "height": 201199136,
+    "date": "2026-06-03",
+    "total_supply_near": 1297279772.1945539
+   },
+   {
+    "height": 202199136,
+    "date": "2026-06-11",
+    "total_supply_near": 1297903573.2422163
+   },
+   {
+    "height": 203199136,
+    "date": "2026-06-18",
+    "total_supply_near": 1298522539.138329
+   },
+   {
+    "height": 204199136,
+    "date": "2026-06-25",
+    "total_supply_near": 1299136140.472162
+   },
+   {
+    "height": 205199136,
+    "date": "2026-07-02",
+    "total_supply_near": 1299744416.548652
+   },
+   {
+    "height": 206199136,
+    "date": "2026-07-09",
+    "total_supply_near": 1300364369.4179971
+   },
+   {
+    "height": 207199136,
+    "date": "2026-07-16",
+    "total_supply_near": 1300986257.5586307
+   },
+   {
+    "height": 208199136,
+    "date": "2026-07-23",
+    "total_supply_near": 1301635523.236617
+   },
+   {
+    "height": 209199136,
+    "date": "2026-07-30",
+    "total_supply_near": 1302251671.0766811
+   },
+   {
+    "height": 210199136,
+    "date": "2026-08-06",
+    "total_supply_near": 1302873247.2260513
+   },
+   {
+    "height": 211199136,
+    "date": "2026-08-13",
+    "total_supply_near": 1303494107.9359338
+   },
+   {
+    "height": 212199136,
+    "date": "2026-08-20",
+    "total_supply_near": 1304114399.266543
+   },
+   {
+    "height": 213199136,
+    "date": "2026-08-27",
+    "total_supply_near": 1304736801.2303338
+   },
+   {
+    "height": 214199136,
+    "date": "2026-09-04",
+    "total_supply_near": 1305368366.5632434
+   },
+   {
+    "height": 215199136,
+    "date": "2026-09-11",
+    "total_supply_near": 1306023809.9349992
+   },
+   {
+    "height": 216199136,
+    "date": "2026-09-18",
+    "total_supply_near": 1306651078.171371
+   },
+   {
+    "height": 217199136,
+    "date": "2026-09-25",
+    "total_supply_near": 1307268584.3131528
+   },
+   {
+    "height": 218199136,
+    "date": "2026-10-02",
+    "total_supply_near": 1307873703.2575135
+   },
+   {
+    "height": 219199136,
+    "date": "2026-10-09",
+    "total_supply_near": 1308473624.2359328
+   },
+   {
+    "height": 220199136,
+    "date": "2026-10-16",
+    "total_supply_near": 1309083703.7155564
+   },
+   {
+    "height": 220800718,
+    "date": "2026-10-20",
+    "total_supply_near": 1309454856.5442514
+   }
+  ]
+ },
+ "hsp029": {
+  "windows": {
+   "7": {
+    "days": 7.000001803683079,
+    "supply_growth_near": 619260.5141221667,
+    "treasury_inflow_near": 63205.64730233296,
+    "treasury_share_pct": 10.20663288889494,
+    "net_issuance_near_per_day": 88465.7649368519
+   },
+   "28": {
+    "days": 27.999989012112568,
+    "supply_growth_near": 2454967.4464870817,
+    "treasury_inflow_near": 249927.06520331567,
+    "treasury_share_pct": 10.180463515349135,
+    "net_issuance_near_per_day": 87677.44320989135
+   },
+   "92": {
+    "days": 91.99999114092076,
+    "supply_growth_near": 8091985.019579308,
+    "treasury_inflow_near": 821070.8287307833,
+    "treasury_share_pct": 10.14671711260125,
+    "net_issuance_near_per_day": 87956.36737817105
+   }
+  },
+  "reference_window_days": 28
+ },
+ "deflation": {
+  "price_usd": 4.671548201904864,
+  "price_implied_by_transfers": {
+   "n": 260,
+   "median": 4.99,
+   "min": 4.54,
+   "max": 5.38
+  },
+  "take_rate_bps": 5.153935441524624,
+  "take_rate_bps_weekly": [
+   4.684370626679059,
+   5.87971633140999,
+   5.028314004757175,
+   5.646070714445673
+  ],
+  "net_issuance_near_per_day": 87677.44320989135,
+  "annualised_net_issuance_pct": 2.4439381481288103,
+  "net_issuance_usd_per_day": 409589.40217478375,
+  "captured_revenue_usd_per_day_30d": 76750.34412765928,
+  "volume_usd_per_day_30d": 148915998.26666668,
+  "breakeven_volume_usd_per_day": 794711937.7452273,
+  "breakeven_over_current_volume": 5.336645807001352,
+  "issuance_cap_pct": 2.5,
+  "target_issuance_pct": 1.6,
+  "fee_burn_near_per_day_estimate": 2011.2455945094262,
+  "net_issuance_at_target_near_per_day": 55389.51524030708,
+  "breakeven_volume_usd_per_day_at_target": 502052835.6651173,
+  "breakeven_over_current_volume_at_target": 3.3713828031161692
+ },
+ "snapshot": {
+  "date": "2026-10-20",
+  "metrics": {
+   "supply_total_near": 1309454856544252,
+   "buyback_wallet_near": 2024301607122,
+   "revenue_ytd_usd": 7518637612172,
+   "revenue_30d_usd": 2302510323830,
+   "net_issuance_near_per_day": 87677443210,
+   "breakeven_volume_usd_per_day": 794711937745227,
+   "breakeven_over_current_volume": 5336646,
+   "take_rate_bps": 5153935
+  },
+  "unit": "value x 1e6 (micro-units)"
+ },
+ "predictions": [
+  {
+   "id": "P1",
+   "claim": "Total NEAR supply on the first snapshot on/after 2026-12-31 is higher than at the as-of snapshot (no net burn at the protocol level).",
+   "metric": "supply_total_near",
+   "comparator": "gt",
+   "threshold": 1309454856.5442514,
+   "resolve_after": "2026-12-31",
+   "threshold_micro": 1309454856544252,
+   "current_value": 1309454856.5442514,
+   "status": "pending (resolved only on-chain, by anyone, after resolve_after)"
+  },
+  {
+   "id": "P2",
+   "claim": "The buyback wallet still holds at least as much NEAR as at the as-of snapshot (revenue is accumulated, not spent or burned from it).",
+   "metric": "buyback_wallet_near",
+   "comparator": "gte",
+   "threshold": 2024301.6071215146,
+   "resolve_after": "2026-12-31",
+   "threshold_micro": 2024301607122,
+   "current_value": 2024301.6071215146,
+   "status": "pending (resolved only on-chain, by anyone, after resolve_after)"
+  },
+  {
+   "id": "P3",
+   "claim": "Net issuance over the trailing 28 days is still positive on the first snapshot on/after 2027-01-31.",
+   "metric": "net_issuance_near_per_day",
+   "comparator": "gt",
+   "threshold": 0,
+   "resolve_after": "2027-01-31",
+   "threshold_micro": 0,
+   "current_value": 87677.44320989135,
+   "status": "pending (resolved only on-chain, by anyone, after resolve_after)"
+  },
+  {
+   "id": "P4",
+   "claim": "The daily volume needed for NEAR to be net-deflationary stays above 2x the trailing 30-day average volume on the first snapshot on/after 2027-01-31.",
+   "metric": "breakeven_over_current_volume",
+   "comparator": "gt",
+   "threshold": 2,
+   "resolve_after": "2027-01-31",
+   "threshold_micro": 2000000,
+   "current_value": 5.336645807001352,
+   "status": "pending (resolved only on-chain, by anyone, after resolve_after)"
+  }
+ ],
+ "provenance": {
+  "manifest": {
+   "as_of": "2026-10-20",
+   "head_height": 220800718,
+   "head_timestamp_ns": "1792498049134349790",
+   "fetched_unix": 1792498409,
+   "year_start": "2026-01-01",
+   "sha256": {
+    "llama_holders_revenue.json": "8bdf420773e8725fb4f1cfec81240091dafde44cbd29e7cda8d67410988b0331",
+    "llama_revenue.json": "16ee3da7166373655d5fa21c29b157bf0499b1bff979676ef0e427a1c025a6f2",
+    "llama_volume.json": "81fd7c2ae8bd588821002cc579a6f55465397272d6d9f6b4f8a6292e6b2c17a2",
+    "price.json": "c2f31791a80f29954197e79bf5bb3fd4c83becd95f736dbfa9f030ae8fe9f4a9",
+    "rpc_balances.json": "24a41ccb4688f9f1ac36ad09b5c16164c00fdec5cc2f966ee7a77654b74e41a1",
+    "rpc_hsp029.json": "02a04c27b3420a13dbec4c5bbf41e6e194006a3c9f0a9a5b2d57a27976006598",
+    "rpc_supply_samples.json": "5772bcb8d4b05d59cac57b5e46643029ee01ff39eb76c2c9af3c9a813b345e17",
+    "transfers_1csfundsadmin.sputnik-dao.near.jsonl": "5ade210aa38532e16a5a5b75e23e2f73822b38b5bfcbc6133625fd2a82967965",
+    "transfers_buybacks.multisignature.near.jsonl": "46dc8f9529d6e4697cbd4f933b0df11741b0b14cc7c5e42b6ead2f8ab5845c74",
+    "transfers_fefundsadmin.sputnik-dao.near.jsonl": "905eb74537256ffc8ba2cb3f02078b5bfe8f80b2fc4bfb25900f5cb9cecb65db"
+   }
+  }
+ }
+}
