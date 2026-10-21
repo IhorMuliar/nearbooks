@@ -6,18 +6,17 @@ PY       ?= python3 -I
 .PHONY: help data verify verify-live verify-deploy verify-deploy-testnet cache cache-testnet test test-py test-contract test-worker wasm wasm-local worker keeper-dry readme site clean
 
 help:
-	@echo "make verify        recompute + assert findings from the committed snapshot, check README numbers, recorded snapshot/prediction outcomes and local builds (offline, ~3 s)"
-	@echo "make verify-deploy compare contract/deployment.json with the mainnet contract, check recorded snapshots and resolutions on chain, rebuild it reproducibly (docker) and check local builds (network)"
-	@echo "make verify-deploy-testnet  the same for the earlier testnet deployment (contract/deployment-testnet.json)"
-	@echo "make cache         re-read the mainnet contract into site/contract-cache.json (network; then make readme); cache-testnet: the testnet one"
-	@echo "make data          fetch fresh raw data into data/live + data/live-m2 (network, ~6 min + ~25 min NEARData block sample)"
-	@echo "make verify-live   make data, then recompute + assert on the fresh data"
-	@echo "make test          python tests (pipeline, MCP) + contract and worker unit tests"
-	@echo "make wasm          reproducible build (docker, cargo-near) of the deployed commit into contract/res/nearbooks.wasm"
-	@echo "make wasm-local    quick non-reproducible build of the working tree into contract/res/nearbooks-local.wasm"
-	@echo "make keeper-dry    plan the keeper's next run against the mainnet contract (network, no key, signs nothing)"
-	@echo "make worker        build the OutLayer worker (wasm32-wasip2) and print the sha256 the contract pins"
-	@echo "make site          serve the dashboard at http://127.0.0.1:8000/site/ (reads the mainnet contract live)"
+	@echo "make verify                 recompute and check every finding and claim offline (~3 s)"
+	@echo "make test                   Python, contract and worker tests"
+	@echo "make verify-deploy          check the mainnet contract against its record and a reproducible build (network, docker)"
+	@echo "make verify-deploy-testnet  the same for the earlier testnet deployment"
+	@echo "make data / verify-live     fetch fresh raw data (network, ~30 min) / then recompute and check it"
+	@echo "make cache / cache-testnet  re-read the contract into site/contract-cache*.json, then run make readme"
+	@echo "make readme                 regenerate the generated blocks in README.md and docs/"
+	@echo "make wasm / wasm-local      reproducible contract build (docker) / quick local build"
+	@echo "make worker                 build the TEE worker and print the sha256 the contract pins"
+	@echo "make keeper-dry             plan the keeper's next run (network, signs nothing)"
+	@echo "make site                   serve the dashboard at http://127.0.0.1:8000/site/"
 
 # --- offline path: committed snapshot -> metrics.json -> assertions
 verify:

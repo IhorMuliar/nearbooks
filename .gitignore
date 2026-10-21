@@ -11,3 +11,4 @@ __pycache__/
 .near-credentials/
 worker/target/
 worker/res/
+site/screenshot.png

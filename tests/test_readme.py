@@ -104,7 +104,7 @@ class TestReadmeFacts(unittest.TestCase):
         self.assertEqual((d["code_sha256"], d["source_commit"], d["worker_sha256"]), (t["code_sha256"], t["source_commit"], t["worker_sha256"]),
                          "mainnet runs the same reproducible build and worker as testnet")
         self.assertEqual(load_json(os.path.join(ROOT, "site", "contract-cache.json"))["contract"], d["contract"])
-        with open(os.path.join(ROOT, "contract", "mainnet-deploy-2026-10-21.log")) as f:
+        with open(os.path.join(ROOT, "contract", "logs", "mainnet-deploy-2026-10-21.log")) as f:
             log = f.read()
         self.assertIn(f"deploy contract/res/nearbooks.wasm sha256 {d['code_sha256']} + new(owner={d['contract']}", log, "the logged deploy used this build")
         self.assertIn(d["worker_url"], log)
@@ -119,7 +119,7 @@ class TestReadmeFacts(unittest.TestCase):
         d = load_json(os.path.join(ROOT, "contract", "deployment-testnet.json"))
         self.assertTrue(d["worker_url"].endswith(d["worker_sha256"] + ".wasm"))
         self.assertEqual(load_json(os.path.join(ROOT, "site", "contract-cache-testnet.json"))["contract"], d["contract"])
-        with open(os.path.join(ROOT, "contract", "testnet-keeper.log")) as f:
+        with open(os.path.join(ROOT, "contract", "logs", "testnet-keeper.log")) as f:
             log = f.read()
         self.assertIn(f"contract {d['contract']} (code sha256 {d['code_sha256']})", log, "the logged deploy used this build")
         for rel in sorted({r["log"] for r in d["attested_snapshots"] + d["resolutions"]}):
@@ -131,9 +131,9 @@ class TestReadmeFacts(unittest.TestCase):
         with open(os.path.join(ROOT, "contract", "Cargo.toml")) as f:
             toml = f.read()
         self.assertIn(f'image_digest = "{d["reproducible_build"]["image_digest"]}"', toml)
-        with open(os.path.join(ROOT, "contract", "testnet-attested.log")) as f:
+        with open(os.path.join(ROOT, "contract", "logs", "testnet-attested.log")) as f:
             old = f.read()
-        with open(os.path.join(ROOT, "contract", "testnet-resolve.log")) as f:
+        with open(os.path.join(ROOT, "contract", "logs", "testnet-resolve.log")) as f:
             old += f.read()
         for p in d["previous_deployments"]:
             self.assertIn(f"contract wasm sha256: {p['code_sha256']}", old)
@@ -150,7 +150,7 @@ class TestReadmeFacts(unittest.TestCase):
             for edit, obj in ((edit_deployment, d), (edit_cache, c)):
                 if edit:
                     edit(obj)
-            os.makedirs(os.path.join(tmp, "contract"))
+            os.makedirs(os.path.join(tmp, "contract", "logs"))
             os.makedirs(os.path.join(tmp, "site"))
             for rel in {r["log"] for r in d["attested_snapshots"] + d["resolutions"]}:
                 shutil.copy(os.path.join(ROOT, rel), os.path.join(tmp, rel))

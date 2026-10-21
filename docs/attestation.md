@@ -1,40 +1,20 @@
 # How to check an attested NEAR Books snapshot
 
-An **attested** snapshot holds NEAR mainnet numbers read by a pinned WASM worker inside an Intel TDX enclave run by OutLayer. The worker's output reached the `nearbooks` contract through OutLayer's on-chain yield/resume, so no reporter key is involved. The live contract is `nearbooks.near` on mainnet; the earlier testnet contract `nearbooks-v6.okf-kill-1792497882.testnet` ran the same code first. This page shows how anyone can check a snapshot, and it marks which steps were actually executed. The deployment itself (contract, hashes, transactions) is listed in `docs/deployment.md`, generated from `contract/deployment.json`.
+An attested snapshot holds NEAR mainnet numbers read by a pinned WASM worker in an Intel TDX enclave run by OutLayer and delivered through OutLayer's on-chain yield/resume, with no reporter key. The live contract is `nearbooks.near`; `nearbooks-v6.okf-kill-1792497882.testnet` ran the same code first (`docs/deployment.md`).
 
 ## What is claimed
 
-For a UTC date D, a snapshot describes two observation points:
-- **B**, the first block of D: `prev.timestamp < D 00:00:00 UTC <= B.timestamp`,
-- **B28**, the first block of D minus 28 days, by the same rule.
-
-At B the worker reads:
-- total supply (block header),
-- the balances of `fefundsadmin.sputnik-dao.near`, `buybacks.multisignature.near` and `1csfundsadmin.sputnik-dao.near`,
-- an Intents reserves check: `intents.near mt_supply` against `ft_balance_of("intents.near")` for the top 8 tokens by value.
-
-At B28 it reads total supply and the same three balances. From the two observations the contract derives three metrics:
+For a UTC date D the worker observes B, the first block of D (`prev.timestamp < D 00:00:00 UTC <= B.timestamp`), and B28, the first block of D minus 28 days. At both it reads total supply (block header) and the balances of `fefundsadmin.sputnik-dao.near`, `buybacks.multisignature.near` and `1csfundsadmin.sputnik-dao.near`. At B it also checks Intents reserves: `intents.near mt_supply` against `ft_balance_of("intents.near")` for the top 8 tokens by value. The contract derives:
 - `net_issuance_near_per_day` = (supply at B - supply at B28) / 28,
 - `revenue_wallets_gain_near_28d` = the change in the three wallets' combined balance,
-- `revenue_wallets_gain_over_net_issuance` = the ratio of the two growths, omitted when supply did not grow.
+- `revenue_wallets_gain_over_net_issuance` = the ratio of the two, omitted when supply did not grow.
 
-The chain of custody:
+Chain of custody:
 
-1. **Request.** Anyone calls `request_snapshot(D, B, B28)`, or the keeper calls `keeper_request_snapshot(D, B, B28)` and the deposit comes from the keeper budget (see "Keeper budget"). D must not be before `earliest_date`, unless a Pending prediction resolves on D. The contract:
-   - keeps a storage reserve from the deposit,
-   - sends `{"n":"<nonce>","d":"D","b":"B","b28":"B28"}` to `outlayer.near` `request_execution` (`outlayer.testnet` on testnet),
-   - names the worker by the sha256 that is **the contract's pin for D**: the pin in force at D 00:00 UTC, see "Timelock",
-   - names the caller as `payer_account_id` (for keeper requests: the contract itself).
-2. **Run.** An OutLayer TDX worker downloads the WASM and refuses it unless its sha256 equals the pin. The worker refuses unless B and B28 are the first blocks of their days. It reads everything at those blocks from the archival RPC and prints about 565 bytes of JSON.
-3. **Store.** OutLayer resumes the yielded promise with those bytes. `on_snapshot_result` accepts them only if all of these hold:
-   - the call comes from the contract itself (the promise result of the OutLayer contract the request went to),
-   - the pin for D is still the one the request used,
-   - the nonce, the date and both blocks match the request,
-   - the timestamp falls on D,
-   - every field parses strictly (format `"v":"3"`).
-
-   It then stores the snapshot under D with the sha256 of the exact bytes and the attestation URL. It keeps the bytes the snapshot staked (about 1,085) out of the reserve and refunds the rest.
-4. **Attest.** OutLayer publishes an attestation for the run. It contains the TDX quote, `wasm_hash`, `input_hash`, `output_hash`, the caller and the transaction. The quote's `report_data` commits to all of them.
+1. Request. Anyone calls `request_snapshot(D, B, B28)`, or the keeper calls `keeper_request_snapshot` paid from the keeper budget. D must not precede `earliest_date` unless a Pending prediction resolves on D. The contract keeps a storage reserve and sends `{"n":"<nonce>","d":"D","b":"B","b28":"B28"}` to `outlayer.near` `request_execution` (`outlayer.testnet` on testnet), naming the worker by **the contract's pin for D** (in force at D 00:00 UTC) and the caller, or for keeper requests the contract, as `payer_account_id`.
+2. Run. The TDX worker refuses the WASM unless its sha256 equals the pin, and refuses B or B28 if it is not the first block of its day. It reads from the archival RPC and prints about 565 bytes of JSON.
+3. Store. `on_snapshot_result` accepts the resumed bytes only if the call is the contract's own promise result from the OutLayer contract the request went to, the pin for D is unchanged, nonce, date and both blocks match, the timestamp falls on D, and every field parses strictly (`"v":"3"`). It stores the snapshot with the sha256 of the exact bytes and the attestation URL, keeps its storage (about 1,085 bytes) and refunds the rest of the reserve.
+4. Attest. OutLayer publishes the TDX quote, `wasm_hash`, `input_hash`, `output_hash`, caller and transaction; the quote's `report_data` commits to all of them.
 
 ## Checks
 
@@ -43,7 +23,7 @@ python3 -I contract/scripts/verify_attestation.py nearbooks.near 2026-10-21 \
     --wasm worker/res/nearbooks-worker.wasm --dcap "$(command -v dcap-qvl)"   # cargo install dcap-qvl-cli
 ```
 
-The network follows the contract id: `*.testnet` reads testnet, its OutLayer register `worker.outlayer.testnet` and `testnet-api.outlayer.ai`. Recorded output (network, about 20 s; `contract/mainnet-attest-check-2026-10-21.log`; long hashes shortened to their first and last characters (`bbed939a…7963`), the script prints them in full):
+A `*.testnet` contract id reads testnet (`worker.outlayer.testnet`, `testnet-api.outlayer.ai`). Recorded output (about 20 s, `contract/logs/mainnet-attest-check-2026-10-21.log`; long hashes shortened as `bbed939a…7963`):
 
 ```
 $ python3 -I contract/scripts/verify_attestation.py nearbooks.near 2026-10-21 --wasm worker/res/nearbooks-worker.wasm --dcap /path/to/dcap-qvl
@@ -69,9 +49,7 @@ PASS  Intel DCAP signature chain verifies (dcap-qvl)  TCB status UpToDate
 15/15 checks pass
 ```
 
-Without `--wasm` and `--dcap` the local-build line is missing, the DCAP line says `SKIP` and the run ends with `13/13 checks pass`. This snapshot was requested by the keeper (see "Keeper budget" below), so the transaction is `keeper_request_snapshot`, signed by its function-call key. Its evidence hash `4c798974…fdefb` equals that of the testnet snapshot of the same date (OutLayer request 5258 on testnet): two separate enclave runs read byte-identical RPC responses. The testnet checks are in `contract/testnet-attest-2026-10-21.log` (13/13) and, for 2026-10-20 on `nearbooks-v5` with `--wasm` and `--dcap`, 15/15.
-
-The script never fetches a URL taken from contract state. It rebuilds the attestation URL from the allowlisted API base and the numeric request id, and it refuses redirects.
+Without `--wasm` and `--dcap` the run ends `13/13 checks pass`. The evidence hash `4c798974…fdefb` equals that of the testnet snapshot for the same date (testnet request 5258): two separate enclave runs read byte-identical RPC responses. Testnet runs: 13/13 in `contract/logs/testnet-attest-2026-10-21.log`, and 15/15 for 2026-10-20 on `nearbooks-v5`. The script never fetches a URL from contract state; it rebuilds it from the allowlisted API base and the numeric request id, and refuses redirects.
 
 | # | Check | Executed? |
 |---|---|---|
@@ -88,31 +66,15 @@ The script never fetches a URL taken from contract state. It rebuilds the attest
 | 11 | the approved measurements correspond to OutLayer's published open-source worker image | **documented only** |
 | 12 | only TEE-registered worker keys can resolve OutLayer executions on-chain | **documented only**, read from OutLayer's source |
 
-The dashboard and `get_attested_snapshots(verify=true)` repeat checks 1-5 (without the local build) in the browser or in Python. They mark a snapshot verified only if all of them hold.
+The dashboard and `get_attested_snapshots(verify=true)` repeat checks 1-5, without the local build, before marking a snapshot verified.
 
 ## Timelock on re-pinning
 
-The pin (worker hash, worker URL, OutLayer contract, resource limits) is kept as an append-only history:
-- `propose_pin` (owner) emits `pin_proposed` with `apply_after_ns` = now + `pin_delay_secs`. The delay is fixed at `new`: 86,400 s (24 h) on mainnet, 3,600 s on testnet.
-- `apply_pin` (owner, refused before `apply_after_ns`) appends the entry with `from_ns` = the block time and emits `worker_pinned`.
-- `cancel_pin_proposal` drops a waiting proposal. A new proposal replaces a waiting one and restarts the clock.
-- The first pin applies at once, because no snapshot can exist before it.
+The pin (worker hash and URL, OutLayer contract, resource limits) is an append-only history. `propose_pin` emits `pin_proposed` with `apply_after_ns` = now + `pin_delay_secs` (fixed at `new`: 86,400 s on mainnet, 3,600 s on testnet). `apply_pin` is refused before then; it appends an entry from the block time and emits `worker_pinned`. `cancel_pin_proposal` drops a waiting proposal, and a new one replaces it and restarts the clock. The first pin applies at once.
 
-**The pin for date D is the entry in force at D 00:00 UTC.** A re-pin applied at time A therefore governs only dates that start at or after A. Every date that started earlier keeps its old pin, even if its snapshot is requested after A. This covers a Pending prediction's resolve date inside the proposal window. So readers get `pin_delay_secs` of public notice before a new worker can observe any date, and a date's observer never changes once that date has begun.
+**The pin for date D is the entry in force at D 00:00 UTC.** A re-pin applied at time A governs only dates starting at or after A; earlier dates keep the old pin even if requested later, including a Pending prediction's resolve date inside the window. So a new worker gets `pin_delay_secs` of public notice before it observes any date, and a date's observer never changes once the date has begun.
 
-On testnet (`nearbooks-v5`, which stays live for this) a re-pin was proposed on 2026-10-20 at 16:01 UTC. It only changes the time limit from 60 s to 90 s, so `get_pin_for_date` shows which entry governs which date. Applying it right away was refused. What happened after 2026-10-21 00:00 UTC is in `contract/testnet-resolve.log`:
-After 2026-10-21 00:00 UTC the owner applied the re-pin (event `worker_pinned`). `get_pin_for_date` then returned the old entry (60 s) for 2026-10-21, because that date began before the apply, and the new entry (90 s) for 2026-10-22. The attested snapshot of 2026-10-21 was requested afterwards and still ran under the 60 s entry (tx `HA7ZpS6v3QnTpXXhxg5np5BKdjXD6CnPWs1n2KRr2VPy`). Predictions 4, 5 and 6 resolved confirmed, refuted and void (txs `24r5UjDCZEEvnrvewEfHagRYT6QLUxPNvH6NPaDPDbU4`, `JBMuF7RLxKRLENZ7R4Sw8cbrsYcXav1SCHfJTMNT8msr`, `5rSX7oh6MFjb6ZSCTEz5UjjRwPUa6UDTkPBUAArZeaeE`), and resolving P1 (due 2026-12-31) was refused. Run log: `contract/testnet-resolve-2026-10-21.log`; `verify_attestation.py nearbooks-v5.okf-kill-1792497882.testnet 2026-10-21`: 13/13 checks pass (`contract/testnet-attest-v5-2026-10-21.log`).
-
-Contract tests:
-- `repin_cannot_be_applied_before_the_delay`
-- `applied_pin_governs_only_dates_that_start_after_it`
-- `pending_prediction_date_inside_the_window_keeps_the_old_pin`
-- `repin_while_in_flight_does_not_change_the_pin_for_that_date`
-- `a_new_proposal_replaces_the_waiting_one_and_restarts_the_clock`
-- `owner_can_cancel_a_proposal`
-- `only_the_owner_applies_or_cancels`
-- `first_pin_applies_at_once_and_covers_earlier_dates`
-- `delay_is_fixed_at_init`
+Testnet demo on `nearbooks-v5`: a re-pin (time limit 60 s to 90 s) proposed on 2026-10-20 at 16:01 UTC was refused at once and applied after 2026-10-21 00:00 UTC. `get_pin_for_date` then gave the 60 s entry for 2026-10-21 and the 90 s one for 2026-10-22, and the later-requested 2026-10-21 snapshot ran under 60 s (tx `HA7ZpS6v3QnTpXXhxg5np5BKdjXD6CnPWs1n2KRr2VPy`). Resolving P1 (due 2026-12-31) early was refused. Logs: `contract/logs/testnet-resolve.log`, `contract/logs/testnet-resolve-2026-10-21.log`, `contract/logs/testnet-attest-v5-2026-10-21.log` (13/13). Tests: `contract/src/tests.rs`, section "timelock".
 
 ## Owner powers
 
@@ -120,22 +82,22 @@ The owner is the contract account itself: `nearbooks.near` on mainnet (`nearbook
 
 | Power | Effect | Limit / visibility |
 |---|---|---|
-| `propose_pin` / `apply_pin` / `cancel_pin_proposal` | Decides which worker observes future dates | Timelocked (above). Events `pin_proposed`, `worker_pinned`, `pin_proposal_cancelled`. Every snapshot records its `wasm_hash`. The repo publishes the hashes it vouches for in `contract/known_workers.json`. A pinned worker that stops working only stops new snapshots: predictions stay Pending, and none is decided wrongly. A pinned worker that runs but reports wrong numbers is a different risk, which the contract cannot detect. That is why re-pins are timelocked, every snapshot records its `wasm_hash`, and the vouched-for hashes are published with a reproducible build. |
+| `propose_pin` / `apply_pin` / `cancel_pin_proposal` | Decides which worker observes future dates | Timelocked (above). Events `pin_proposed`, `worker_pinned`, `pin_proposal_cancelled`. Every snapshot records its `wasm_hash`; the hashes this repo vouches for are in `contract/known_workers.json`, with a reproducible build. A worker that stops working only stops new snapshots: predictions stay Pending, none is decided wrongly. A worker that runs but reports wrong numbers is a risk the contract cannot detect; the timelock and the published hashes are the answer to it. |
 | `add_prediction` | Registers claims | Only for a future `resolve_after`. Cannot edit, delete or resolve them. |
 | `set_earliest_date` | Widens backfill | Can only move earlier. A Pending prediction's date is always requestable. |
 | `set_reporter` | Rotates the reporter | Reported snapshots never resolve predictions. |
 | `set_keeper` | Names the one account that may spend the keeper budget, and its daily cap | Cap at most 1 NEAR per UTC day (contract rule). Event `keeper_set`. The owner cannot spend the budget itself. |
 | `withdraw_keeper_budget` | Takes unspent budget back to the owner | Only up to the recorded budget. Event `keeper_budget_withdrawn`. |
 | `transfer_ownership` | Hands every power above to another account, for example a multisig | Event `owner_transferred`. |
-| **Code upgrade through the account's full-access key** | **Can change any rule, including the timelock** | **Possible until that key is deleted**, which is the last step before submission. Until then, check the deployed `code_hash` against the build (`make verify-deploy`, which also lists the account's keys). |
+| **Code upgrade through the account's full-access key** | **Can change any rule, including the timelock** | **Possible until that key is deleted**, the last step before submission. Until then, check the deployed `code_hash` against the build (`make verify-deploy`, which also lists the account's keys). |
 
-The owner cannot write or alter attested snapshots. It cannot move requesters' funds: OutLayer refunds the run part, and the contract only returns a request's own unused storage reserve. It cannot resolve a prediction except by the public rule.
+The owner cannot write or alter attested snapshots, move requesters' funds (OutLayer refunds the run part; the contract returns only a request's own unused reserve) or resolve a prediction except by the public rule.
 
-**Mainnet.** `nearbooks.near` was deployed on 2026-10-21 with a 24 h timelock, owned by itself. Its full-access key is still on the account. Deleting it, the last step before submission, freezes the code. Because the owner is the contract account itself, it also ends the owner calls (re-pin, new predictions, keeper settings): from then on the contract runs only by its public rules, and anyone can still fund the keeper budget.
+`nearbooks.near` still has its full-access key. Because it owns itself, deleting that key both freezes the code and ends the owner calls (re-pin, new predictions, keeper settings); the contract then runs only by its public rules, and anyone can still fund the keeper budget.
 
 ## Keeper budget
 
-A NEAR function-call access key cannot attach a deposit (the protocol refuses such a transaction with `DepositWithFunctionCall`). `request_snapshot` is payable, so a bot that holds only such a key cannot call it. The contract (v6) adds a prepaid budget:
+A function-call key cannot attach a deposit, so a bot holding only one cannot call the payable `request_snapshot`. The contract (v6) adds a prepaid budget:
 
 | Call | Who | Effect |
 |---|---|---|
@@ -146,50 +108,34 @@ A NEAR function-call access key cannot attach a deposit (the protocol refuses su
 | `withdraw_keeper_budget(amount)` | owner | sends unspent budget to the owner |
 | `get_keeper()` | view | keeper, cap, budget, the day's spending, cost of one request |
 
-Accounting is conservative. OutLayer refunds the unused part of its 0.01 NEAR with a plain transfer to the payer. That was 0.00862 NEAR in the testnet run of 2026-10-20. The contract cannot attribute a plain transfer, so the refund stays in its free balance and is not credited. A failed OutLayer call is not credited either, for the same reason as on the public path. The budget therefore never exceeds what the contract really holds for it.
+The budget never exceeds what the contract holds: OutLayer's refund of its unused 0.01 NEAR (0.00862 NEAR on testnet, 2026-10-20) is a plain transfer the contract cannot attribute, so it is not credited, and neither is a failed OutLayer call.
 
-The keeper account (`keeper.nearbooks.near`; on testnet `nearbooks-keeper…`) has two keys:
-- a function-call key: receiver = this contract, methods `keeper_request_snapshot` and `resolve_prediction`, allowance 1 NEAR of gas (0.5 NEAR on testnet),
-- a full-access key, which stays offline with the deployer.
-
-The function-call key is the only secret the scheduled workflow (`.github/workflows/keeper.yml`) gets. If it leaks, the attacker can spend at most:
-- the daily cap, on snapshots of dates they choose,
-- the remaining gas allowance.
-
-The protocol refuses everything else before execution. `keeper/probe.py` showed this on testnet: `DepositWithFunctionCall`, `MethodNameMismatch`, `ReceiverMismatch` and `RequiresFullAccess`. Contract tests cover the cap, the keeper-only rule, the budget accounting and the refunds (`contract/src/tests.rs`, section "keeper budget").
+The keeper account (`keeper.nearbooks.near`; testnet `nearbooks-keeper…`) has a function-call key for this contract (`keeper_request_snapshot`, `resolve_prediction`; 1 NEAR gas allowance, 0.5 NEAR on testnet), the only secret `.github/workflows/keeper.yml` gets, and a full-access key kept offline by the deployer. A leaked function-call key can spend at most the daily cap, on dates the attacker chooses, plus the remaining allowance. The protocol refuses everything else before execution (`keeper/probe.py` on testnet: `DepositWithFunctionCall`, `MethodNameMismatch`, `ReceiverMismatch`, `RequiresFullAccess`). Tests: `contract/src/tests.rs`, section "keeper budget".
 
 ## Reproducible contract build
 
-The deployed contract (`nearbooks.near`, and `nearbooks-v6` on testnet: the same wasm) is `cargo near build reproducible-wasm` output. `contract/Cargo.toml` pins the build image by digest (`sourcescan/cargo-near:0.21.1-rust-1.96.0@sha256:ccb22bb4…ee17`), the command (`cargo near build non-reproducible-wasm --locked --no-abi`) and the NEP-330 `repository`. cargo-near builds the committed tree, not the working copy. It embeds the repository URL and the commit in the wasm, readable on chain through `contract_source_metadata`. So the hash belongs to one commit, recorded as `source_commit` in `contract/deployment.json`.
-
-`contract/scripts/repro_build.sh` clones the repository into a temporary directory, checks out that commit and builds there, so uncommitted changes and later commits cannot change the result. Two builds of `30d995d` from separate clones gave the same sha256 (`644a8df3…2cae`), and so does each `make verify-deploy`, which compares the result with the on-chain `code_hash`. `make wasm` runs the same build into `contract/res/`.
-
-The worker (`worker/build.sh`) builds byte-identically from another directory with the same toolchain, but it is not built in a pinned image. `make verify` reports a local contract or worker build that differs from `contract/deployment.json`.
-
-The URL in the metadata (`https://github.com/IhorMuliar/nearbooks`) is public, so anyone can clone it, check out `source_commit` and rebuild, or verify the contract SourceScan-style from the embedded metadata.
+The deployed wasm (`nearbooks.near`, and the identical `nearbooks-v6`) is `cargo near build reproducible-wasm` output. `contract/Cargo.toml` pins the image by digest (`sourcescan/cargo-near:0.21.1-rust-1.96.0@sha256:ccb22bb4…ee17`), the command (`cargo near build non-reproducible-wasm --locked --no-abi`) and the NEP-330 `repository`. cargo-near builds the committed tree, not the working copy, and embeds the public repository URL (`https://github.com/IhorMuliar/nearbooks`) and commit, readable on chain via `contract_source_metadata`. So the hash belongs to one commit (`source_commit` in `contract/deployment.json`), which anyone can rebuild or verify SourceScan-style. `contract/scripts/repro_build.sh` builds it in a fresh clone. Two separate clones of `30d995d` gave `644a8df3…2cae`, as does each `make verify-deploy`, which compares it with the on-chain `code_hash`. The worker (`worker/build.sh`) builds byte-identically from another directory with the same toolchain, but not in a pinned image. `make verify` reports local builds that differ from `contract/deployment.json`.
 
 ## What this does not prove
 
-- **The RPC data itself.** The worker trusts `archival-rpc.mainnet.fastnear.com` (fallback `rpc.mainnet.near.org`) and does not check state proofs. `sha` commits to the raw responses. Check 10 shows they can be refetched byte for byte when no fallback answered (`fb` = 0).
-- **On-chain quote verification.** The contract cannot verify the TDX quote. Checks 6-8 are off-chain.
-- **The token list.** It is fixed in the worker (the top 8 on 2026-10-20, `worker/scripts/rank_intents_tokens.py`). Changing it changes the hash and needs a timelocked re-pin.
+- The RPC data itself. The worker trusts `archival-rpc.mainnet.fastnear.com` (fallback `rpc.mainnet.near.org`) and checks no state proofs. `sha` commits to the raw responses; check 10 shows they can be refetched byte for byte when no fallback answered (`fb` = 0).
+- On-chain quote verification. The contract cannot verify the TDX quote; checks 6-8 are off-chain.
+- The token list. It is fixed in the worker (the top 8 on 2026-10-20, `worker/scripts/rank_intents_tokens.py`); changing it changes the hash and needs a timelocked re-pin.
 
 ## Design fixes after security reviews
 
-- **Timing griefing.** The observation point is canonical: the first block of the requested day (and of 28 days earlier), which the worker enforces. Attested snapshots form their own series, one per date, and the first valid one wins. Predictions resolve only from the attested snapshot for exactly `resolve_after`. Test: `a_later_snapshot_cannot_stand_in_for_the_missing_deciding_one`.
-- **Double refund.** The contract never re-sends the OutLayer part of a deposit. The callback only returns the unused part of that request's own storage reserve. Tests: `failed_outlayer_call_stores_nothing_and_returns_only_the_reserve` and `callback_never_sends_more_than_the_requests_own_unused_reserve`.
-- **Storage griefing.** The requester pays storage from a 2,000-byte reserve, settled by measured `storage_usage`. Backfill is bounded by `earliest_date`. Test: `storage_is_paid_by_the_requester`. On testnet the contract's free balance was identical before and after a stored snapshot.
-- **Owner blocking a prediction.** `earliest_date` only moves earlier, and Pending resolve dates are always requestable.
-- **Owner swapping the worker before a deciding date.** Re-pins are timelocked, and a re-pin never touches a date that has started (this milestone).
-- **SSRF and spoofed contracts in the readers.** The dashboard and MCP server fetch only allowlisted HTTPS origins. They rebuild attestation URLs from the numeric request id and refuse redirects. The dashboard reads only the official contract and requires a known-good worker hash, the pin for the date and a transaction to that contract before it shows "verified".
+- **Timing griefing**: canonical first blocks; one attested snapshot per date, first valid wins; predictions resolve only from the snapshot for exactly `resolve_after`.
+- **Double refund**: the callback returns only the request's own unused storage reserve, never the OutLayer part.
+- **Storage griefing**: requesters pay from a 2,000-byte reserve settled by measured `storage_usage`; backfill is bounded by `earliest_date`. On testnet a stored snapshot left the contract's free balance unchanged.
+- **Owner blocking a prediction or swapping the worker before a deciding date**: `earliest_date` only moves earlier, and timelocked re-pins never touch a started date.
+- **SSRF and spoofed contracts in the readers**: the dashboard and MCP server trust the mainnet RPC they read but fetch only allowlisted HTTPS origins (mainnet and archival RPCs, OutLayer's attestation API), rebuild attestation URLs from the request id and refuse redirects. The dashboard reads only its hard-coded contract.
+
+Tests: `contract/src/tests.rs`, sections "attested snapshots (OutLayer)", "predictions" and "timelock".
 
 ## Earlier deployments
 
-- **`nearbooks-v6` on testnet (still live).** The same wasm and worker as mainnet, exercised end to end first: the keeper's key refusals, the rejection paths and the three demo predictions resolved one per outcome. Record: `contract/deployment-testnet.json`; `make verify-deploy-testnet` checks it against testnet.
-- **`nearbooks-v5` (still live).** It runs the timelocked contract without the keeper budget, built with `cargo near build non-reproducible-wasm` (`b9343afe…6b18`). It keeps the re-pin timelock demo across 2026-10-21 00:00 UTC and its own copy of predictions 0-6. Its transactions are listed in the deployment table in `docs/deployment.md`, and its logs are `contract/testnet-attested.log` and `contract/testnet-resolve.log`. `make verify-deploy` checks that it still runs that code.
-- **Superseded attested designs.** The first design (tx `FgnM1JhaTnuZUuuhDBRwZLKm2CxX5WZk6cC6Lix6Eo7t`), the canonical-block design before the storage fix (tx `D315fRtRDtk4FJfyLPfWUpTCvJVRfxdrwBZt5khcuX1Y`) and the untimelocked v4 contract (`nearbooks-v4…`, request `CmYRyYdp6ZNeoCLe3ecJDs4VD2aDGZvRr7N6r7edSjGe`) were all run end to end on testnet. Their logs are in git history: commits `770990b`, `474734d`, `290311b`. Those accounts were deleted and their balances returned to the funder. For v4 that was tx `BYQQAY8QnDRiPaLEXYQXFe7oTmdWRciytwJzLdwx7LQt`.
-- **Reporter-only prototype.** `nbproto-owner-1696.testnet` (deploy `C3vKYWYEtFPXUgJhX7guN5n1gMFwnsSPr1WG3uDrwUDg`) showed a reporter account holding a function-call key limited to `submit_snapshot`:
-  - the reporter's snapshot tx `Fnvem2YpsFJrf6d3vepf16nP38dVa1dQq58jd6aC5bHa` succeeded,
-  - the owner's own `submit_snapshot` and the key's attempt at `resolve_prediction` were refused.
+`nearbooks-v6` is in `docs/deployment.md`, "Testnet deployment". Before it:
 
-  Logs: `contract/testnet-run.log`, `contract/testnet-run-redeploy.log`. Reported snapshots never decide predictions in the current contract.
+- `nearbooks-v5` (testnet, live): timelocked, no keeper budget, `cargo near build non-reproducible-wasm` (`b9343afe…6b18`). It carries the timelock demo and its own predictions 0-6 (`contract/logs/testnet-attested.log`, `contract/logs/testnet-resolve.log`); `make verify-deploy-testnet` checks its code.
+- Superseded: the first attested design, the canonical-block design before the storage fix and the untimelocked v4 ran end to end on testnet and were deleted, balances returned. Logs are in git history (`770990b`, `474734d`, `290311b`).
+- Reporter-only prototype `nbproto-owner-1696.testnet`: a reporter key limited to `submit_snapshot` submitted a snapshot; the owner's `submit_snapshot` and the key's `resolve_prediction` were refused (`contract/logs/testnet-run.log`, `contract/logs/testnet-run-redeploy.log`). Reported snapshots never decide predictions.

@@ -1,5 +1,5 @@
 {
-  "_comment": "The live mainnet deployment. Every value comes from contract/mainnet-deploy-2026-10-21.log and the keeper's run logs contract/mainnet-keeper-run-*.log. `make verify` fails if the README disagrees with this file, if `attested_snapshots` or `resolutions` disagree with the run logs or with site/contract-cache.json, or if a local `make wasm` / `make worker` build differs from the hashes below; `make verify-deploy` compares them (including each snapshot, resolution and its transaction) with the chain and rebuilds the contract reproducibly from source_commit. The earlier testnet deployment: contract/deployment-testnet.json.",
+  "_comment": "The live mainnet deployment. Every value comes from contract/logs/mainnet-deploy-2026-10-21.log and the keeper's run logs contract/logs/mainnet-keeper-run-*.log. `make verify` fails if the README disagrees with this file, if `attested_snapshots` or `resolutions` disagree with the run logs or with site/contract-cache.json, or if a local `make wasm` / `make worker` build differs from the hashes below; `make verify-deploy` compares them (including each snapshot, resolution and its transaction) with the chain and rebuilds the contract reproducibly from source_commit. The earlier testnet deployment: contract/deployment-testnet.json.",
   "network": "mainnet",
   "contract": "nearbooks.near",
   "funder": "1b286efc2e346c5692ce2adf295435b2b2c057078f6c8c1175804c1298a7e490",
@@ -123,7 +123,7 @@
       "block_height_28d": 216835292,
       "outlayer_request_id": 2565,
       "tx": "8K3s7mq3k1w2xun6hDESvwEmdqpPzhWn5oXqdqp34Yg",
-      "log": "contract/mainnet-keeper-run-2026-10-21.log"
+      "log": "contract/logs/mainnet-keeper-run-2026-10-21.log"
     }
   ],
   "resolutions": []

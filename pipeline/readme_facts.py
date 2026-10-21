@@ -331,7 +331,7 @@ def record_hashes():
     and the mainnet and testnet logs), plus the base58 form of each hex hash (NEAR shows code_hash in base58)."""
     rels = [rel for dep, cache, _ in RECORDS.values() for rel in (dep, cache)] + ["contract/known_workers.json"]
     txt = "".join(_text(os.path.join(ROOT, rel)) for rel in rels)
-    txt += "".join(_text(p) for pat in ("mainnet-*.log", "testnet-*.log") for p in sorted(glob.glob(os.path.join(ROOT, "contract", pat))))
+    txt += "".join(_text(p) for pat in ("mainnet-*.log", "testnet-*.log") for p in sorted(glob.glob(os.path.join(ROOT, "contract", "logs", pat))))
     toks = {t for t in re.findall(r"[0-9A-Za-z]+", txt) if len(t) >= 32}
     return toks | {_b58(h) for h in HEX64.findall(txt)}
 
@@ -342,7 +342,7 @@ def hash_problems(name, doc, known=None):
     known = record_hashes() if known is None else known
     bad = [h for h in HEX64.findall(doc) + TXHASH.findall(doc) if h not in known]
     bad += [f"{a}\u2026{b}" for a, b in SHORT.findall(doc) if not any(t.startswith(a) and t.endswith(b) for t in known)]
-    return [f"{name}: {h} is not in contract/deployment*.json, site/contract-cache*.json, contract/known_workers.json or contract/{{mainnet,testnet}}-*.log" for h in dict.fromkeys(bad)]
+    return [f"{name}: {h} is not in contract/deployment*.json, site/contract-cache*.json, contract/known_workers.json or contract/logs/*.log" for h in dict.fromkeys(bad)]
 
 
 def marker(name):
