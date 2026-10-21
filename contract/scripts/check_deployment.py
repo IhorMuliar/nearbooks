@@ -7,10 +7,13 @@ Checks: the account's on-chain code_hash is the base58 of `code_sha256`, and a r
 that sha256 (SKIP without docker or cargo-near, or with NEARBOOKS_SKIP_REPRO=1); the contract's pin for today is
 `worker_sha256` (re-pins are timelocked, see get_pin_proposal) and is in contract/known_workers.json; the contract's
 keeper and daily cap are the recorded ones and the keeper's key on chain is a function-call key limited to this
-contract and the two keeper methods; earlier contracts that are still live run the code recorded for them; local
-contract/res and worker/res builds, if present, have the deployed hashes.
+contract and the two keeper methods; every attested snapshot and prediction resolution recorded in deployment.json is
+on chain with the recorded blocks, OutLayer request and status, and its transaction (archival RPC) was signed by the
+keeper's function-call key, called the recorded method with the recorded arguments and emitted the matching event;
+no decided prediction on chain is missing from the record; earlier contracts that are still live run the code
+recorded for them; local contract/res and worker/res builds, if present, have the deployed hashes.
 """
-import hashlib, json, os, shutil, subprocess, sys, tempfile, time
+import base64, hashlib, json, os, shutil, subprocess, sys, tempfile, time
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "mcp"))
 import chain  # noqa: E402
 
@@ -83,6 +86,36 @@ def main():
     keys = chain.rpc("query", {"request_type": "view_access_key_list", "finality": "final", "account_id": kd["account"]})["keys"]
     full = sum(1 for x in keys if x["access_key"]["permission"] == "FullAccess")
     print(f"INFO  keeper account keys: {len(keys)} ({full} full-access, held offline by the deployer; CI holds only the function-call key)")
+    def keeper_tx(tx, method, args):
+        """(signed by the keeper's function-call key, calling `method(args)` on this contract and succeeding; its logs)."""
+        try:
+            r = chain.rpc("EXPERIMENTAL_tx_status", {"tx_hash": tx, "sender_account_id": kd["account"], "wait_until": "FINAL"}, urls=chain.ARCHIVAL_RPCS)
+        except chain.Unreachable as e:
+            print(f"INFO  tx {tx}: {str(e)[:160]}")
+            return False, []
+        t = r["transaction"]
+        fc = (t.get("actions") or [{}])[0].get("FunctionCall", {})
+        ok = (t["signer_id"] == kd["account"] and t["public_key"] == kd["function_call_key"] and t["receiver_id"] == d["contract"]
+              and fc.get("method_name") == method and json.loads(base64.b64decode(fc.get("args", ""))) == args and "SuccessValue" in r["status"])
+        events = [json.loads(l[len("EVENT_JSON:"):]) for o in r["receipts_outcome"] for l in o["outcome"]["logs"] if l.startswith("EVENT_JSON:")]
+        return ok, [e for e in events if e.get("standard") == "nearbooks"]
+    snaps = {s["date"]: s for s in chain._all("list_attested_snapshots", d["contract"])[0]}
+    for r in d.get("attested_snapshots", []):
+        s = snaps.get(r["date"])
+        a = s["source"]["attested"] if s else {}
+        ok, events = keeper_tx(r["tx"], "keeper_request_snapshot", {"date": r["date"], "block_height": r["block_height"], "block_height_28d": r["block_height_28d"]})
+        stored = any(e["event"] == "snapshot" and e["data"].get("date") == r["date"] for e in events)
+        check(f"attested snapshot {r['date']} on chain == record", s and a["block_height"] == r["block_height"] and a["request_id"] == r["outlayer_request_id"] and ok and stored,
+              f"mainnet block {a.get('block_height')}, OutLayer request {a.get('request_id')}, tx {r['tx']} {'stored it, signed by the keeper function-call key' if ok and stored else 'does not match'}")
+    preds = {p["id"]: p for p in chain._all("list_predictions", d["contract"])[0]}
+    for r in d.get("resolutions", []):
+        p = preds.get(r["id"]) or {}
+        ok, events = keeper_tx(r["tx"], "resolve_prediction", {"id": r["id"]})
+        emitted = [e["data"].get("status") for e in events if e["event"] == "prediction_resolved" and e["data"].get("id") == r["id"]]
+        check(f"prediction {r['id']} on chain == recorded {r['status']}", p.get("status") == r["status"] and (p.get("resolution") or {}).get("snapshot_date") == r["snapshot_date"] and ok and emitted == [r["status"]],
+              f"status {p.get('status')}, decided by the {(p.get('resolution') or {}).get('snapshot_date')} snapshot; tx {r['tx']} event {emitted}")
+    unrecorded = sorted(i for i, p in preds.items() if p["status"] != "pending" and i not in {r["id"] for r in d.get("resolutions", [])})
+    check("every decided prediction on chain is recorded", not unrecorded, f"{sum(p['status'] != 'pending' for p in preds.values())} decided, {len(preds)} total" + (f"; unrecorded: {unrecorded}" if unrecorded else ""))
     for p in d.get("previous_deployments", []):
         prev = account(p["contract"])
         check(f"earlier contract {p['contract'].split('.')[0]} still runs its recorded code", prev["code_hash"] == b58(bytes.fromhex(p["code_sha256"])), prev["code_hash"])
