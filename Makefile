@@ -6,8 +6,8 @@ PY       ?= python3 -I
 .PHONY: help data verify verify-live verify-deploy cache test test-py test-contract test-worker wasm wasm-local worker keeper-dry readme site clean
 
 help:
-	@echo "make verify        recompute + assert findings from the committed snapshot, check README numbers and local builds (offline, ~3 s)"
-	@echo "make verify-deploy compare contract/deployment.json with the testnet contract, rebuild it reproducibly (docker) and check local builds (network)"
+	@echo "make verify        recompute + assert findings from the committed snapshot, check README numbers, recorded snapshot/prediction outcomes and local builds (offline, ~3 s)"
+	@echo "make verify-deploy compare contract/deployment.json with the testnet contract, check recorded snapshots and resolutions on chain, rebuild it reproducibly (docker) and check local builds (network)"
 	@echo "make cache         re-read the testnet contract into site/contract-cache.json (network; then make readme)"
 	@echo "make data          fetch fresh raw data into data/live + data/live-m2 (network, ~6 min + ~25 min NEARData block sample)"
 	@echo "make verify-live   make data, then recompute + assert on the fresh data"

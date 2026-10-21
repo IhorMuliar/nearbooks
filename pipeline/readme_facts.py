@@ -4,7 +4,8 @@ the testnet deployment (contract/deployment.json) and the contract state last re
 
 Each block is a pure function of committed files, so `make verify` (verify.py --check-readme) fails when the README
 drifts from them. `check_builds` also fails when a local build in contract/res or worker/res differs from the
-deployed hashes.
+deployed hashes, and `check_records` when a recorded snapshot or prediction outcome disagrees with the keeper run log
+it cites or with the cached contract state.
 """
 import glob, hashlib, json, os, re
 from common import CONFIG
@@ -48,6 +49,7 @@ def verify_block(m, findings):
     lines = ["$ make verify", "...",
              f"as_of {m['as_of']}: {sum(f['ok'] for f in findings)}/{len(findings)} findings hold -> " + ("ALL PASS" if all(f["ok"] for f in findings) else "SOME FAILED"),
              "python3 -I pipeline/verify.py data/snapshot-2026-10-20/metrics.json --check-readme README.md",
+             records_line(),
              "README generated blocks match the verified output, no template placeholders left; local builds match contract/deployment.json"]
     return "```\n" + "\n".join(lines) + "\n```"
 
@@ -163,6 +165,33 @@ def predictions_block(m, findings):
     return "\n".join(rows)
 
 
+def _rule(p):
+    sym = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
+    return f"`{p['metric']} {sym[p['comparator']]} {_num(p['metric'], int(p['threshold']) / MICRO)}`"
+
+
+def _txlink(tx):
+    return f"[`{tx}`](https://testnet.nearblocks.io/txns/{tx})"
+
+
+def resolutions_block(m, findings):
+    """The recorded resolutions (contract/deployment.json) joined with the cached contract state; check_records keeps the
+    two in agreement, so this table is what the chain says."""
+    d, c = _load("contract/deployment.json"), _load("site/contract-cache.json")
+    preds, snaps = {p["id"]: p for p in c["predictions"]}, {r["date"]: r for r in d.get("attested_snapshots", [])}
+    rows = ["| Prediction | Rule | Observed | Status | Resolution transaction |", "|---|---|---|---|---|"]
+    for r in d.get("resolutions", []):
+        p = preds[r["id"]]
+        obs = (p.get("resolution") or {}).get("observed")
+        rows.append(f"| {r['id']} | {_rule(p)} | {'metric absent' if obs is None else _num(p['metric'], int(obs) / MICRO)} | **{r['status']}** | {_txlink(r['tx'])} |")
+    used = sorted({r["snapshot_date"] for r in d.get("resolutions", [])})
+    notes = [f"Decided by the attested snapshot of {x} (first mainnet block {snaps[x]['block_height']:,}, 28-day block {snaps[x]['block_height_28d']:,}, "
+             f"OutLayer request {snaps[x]['outlayer_request_id']}), stored by {_txlink(snaps[x]['tx'])}; run log `{snaps[x]['log']}`." for x in used]
+    who = {(preds[r["id"]].get("resolution") or {}).get("resolved_by") for r in d.get("resolutions", [])}
+    notes.append(f"Every transaction above was signed by `{', '.join(sorted(map(str, who)))}` with its function-call key `{d['keeper']['function_call_key']}`.")
+    return "\n".join(rows) + "\n\n" + " ".join(notes)
+
+
 def _sha(path):
     with open(path, "rb") as f:
         return hashlib.sha256(f.read()).hexdigest()
@@ -176,6 +205,89 @@ def check_builds():
         if os.path.exists(p) and _sha(p) != want:
             out.append(f"{rel} ({how}) has sha256 {_sha(p)}, but contract/deployment.json says {want} is deployed: redeploy, or rebuild from this commit")
     return out
+
+
+def log_events(rel):
+    """The JSON-line events (keeper/keeper.py output) in a committed log; other lines are ignored."""
+    out = []
+    for line in _text(os.path.join(ROOT, rel)).splitlines():
+        if line.startswith("{"):
+            try:
+                out.append(json.loads(line))
+            except ValueError:
+                pass
+    return out
+
+
+def _sent(events, tx, method, args):
+    return any(e.get("event") == "tx_sent" and e.get("tx") == tx and e.get("method") == method and e.get("args") == args for e in events)
+
+
+def check_records():
+    """Problems (strings) if the attested snapshots and prediction resolutions recorded in contract/deployment.json
+    disagree with the keeper run log each one cites, with the transaction list, or with the contract state in
+    site/contract-cache.json. Both directions: a snapshot or a decided prediction in the cache that is not recorded
+    is a problem too."""
+    d, c, out = _load("contract/deployment.json"), _load("site/contract-cache.json"), []
+    txs = {tx for _, tx in d["transactions"]}
+    snaps, preds = {s["date"]: s for s in c["attested"]}, {p["id"]: p for p in c["predictions"]}
+    keeper = d["keeper"]["account"]
+    recorded = set()
+    for r in d.get("attested_snapshots", []):
+        what, ev = f"attested snapshot {r['date']}", log_events(r["log"])
+        recorded.add(r["date"])
+        args = {"date": r["date"], "block_height": r["block_height"], "block_height_28d": r["block_height_28d"]}
+        if not _sent(ev, r["tx"], "keeper_request_snapshot", args):
+            out.append(f"{what}: {r['log']} has no keeper_request_snapshot {args} in tx {r['tx']}")
+        if not any(e.get("event") == "snapshot_result" and e.get("tx") == r["tx"] and e.get("ok") and e.get("stored") for e in ev):
+            out.append(f"{what}: {r['log']} does not show tx {r['tx']} storing it")
+        if r["tx"] not in txs:
+            out.append(f"{what}: tx {r['tx']} is not in the transactions list")
+        s = snaps.get(r["date"])
+        if s is None:
+            out.append(f"{what}: not in site/contract-cache.json")
+            continue
+        a, chk = s["source"]["attested"], s.get("attestation_checks") or {}
+        b28 = next((int(m["value"]) // MICRO for m in s["metrics"] if m["key"] == "mainnet_block_height_28d"), None)
+        got = (a["block_height"], b28, a["request_id"], chk.get("transaction_hash"))
+        want = (r["block_height"], r["block_height_28d"], r["outlayer_request_id"], r["tx"])
+        if got != want:
+            out.append(f"{what}: site/contract-cache.json has (block, 28d block, OutLayer request, tx) {got}, recorded {want}")
+        if not chk.get("verified"):
+            out.append(f"{what}: site/contract-cache.json does not mark it verified")
+    for date in sorted(snaps.keys() - recorded):
+        out.append(f"site/contract-cache.json has attested snapshot {date}, which contract/deployment.json does not record")
+    decided = set()
+    for r in d.get("resolutions", []):
+        what, ev = f"prediction {r['id']}", log_events(r["log"])
+        decided.add(r["id"])
+        if not _sent(ev, r["tx"], "resolve_prediction", {"id": r["id"]}):
+            out.append(f"{what}: {r['log']} has no resolve_prediction tx {r['tx']}")
+        logged = [e.get("status") for e in ev if e.get("event") == "resolved" and e.get("id") == r["id"] and e.get("tx") == r["tx"] and e.get("ok")]
+        if logged != [r["status"]]:
+            out.append(f"{what}: {r['log']} logs status {logged}, recorded {r['status']!r}")
+        if r["tx"] not in txs:
+            out.append(f"{what}: tx {r['tx']} is not in the transactions list")
+        if r["snapshot_date"] not in recorded:
+            out.append(f"{what}: decided by snapshot {r['snapshot_date']}, which is not recorded")
+        p = preds.get(r["id"])
+        res = (p or {}).get("resolution") or {}
+        got = (p and p["status"], res.get("snapshot_date"), p and p["resolve_after"], res.get("resolved_by"))
+        want = (r["status"], r["snapshot_date"], r["snapshot_date"], keeper)
+        if got != want:
+            out.append(f"{what}: site/contract-cache.json has (status, decided by, resolve date, resolved by) {got}, recorded {want}")
+    for i, p in sorted(preds.items()):
+        if p["status"] != "pending" and i not in decided:
+            out.append(f"site/contract-cache.json has prediction {i} {p['status']}, which contract/deployment.json does not record")
+    return out
+
+
+def records_line():
+    """The `make verify` line that states what check_records checked."""
+    d = _load("contract/deployment.json")
+    snaps = ", ".join(r["date"] for r in d.get("attested_snapshots", []))
+    res = ", ".join(f"{r['id']} {r['status']}" for r in d.get("resolutions", [])) or "none"
+    return f"recorded snapshots ({snaps}) and resolutions ({res}) match the keeper run logs and site/contract-cache.json"
 
 
 B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
@@ -215,4 +327,4 @@ def marker(name):
 
 
 BLOCKS = {"summary": summary_block, "verify-output": verify_block, "key-findings": key_findings_block, "test-output": tests_block,
-          "deployment": deployment_block, "attested": attested_block, "predictions": predictions_block}
+          "deployment": deployment_block, "attested": attested_block, "predictions": predictions_block, "resolutions": resolutions_block}

@@ -103,6 +103,9 @@ class TestReadmeFacts(unittest.TestCase):
         with open(os.path.join(ROOT, "contract", "testnet-keeper.log")) as f:
             log = f.read()
         self.assertIn(f"contract {d['contract']} (code sha256 {d['code_sha256']})", log, "the logged deploy used this build")
+        for rel in sorted({r["log"] for r in d["attested_snapshots"] + d["resolutions"]}):
+            with open(os.path.join(ROOT, rel)) as f:
+                log += f.read()
         self.assertIn(d["keeper"]["function_call_key"], log)
         for _, tx in d["transactions"]:
             self.assertIn(tx, log)
@@ -117,6 +120,64 @@ class TestReadmeFacts(unittest.TestCase):
             self.assertIn(f"contract wasm sha256: {p['code_sha256']}", old)
             for _, tx in p["transactions"]:
                 self.assertIn(tx, old)
+
+    def _records_in(self, edit_deployment=None, edit_cache=None):
+        """check_records() on a copy of the committed records, after edit_*(dict) changed them."""
+        tmp = tempfile.mkdtemp()
+        try:
+            d = load_json(os.path.join(ROOT, "contract", "deployment.json"))
+            c = load_json(os.path.join(ROOT, "site", "contract-cache.json"))
+            for edit, obj in ((edit_deployment, d), (edit_cache, c)):
+                if edit:
+                    edit(obj)
+            os.makedirs(os.path.join(tmp, "contract"))
+            os.makedirs(os.path.join(tmp, "site"))
+            for rel in {r["log"] for r in d["attested_snapshots"] + d["resolutions"]}:
+                shutil.copy(os.path.join(ROOT, rel), os.path.join(tmp, rel))
+            for rel, obj in (("contract/deployment.json", d), ("site/contract-cache.json", c)):
+                with open(os.path.join(tmp, rel), "w") as f:
+                    json.dump(obj, f)
+            orig = readme_facts.ROOT
+            readme_facts.ROOT = tmp
+            try:
+                return readme_facts.check_records()
+            finally:
+                readme_facts.ROOT = orig
+        finally:
+            shutil.rmtree(tmp)
+
+    def test_recorded_outcomes_match_the_run_logs_and_the_cache(self):
+        self.assertEqual(readme_facts.check_records(), [])
+        d = load_json(os.path.join(ROOT, "contract", "deployment.json"))
+        self.assertEqual({r["status"] for r in d["resolutions"]}, {"confirmed", "refuted", "void"}, "all three outcomes are recorded")
+        self.assertEqual(self._records_in(), [])
+
+    def test_a_wrong_recorded_status_is_reported(self):
+        def flip(d):
+            next(r for r in d["resolutions"] if r["id"] == 6)["status"] = "refuted"
+        problems = self._records_in(edit_deployment=flip)
+        self.assertTrue(any("prediction 6" in p and "logs status ['void']" in p for p in problems), problems)
+        self.assertTrue(any("prediction 6" in p and "site/contract-cache.json" in p for p in problems), problems)
+
+    def test_a_cache_that_disagrees_with_the_records_is_reported(self):
+        def flip(c):
+            next(p for p in c["predictions"] if p["id"] == 5)["status"] = "confirmed"
+        self.assertTrue(any(p.startswith("prediction 5: site/contract-cache.json") for p in self._records_in(edit_cache=flip)))
+
+        def decide(c):
+            p = next(p for p in c["predictions"] if p["id"] == 0)
+            p["status"], p["resolution"] = "confirmed", {"snapshot_date": "2026-12-31", "observed": "1", "resolved_by": "x", "block_height": 1}
+        self.assertEqual(self._records_in(edit_cache=decide), ["site/contract-cache.json has prediction 0 confirmed, which contract/deployment.json does not record"])
+
+        def other_tx(c):
+            next(s for s in c["attested"] if s["date"] == "2026-10-21")["attestation_checks"]["transaction_hash"] = "x"
+        self.assertTrue(any(p.startswith("attested snapshot 2026-10-21: site/contract-cache.json has") for p in self._records_in(edit_cache=other_tx)))
+
+    def test_a_tx_missing_from_the_run_log_is_reported(self):
+        def other(d):
+            d["resolutions"][0]["tx"] = d["resolutions"][1]["tx"]
+        problems = self._records_in(edit_deployment=other)
+        self.assertTrue(any("prediction 4" in p and "has no resolve_prediction tx" in p for p in problems), problems)
 
 if __name__ == "__main__":
     unittest.main()

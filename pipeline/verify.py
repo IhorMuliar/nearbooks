@@ -2,7 +2,7 @@
 
     python3 pipeline/verify.py data/snapshot-2026-10-20/metrics.json            # table + exit code
     python3 pipeline/verify.py METRICS --markdown                                # table as Markdown
-    python3 pipeline/verify.py METRICS --check-readme README.md                  # generated blocks current, no placeholders
+    python3 pipeline/verify.py METRICS --check-readme README.md                  # generated blocks current, no placeholders, recorded outcomes match logs + cache
 
 Findings are defined once, here; the findings table in docs/findings.md and the key-findings table in the README are generated from this output (see `make readme`).
 """
@@ -212,16 +212,20 @@ def main(argv):
             hashes += readme_facts.hash_problems(os.path.basename(path), docs[path], known)
         stale = stale_blocks(docs, generated_blocks(m))
         builds = readme_facts.check_builds()
+        records = readme_facts.check_records()
         for problem in builds:
             print("BUILD MISMATCH: " + problem)
+        for problem in records:
+            print("RECORD MISMATCH: " + problem)
         for problem in hashes:
             print("UNKNOWN HASH: " + problem)
         if stale:
             print("README blocks stale or missing: " + ", ".join(stale) + " -> run `make readme`")
         if left:
             print("README template placeholders left unfilled: " + ", ".join(left) + " -> replace them with the real command output")
-        if stale or builds or left or hashes:
+        if stale or builds or left or hashes or records:
             return 1
+        print(readme_facts.records_line())
         print("README generated blocks match the verified output, no template placeholders left; local builds match contract/deployment.json"); return 0
     print("\n".join(table(fs)))
     ok = all(f["ok"] for f in fs)
