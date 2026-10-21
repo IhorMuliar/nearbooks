@@ -172,7 +172,7 @@ keeper/     keeper.py (daily job, stdlib: ed25519 signing, borsh tx, first-block
 .github/    workflows/keeper.yml (daily at 00:20 UTC; secret = the keeper's function-call key only)
 worker/     src/{lib.rs,main.rs,tests.rs}  build.sh  scripts/{first_block.py,rank_intents_tokens.py}
 mcp/        server.py (MCP over stdio)  chain.py (mainnet view calls, offline cache; NEARBOOKS_NETWORK=testnet)
-site/       index.html  fonts/ (Besley, Public Sans; SIL OFL)  metrics.json  contract-cache.json  contract-cache-testnet.json  screenshot.png
+site/       index.html  fonts/ (Source Serif 4, DM Mono; SIL OFL)  metrics.json  contract-cache.json  contract-cache-testnet.json  screenshot.png
 docs/       findings.md  deployment.md  attestation.md
 tests/      test_pipeline.py  test_mcp.py  test_readme.py  test_keeper.py  browser_check.mjs (optional, needs node + playwright-core)
 ```

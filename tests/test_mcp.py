@@ -274,9 +274,9 @@ class TestSiteStatic(unittest.TestCase):
         self.assertEqual(re.findall(r"<script[^>]+src=", self.html), [])
         self.assertEqual(re.findall(r"<link[^>]+href=", self.html), [])
         self.assertNotIn("@import", self.html)
-        # url() only for the two self-hosted fonts in site/fonts
-        self.assertEqual(sorted(re.findall(r"url\(([^)]*)\)", self.html)), ['"fonts/besley.woff2"', '"fonts/public-sans.woff2"'])
-        for font in ("besley.woff2", "public-sans.woff2", "OFL-Besley.txt", "OFL-PublicSans.txt"):
+        # url() only for the self-hosted fonts in site/fonts
+        self.assertEqual(sorted(re.findall(r"url\(([^)]*)\)", self.html)), ['"fonts/dm-mono.woff2"', '"fonts/source-serif-4-italic.woff2"', '"fonts/source-serif-4.woff2"'])
+        for font in ("dm-mono.woff2", "source-serif-4.woff2", "source-serif-4-italic.woff2", "OFL-DMMono.txt", "OFL-SourceSerif4.txt"):
             self.assertTrue(os.path.isfile(os.path.join(ROOT, "site", "fonts", font)), font)
 
     def test_rpc_and_attestation_origins_match_the_python_allowlist(self):

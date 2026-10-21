@@ -240,18 +240,18 @@ Drop the last pipe to see the full JSON (claim, rule, threshold, `decided_by_sna
 - OutLayer's attestation matches the snapshot's wasm, input and output hashes,
 - the attested transaction called this contract.
 
-Without RPC access the page shows an "offline data" badge and the committed copy, and the "checked" stamp is not shown. Pipeline numbers carry a separate "Pipeline snapshot, 2026-10-20" tag and a note that they are not attested. A headless Chromium run of `tests/browser_check.mjs`:
+Without RPC access the page shows an "offline data" badge and the committed copy, and says the checks are a saved result. Each main claim is marked "attested" or "pipeline", and the pipeline section opens by saying nothing in it is attested. A headless Chromium run of `tests/browser_check.mjs`:
 
 ```
 $ make site    # first terminal
 $ npm install --prefix /tmp/pw playwright-core && npx --prefix /tmp/pw playwright-core install chromium-headless-shell
 $ PLAYWRIGHT_CORE=/tmp/pw/node_modules/playwright-core/index.mjs node tests/browser_check.mjs http://127.0.0.1:8000/site/
-PASS live badge: livenearbooks.near, read just now at block 220,947,152
-PASS 1 attested row(s), verified (all seven checks ok, tx linked): 2026-10-21 220,871,336 bbed939a…7963 Verified7 of 7 Show the [known_worker=true pin_for_date_matches=true tx_targets_contract=true attestation_url_matches=true wasm_hash_matches=true input_hash_matches=true output_hash_matches=true]
-PASS latest entry stamped, 7 ticks; headline: NEAR's supply grows by 87,637 NEAR a day. Intents revenue covers 17% of it.
+PASS live badge: livenearbooks.nearblock 220,949,655
+PASS 1 attested row(s), verified (all seven checks ok, tx linked): 2026-10-21 220,871,336 bbed939a…7963 verified, 7 of 7 transa [known_worker=true pin_for_date_matches=true tx_targets_contract=true attestation_url_matches=true wasm_hash_matches=true input_hash_matches=true output_hash_matches=true]
+PASS latest entry verified, 7 of 7 marked; title: NEAR's Supply Still Outruns Intents Revenue
 PASS predictions: 0:pending 1:pending 2:pending 3:pending
-PASS section tags: Live from nearbooks.near / Live from nearbooks.near / Live from nearbooks.near / Pipeline snapshot, 2026-10-20
-PASS offline: offline datanearbooks.near, saved copy from block 220,931,505
+PASS main claims, each marked with its source: attested / attested / attested / pipeline / pipeline
+PASS offline: offline datanearbooks.nearsaved at block 220,931,505
 PASS ?contract= is ignored
 PASS hosts contacted: 127.0.0.1, free.rpc.fastnear.com, api.outlayer.ai, archival-rpc.mainnet.fastnear.com
 PASS 390 px wide: no page-level horizontal overflow
