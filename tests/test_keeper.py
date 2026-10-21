@@ -20,8 +20,8 @@ def pred(i, date, status="pending"):
 class FakeChain:
     """Testnet contract + access key. Stores a snapshot when keeper_request_snapshot is broadcast."""
 
-    def __init__(self, preds=(), snapshots=(), permission=FC, budget=10**23, cap=6 * 10**22, spent=0):
-        self.preds, self.snaps, self.permission = list(preds), set(snapshots), permission
+    def __init__(self, preds=(), snapshots=(), permission=FC, budget=10**23, cap=6 * 10**22, spent=0, refuse=None):
+        self.preds, self.snaps, self.permission, self.refuse = list(preds), set(snapshots), permission, refuse
         self.keeper = {"keeper_id": ACCOUNT, "budget": str(budget), "daily_cap": str(cap), "spent_today": str(spent), "request_cost": str(3 * 10**22), "day": "2026-10-21"}
         self.sent = []
 
@@ -37,8 +37,11 @@ class FakeChain:
             return {"result": list(json.dumps(val).encode())}
         if method == "block":
             return {"header": {"hash": keeper.b58encode(b"\x07" * 32)}}
-        if method == "broadcast_tx_async":
-            raw = base64.b64decode(params[0])
+        if method == "send_tx":
+            assert params["wait_until"] == "INCLUDED"
+            if self.refuse:
+                raise keeper.RpcError(json.dumps({"name": "HANDLER_ERROR", "cause": {"name": "INVALID_TRANSACTION"}, "data": self.refuse}))
+            raw = base64.b64decode(params["signed_tx_base64"])
             tx, sig = raw[:-65], raw[-64:]
             self.sent.append((tx, sig))
             m, args = self.decode(tx)
@@ -164,6 +167,13 @@ class Run(unittest.TestCase):
         self.assertEqual([p["status"] for p in chain.preds], ["pending", "confirmed", "confirmed"], "the 2026-12-31 prediction stays pending")
         for tx, sig in chain.sent:  # every transaction is signed by the keeper key
             self.assertEqual(sig, keeper.ed25519_sign(SEED, hashlib.sha256(tx).digest()))
+
+    def test_a_refused_transaction_fails_the_run_at_once(self):
+        chain = FakeChain(refuse={"TxExecutionError": {"InvalidTxError": {"NotEnoughBalance": {}}}})
+        code, logs = run(chain)
+        self.assertEqual((code, chain.sent), (1, []))
+        self.assertIn("NotEnoughBalance", json.dumps(logs))
+        self.assertNotIn("tx_sent", [l["event"] for l in logs])
 
     def test_idempotent_when_the_snapshot_exists(self):
         chain = FakeChain(snapshots={"2026-10-21"})

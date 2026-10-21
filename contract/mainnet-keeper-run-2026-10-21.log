@@ -1,0 +1,6 @@
+{"ts":"2026-10-21T09:43:32Z","event":"start","contract":"nearbooks.near","keeper":"keeper.nearbooks.near","date":"2026-10-21","dry_run":false}
+{"ts":"2026-10-21T09:43:32Z","event":"key_ok","account":"keeper.nearbooks.near","public_key":"ed25519:7crc4z7gpNGQ3YuqdWes5f3Q4hMLbFbtbxxk7og9jFqA","receiver":"nearbooks.near","methods":["keeper_request_snapshot","resolve_prediction"],"allowance":"1000000000000000000000000"}
+{"ts":"2026-10-21T09:43:38Z","event":"first_blocks","date":"2026-10-21","block_height":220871336,"block_height_28d":216835292}
+{"ts":"2026-10-21T09:43:39Z","event":"tx_sent","method":"keeper_request_snapshot","args":{"date":"2026-10-21","block_height":220871336,"block_height_28d":216835292},"tx":"8K3s7mq3k1w2xun6hDESvwEmdqpPzhWn5oXqdqp34Yg"}
+{"ts":"2026-10-21T09:43:57Z","event":"snapshot_result","date":"2026-10-21","tx":"8K3s7mq3k1w2xun6hDESvwEmdqpPzhWn5oXqdqp34Yg","ok":true,"value":"stored attested snapshot 2026-10-21","stored":true}
+{"ts":"2026-10-21T09:43:57Z","event":"done","failures":0}

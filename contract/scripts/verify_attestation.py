@@ -1,10 +1,10 @@
 """Third-party check of an Attested snapshot in the nearbooks contract (stdlib only, network, no keys).
 
     python3 -I contract/scripts/verify_attestation.py CONTRACT [DATE] [--wasm worker/res/nearbooks-worker.wasm]
-                                                     [--dcap /path/to/dcap-qvl] [--register worker.outlayer.testnet]
+                                                     [--dcap /path/to/dcap-qvl] [--register worker.outlayer.near]
 
-Reads the attested snapshot (default: the latest to arrive) and the pinned config from the contract (testnet RPC view
-calls), fetches the public OutLayer attestation it links to, then checks:
+The network follows the contract id (*.testnet = testnet, otherwise mainnet). Reads the attested snapshot (default: the
+latest to arrive) and the pinned config from the contract (RPC view calls), fetches the public OutLayer attestation it links to, then checks:
   1. attestation.wasm_hash == snapshot wasm_hash == executed_wasm_sha256 (and == sha256 of a local build, --wasm)
   2. attestation.input_hash == sha256('{"n":"<nonce>","d":"<date>","b":"<block>","b28":"<block 28 days earlier>"}')
      (what the contract sent)
@@ -21,8 +21,12 @@ Exit code 0 only if every check that ran passes.
 """
 import base64, hashlib, json, os, struct, subprocess, sys, tempfile, time, urllib.error, urllib.request
 
-RPC = "https://rpc.testnet.near.org"
-ARCHIVAL_RPC = "https://archival-rpc.testnet.near.org"  # the regular RPC drops transactions after a few days
+# Per network: RPC, archival RPC (the regular RPC drops transactions after a few days), OutLayer register, attestation API.
+NETWORKS = {
+    "mainnet": ("https://free.rpc.fastnear.com", "https://archival-rpc.mainnet.fastnear.com", "worker.outlayer.near", "https://api.outlayer.ai"),
+    "testnet": ("https://rpc.testnet.near.org", "https://archival-rpc.testnet.near.org", "worker.outlayer.testnet", "https://testnet-api.outlayer.ai"),
+}
+RPC, ARCHIVAL_RPC = NETWORKS["testnet"][:2]
 ATTESTATION_BASES = {"https://testnet-api.outlayer.ai", "https://api.outlayer.ai"}
 MAX_RESPONSE = 256 * 1024
 
@@ -32,7 +36,9 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise urllib.error.HTTPError(req.full_url, code, f"redirect to {newurl!r} refused", headers, fp)
 
 
-FALLBACK_RPC = {RPC: "https://rpc.testnet.fastnear.com"}  # the public RPC answers 429 under load
+# The public RPCs answer 429 under load.
+FALLBACK_RPC = {"https://rpc.testnet.near.org": "https://rpc.testnet.fastnear.com", "https://free.rpc.fastnear.com": "https://rpc.mainnet.near.org",
+                "https://archival-rpc.mainnet.fastnear.com": "https://archival-rpc.mainnet.near.org"}
 
 
 def post(url, payload, tries=4):
@@ -85,10 +91,12 @@ def task_hash(att):
 
 
 def main(argv):
-    wasm, dcap = opt(argv, "--wasm"), opt(argv, "--dcap")
-    register = opt(argv, "--register", "worker.outlayer.testnet")
-    api = opt(argv, "--attestation-api", "https://testnet-api.outlayer.ai")
+    global RPC, ARCHIVAL_RPC
     contract = argv[1]
+    RPC, ARCHIVAL_RPC, default_register, default_api = NETWORKS["testnet" if contract.endswith(".testnet") else "mainnet"]
+    wasm, dcap = opt(argv, "--wasm"), opt(argv, "--dcap")
+    register = opt(argv, "--register", default_register)
+    api = opt(argv, "--attestation-api", default_api)
     if len(argv) > 2:
         snap = view(contract, "get_attested_snapshot", {"date": argv[2]})
     else:

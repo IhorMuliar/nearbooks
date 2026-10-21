@@ -1,0 +1,54 @@
+== 2026-10-21T09:30:14Z mainnet deploy log
+deployer (implicit): 1b286efc2e346c5692ce2adf295435b2b2c057078f6c8c1175804c1298a7e490
+create nearbooks.near (3 NEAR, via near.create_account): ERqFP1FCf7xrsxxFfJVprPK9nUmjkkBWZeDJhfVwUMFG
+-- 2026-10-21T09:30:14Z upload worker bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963 to FastFS as nearbooks.near
+Uploading to FastFS...
+  File: worker/res/nearbooks-worker.wasm
+  Size: 429487 bytes
+  SHA256: bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963
+  Sender: nearbooks.near
+  Receiver: outlayer.near
+
+  Uploading... tx: 8BZfncC4c1F8zSYLiS6CwvzWfaJsQFSFAKDCBzoCoZfS
+
+Upload complete!
+
+FastFS URL: https://main.fastfs.io/nearbooks.near/outlayer.near/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm
+
+Run directly:
+  outlayer run --wasm https://main.fastfs.io/nearbooks.near/outlayer.near/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm '{}' 
+
+Or deploy as project version:
+  outlayer deploy <name> --wasm-url https://main.fastfs.io/nearbooks.near/outlayer.near/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm
+-- 2026-10-21T09:31:07Z deploy contract/res/nearbooks.wasm sha256 644a8df3222e098485ce944d39a144715f93165e8377bf65fd923fae27342cae + new(owner=nearbooks.near, reporter=nearbooks.near, pin_delay_secs=86400)
+│    Transaction fee: 0.0002340300902183 NEAR (USD equivalent is unavailable due to an error: Failed to parse the response from Coingecko API as JSON: error decoding response body)
+│    Transaction ID: EyXQ15ca15L7Knk6njwTAtTBWdtjwbesphuWQCxn58Wj
+The "new" call to <nearbooks.near> on behalf of <nearbooks.near> succeeded.
+balance 2.9956 NEAR, storage 271539 bytes, free 0.2802 NEAR, code_hash 7kVhxUa6q7DTUGd57V2XWqDzBvqXVGCrq3gFrFWdhNEh
+-- 2026-10-21T09:31:29Z first pin (applies at once): {"outlayer_id":"outlayer.near","wasm_url":"https://main.fastfs.io/nearbooks.near/outlayer.near/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm","wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","attestation_api":"https://api.outlayer.ai"}
+CsvExy14ycCh8RUJQDFhXp29CJE5Ucjo4nMKZpuhk8rH
+EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"worker_pinned","data":{"outlayer_id":"outlayer.near","wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","wasm_url":"https://main.fastfs.io/nearbooks.near/outlayer.near/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm","previous_wasm_hash":null,"previous_outlayer_id":null,"from_ns":"0"}}
+-- add_prediction P1 5LpUpY5uSp2Fk96SXHni6WawrVt1wVxngy14FidpPoo6 EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"prediction_added","data":{"id":0}} 
+-- add_prediction P2 9MMg3wADMxUkbjVTR57ietM6Pi4rdorxufTdSSTZyuP3 EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"prediction_added","data":{"id":1}} 
+-- add_prediction P3 GbWntWLE7RUzkmZaHdvsKkQbZjCHfhUtAsk3qTkVzkQK EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"prediction_added","data":{"id":2}} 
+-- add_prediction P4 7pSJ3UzyJFmZeLufoF2TWfWPoPi4euhThx9VyuZ3dbGq EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"prediction_added","data":{"id":3}} 
+-- 2026-10-21T09:32:51Z deployer sends 0.35 NEAR to nearbooks.near (pays for the keeper account)
+CKmwJZni6PAyKm2yiZfh5KKGTaEi7A43A57XAYVHZuVP
+-- create keeper.nearbooks.near (0.3 NEAR); its full-access key stays in the local keychain, the keeper only ever uses the function-call key
+5jrMxkVfe1ZGtAxAXPfwfJR8hhsVfhF6bLU1iwGN8BQn
+-- add function-call key ed25519:9bbpxttErq7N6YbnwsU5sm8qe4jwbUfbhhwoXQ5usNhP to keeper.nearbooks.near: allowance 0.25 NEAR, receiver nearbooks.near, methods keeper_request_snapshot, resolve_prediction
+HMLxPGvFosH4zBZFGwxiA7gzimVF2TezkY6vSEc5K4sZ
+ed25519:9bbpxttErq7N6YbnwsU5sm8qe4jwbUfbhhwoXQ5usNhP {"FunctionCall": {"allowance": "250000000000000000000000", "method_names": ["keeper_request_snapshot", "resolve_prediction"], "receiver_id": "nearbooks.near"}}
+ed25519:C5UJPwrM6cJHtPfgMei3G7znjB3WfdVYyunQyrurcUCX "FullAccess"
+-- owner names the keeper, daily cap 0.06 NEAR; the deployer prepays 0.5 NEAR of budget
+8DJYDCwV2F1CLRZWGycy2g29TeVNXoiYRhxBQ6xBUeSf
+EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"keeper_set","data":{"keeper_id":"keeper.nearbooks.near","daily_cap":"60000000000000000000000","previous":null}}
+-- fund_keeper 0.5 NEAR (first attempt sent nothing; budget stayed 0): 4x4usissLvj1KYko5Tn56HuJSDqC1ctd1fK3QkX76Dj2 keeper_funded budget 500000000000000000000000
+-- 2026-10-21T09:42:12Z first keeper run sent nothing: the network refused keeper_request_snapshot with NotEnoughBalance (balance 0.29996 NEAR < pessimistic cost 0.30092 NEAR of 300 Tgas); the 0.25 NEAR allowance was also below that cost. Nothing was spent.
+-- deployer sends 0.4 NEAR to keeper.nearbooks.near
+4XnDoLSceXqwwE1QdreqwdfZh4jQeVZrTo6J3fh3RojC
+-- replace the function-call key: add ed25519:7crc4z7gpNGQ3YuqdWes5f3Q4hMLbFbtbxxk7og9jFqA (allowance 1 NEAR, receiver nearbooks.near, same two methods), delete ed25519:9bbpxttErq7N6YbnwsU5sm8qe4jwbUfbhhwoXQ5usNhP
+8TpiMMWzoH5SxsdcYnmFVYF88b1QW1wjo9ww7eZtLzzb
+Hqh9ccHBpynysiwxeBQkRhzMKaLfrSSyBjXuLNjv9npM
+ed25519:7crc4z7gpNGQ3YuqdWes5f3Q4hMLbFbtbxxk7og9jFqA {"FunctionCall": {"allowance": "1000000000000000000000000", "method_names": ["keeper_request_snapshot", "resolve_prediction"], "receiver_id": "nearbooks.near"}}
+ed25519:C5UJPwrM6cJHtPfgMei3G7znjB3WfdVYyunQyrurcUCX "FullAccess"

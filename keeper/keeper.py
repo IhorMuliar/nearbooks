@@ -2,7 +2,8 @@
 """NEAR Books keeper: once per UTC day, get the attested snapshot of the day and resolve what it decides.
 
     python3 -I keeper/keeper.py --dry-run                       # plan only: no key needed, nothing signed
-    NEARBOOKS_KEEPER_KEY=ed25519:... python3 -I keeper/keeper.py # run (testnet)
+    NEARBOOKS_KEEPER_KEY=ed25519:... python3 -I keeper/keeper.py # run (mainnet: nearbooks.near)
+    ... keeper/keeper.py --network testnet                      # the testnet deployment
 
 Standard library only. Each run:
   1. checks its own key on chain: it must be a function-call access key whose receiver is the nearbooks contract and
@@ -20,9 +21,14 @@ under a per-day cap that only the owner sets. Logs are JSON lines on stdout. Exi
 """
 import argparse, base64, calendar, hashlib, json, os, sys, time, urllib.error, urllib.request
 
-CONTRACT = os.environ.get("NEARBOOKS_CONTRACT", "nearbooks-v6.okf-kill-1792497882.testnet")
-KEEPER = os.environ.get("NEARBOOKS_KEEPER_ACCOUNT", "nearbooks-keeper.okf-kill-1792497882.testnet")
-TESTNET_RPCS = ["https://rpc.testnet.near.org", "https://rpc.testnet.fastnear.com"]
+# Per network: the contract, the keeper account and the RPCs the contract lives on. Mainnet block data always comes
+# from MAINNET_RPCS (archival: the 28-day block is in the past).
+NETWORKS = {
+    "mainnet": ("nearbooks.near", "keeper.nearbooks.near", ["https://free.rpc.fastnear.com", "https://rpc.mainnet.near.org"]),
+    "testnet": ("nearbooks-v6.okf-kill-1792497882.testnet", "nearbooks-keeper.okf-kill-1792497882.testnet",
+                ["https://rpc.testnet.near.org", "https://rpc.testnet.fastnear.com"]),
+}
+TESTNET_RPCS = NETWORKS["testnet"][2]
 MAINNET_RPCS = ["https://archival-rpc.mainnet.fastnear.com", "https://rpc.mainnet.near.org"]
 METHODS = {"keeper_request_snapshot", "resolve_prediction"}
 REQUEST_GAS = 300 * 10**12
@@ -310,7 +316,13 @@ class Keeper:
         block_hash = b58decode(self.rpc.call("block", {"finality": "final"})["header"]["hash"])
         tx = function_call_tx(self.account, self.key.public, ak["nonce"] + 1, self.contract, block_hash, method, json.dumps(args, separators=(",", ":")).encode(), gas)
         b64, tx_hash = signed_tx(self.key, tx)
-        self.rpc.call("broadcast_tx_async", [b64])
+        # send_tx waits until the transaction is in a block, so a transaction the network refuses (NotEnoughBalance,
+        # NotEnoughAllowance, InvalidNonce, ...) fails here; broadcast_tx_async would return its hash and drop it.
+        try:
+            self.rpc.call("send_tx", {"signed_tx_base64": b64, "wait_until": "INCLUDED"})
+        except RpcError as e:
+            if "TIMEOUT" not in str(e):
+                raise RpcError(f"{method} refused: {e}") from None
         log("tx_sent", method=method, args=args, tx=tx_hash)
         deadline = self.now() + self.wait_secs
         while True:
@@ -417,14 +429,17 @@ def load_key(args):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--date", help="UTC date YYYY-MM-DD (default: today)")
-    ap.add_argument("--contract", default=CONTRACT)
-    ap.add_argument("--account", default=KEEPER, help="the keeper account (holds only a function-call key)")
+    ap.add_argument("--network", choices=sorted(NETWORKS), default=os.environ.get("NEARBOOKS_NETWORK", "mainnet"))
+    ap.add_argument("--contract", default=os.environ.get("NEARBOOKS_CONTRACT"), help="default: the network's contract")
+    ap.add_argument("--account", default=os.environ.get("NEARBOOKS_KEEPER_ACCOUNT"),
+                    help="the keeper account (holds only a function-call key); default: the network's keeper")
     ap.add_argument("--key-file", help="near-cli credentials JSON with private_key (default: $NEARBOOKS_KEEPER_KEY)")
     ap.add_argument("--dry-run", action="store_true", help="read and plan only; sign nothing")
     ap.add_argument("--no-resolve", action="store_true", help="skip resolve_prediction")
     ap.add_argument("--wait", type=int, default=240, help="seconds to wait for a transaction to become final")
     a = ap.parse_args(argv)
-    k = Keeper(Rpc(TESTNET_RPCS), Rpc(MAINNET_RPCS), a.contract, a.account, load_key(a), a.dry_run, a.wait)
+    contract, keeper, rpcs = NETWORKS[a.network]
+    k = Keeper(Rpc(rpcs), Rpc(MAINNET_RPCS), a.contract or contract, a.account or keeper, load_key(a), a.dry_run, a.wait)
     return k.run(a.date, resolve=not a.no_resolve)
 
 
