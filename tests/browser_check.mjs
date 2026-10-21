@@ -9,7 +9,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_CORE || "playwright-cor
 
 const BASE = process.argv[2] || "http://127.0.0.1:8000/site/";
 const SHOT = process.argv[3];
-const ALLOWED = ["127.0.0.1", "free.rpc.fastnear.com", "rpc.mainnet.near.org", "archival-rpc.mainnet.fastnear.com", "archival-rpc.mainnet.near.org", "api.outlayer.ai"];
+const ALLOWED = [new URL(BASE).hostname, "free.rpc.fastnear.com", "rpc.mainnet.near.org", "archival-rpc.mainnet.fastnear.com", "archival-rpc.mainnet.near.org", "api.outlayer.ai"];
 const fail = (m) => { console.log("FAIL " + m); process.exitCode = 1; };
 const pass = (m) => console.log("PASS " + m);
 const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
