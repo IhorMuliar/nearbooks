@@ -8,6 +8,10 @@
     {"id": "P3", "claim": "Net issuance over the 28 days to the first block of 2027-01-31 is still positive (total supply grew).",
      "metric": "net_issuance_near_per_day", "comparator": "gt", "threshold": 0, "resolve_after": "2027-01-31"},
     {"id": "P4", "claim": "In the 28 days to the first block of 2027-01-31 the three Intents revenue wallets gain less than half as much NEAR as total supply grows (burning all revenue would offset under 50% of issuance).",
-     "metric": "revenue_wallets_gain_over_net_issuance", "comparator": "lt", "threshold": 0.5, "resolve_after": "2027-01-31"}
+     "metric": "revenue_wallets_gain_over_net_issuance", "comparator": "lt", "threshold": 0.5, "resolve_after": "2027-01-31"},
+    {"id": "P5", "claim": "Net issuance over the 28 days to the first block of 2026-11-05 is at least 87,500 NEAR a day (dilution is not slowing).",
+     "metric": "net_issuance_near_per_day", "comparator": "gte", "threshold": 87500, "resolve_after": "2026-11-05"},
+    {"id": "P6", "claim": "In the 28 days to the first block of 2026-11-15 the three Intents revenue wallets gain less than 17% as much NEAR as total supply grows (their accumulation eases from its September-October high).",
+     "metric": "revenue_wallets_gain_over_net_issuance", "comparator": "lt", "threshold": 0.17, "resolve_after": "2026-11-15"}
   ]
 }

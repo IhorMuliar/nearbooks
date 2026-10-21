@@ -56,3 +56,8 @@ ed25519:C5UJPwrM6cJHtPfgMei3G7znjB3WfdVYyunQyrurcUCX "FullAccess"
 Transaction fee: 0.0000308679388295 NEAR (USD equivalent is unavailable due to an error: Failed to parse the response from Coingecko API as JSON: error decoding response body)
 Transaction ID: 9UbLMq2yWyv6iq1zdu3iwDGnCf3CExnhcHyeG7stZqvq
 EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"keeper_funded","data":{"from":"1b286efc2e346c5692ce2adf295435b2b2c057078f6c8c1175804c1298a7e490","amount":"480000000000000000000000","budget":"959290000000000000000000"}}
+-- 2026-10-21T14:07:55Z mainnet: add predictions P5, P6 (owner nearbooks.near)
+-- add_prediction P5 GEkNzmdwnHh2ABzV17r9Ts1xPNeh7UeCKiVkZdcxKA14 EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"prediction_added","data":{"id":4}}
+   args: {"claim": "Net issuance over the 28 days to the first block of 2026-11-05 is at least 87,500 NEAR a day (dilution is not slowing).", "metric": "net_issuance_near_per_day", "comparator": "gte", "threshold": "87500000000", "resolve_after": "2026-11-05"}
+-- add_prediction P6 BfjpTJMifGXrQc24M3a7P98Ji1oQBGuD5xWEeWTwucvp EVENT_JSON:{"standard":"nearbooks","version":"1.3.0","event":"prediction_added","data":{"id":5}}
+   args: {"claim": "In the 28 days to the first block of 2026-11-15 the three Intents revenue wallets gain less than 17% as much NEAR as total supply grows (their accumulation eases from its September-October high).", "metric": "revenue_wallets_gain_over_net_issuance", "comparator": "lt", "threshold": "170000", "resolve_after": "2026-11-15"}

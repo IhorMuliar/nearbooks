@@ -165,13 +165,14 @@ def attested_block(m, findings, network="mainnet"):
 
 def predictions_block(m, findings, network="mainnet"):
     c = _load(RECORDS[network][1])
-    ids = {i: f"P{i + 1}" for i in range(4)}
+    # P-labels come from pipeline/predictions.json (matched by claim); anything else on chain is a testnet demo
+    named = {q["claim"]: q["id"] for q in m["predictions"]}
     sym = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
     rows = ["| ID | Claim | Rule | Decided by the attested snapshot of | Status | Observed |", "|---|---|---|---|---|---|"]
     for p in c["predictions"]:
         r = p.get("resolution") or {}
         obs = None if r.get("observed") is None else int(r["observed"]) / MICRO
-        rows.append(f"| {p['id']}{' (' + ids[p['id']] + ')' if p['id'] in ids else ' (demo)'} | {p['claim']} | `{p['metric']} {sym[p['comparator']]} {_num(p['metric'], int(p['threshold']) / MICRO)}` | "
+        rows.append(f"| {p['id']}{' (' + named[p['claim']] + ')' if p['claim'] in named else ' (demo)'} | {p['claim']} | `{p['metric']} {sym[p['comparator']]} {_num(p['metric'], int(p['threshold']) / MICRO)}` | "
                     f"{p['resolve_after']} | **{p['status']}** | {_num(p['metric'], obs) if r else '-'}{' (metric absent)' if p['status'] == 'void' else ''} |")
     return "\n".join(rows)
 
