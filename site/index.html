@@ -4,127 +4,350 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NEAR Books: attested NEAR Intents revenue, buyback and issuance numbers</title>
+<meta name="description" content="NEAR's token economics written on-chain by a worker in an Intel TDX enclave, and re-checked in your browser.">
 <style>
+  /* Besley (Clarendon) for headlines and figures, Public Sans for everything else; both SIL OFL, served from site/fonts. */
+  @font-face { font-family:"Besley"; src:url("fonts/besley.woff2") format("woff2"); font-weight:400 900; font-display:swap; }
+  @font-face { font-family:"Public Sans"; src:url("fonts/public-sans.woff2") format("woff2"); font-weight:100 900; font-display:swap; }
   :root {
-    --bg:#f6f5f1; --fg:#191917; --mut:#66645e; --line:#dddbd3; --card:#fff; --soft:#efede6;
-    --ok:#17663f; --okbg:#e3f2e9; --bad:#a3231b; --badbg:#f8e3e1; --warn:#8a5a00; --warnbg:#f8eed6;
-    --att:#1d4ed8; --attbg:#e4ebfb; --hist:#7a4b12; --histbg:#f3eadb; --a:#1d4ed8; --b:#c2410c;
+    --paper:#eef1eb; --sheet:#f8f9f5; --ink:#15221c; --ink2:#4e5b54; --rule:#c9d2c6; --rule2:#dde3da;
+    --green:#1e5a45; --green-soft:#dceade; --red:#a3261e; --red-soft:#f5e1dd; --amber:#7f5400; --amber-soft:#f3e8cf;
+    --series2:#8b948d; --focus:#1e5a45;
+    --serif:"Besley",Georgia,"Times New Roman",serif; --sans:"Public Sans",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    --mono:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
   }
   @media (prefers-color-scheme: dark) { :root {
-    --bg:#121210; --fg:#ecebe4; --mut:#9c9a91; --line:#302f29; --card:#1a1a17; --soft:#22221e;
-    --ok:#5fd39a; --okbg:#173225; --bad:#ff8a80; --badbg:#3a1d1a; --warn:#f0c060; --warnbg:#382d14;
-    --att:#8fb0ff; --attbg:#1b2440; --hist:#e7b878; --histbg:#352a1a; --a:#8fb0ff; --b:#ff9d5c;
+    --paper:#0f1814; --sheet:#152019; --ink:#e3e9e3; --ink2:#9aa79f; --rule:#2c3a32; --rule2:#202b25;
+    --green:#74c9a1; --green-soft:#183427; --red:#ff8f84; --red-soft:#3a1e1b; --amber:#e9be62; --amber-soft:#352b15;
+    --series2:#7d8981; --focus:#74c9a1;
   } }
   * { box-sizing:border-box; }
-  html { -webkit-text-size-adjust:100%; }
-  body { margin:0; font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--fg); }
-  main { max-width:1080px; margin:0 auto; padding:28px 18px 64px; }
-  a { color:var(--att); text-underline-offset:2px; }
-  h1 { font-size:30px; line-height:1.15; margin:0 0 6px; letter-spacing:-.01em; }
-  h2 { font-size:21px; margin:0; letter-spacing:-.005em; }
-  h3 { font-size:15px; margin:22px 0 8px; color:var(--mut); font-weight:600; }
-  .lede { font-size:17px; color:var(--mut); margin:0 0 14px; max-width:760px; }
-  .mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:13px; }
-  .note { color:var(--mut); font-size:14px; margin:6px 0 14px; max-width:820px; }
-  section { margin-top:40px; }
-  .shead { display:flex; flex-wrap:wrap; align-items:center; gap:10px; border-bottom:1px solid var(--line); padding-bottom:8px; }
-  .tag { display:inline-block; font-size:11px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; padding:3px 8px; border-radius:999px; }
-  .tag.att { color:var(--att); background:var(--attbg); } .tag.hist { color:var(--hist); background:var(--histbg); }
-  .tag.ok { color:var(--ok); background:var(--okbg); } .tag.bad { color:var(--bad); background:var(--badbg); }
-  .tag.warn { color:var(--warn); background:var(--warnbg); } .tag.mut { color:var(--mut); background:var(--soft); }
-  .status { font-size:14px; padding:10px 12px; border:1px solid var(--line); border-radius:8px; background:var(--card); }
-  .status .tag { margin-right:8px; }
-  .status.offline { border-color:var(--warn); background:var(--warnbg); }
-  nav { display:flex; flex-wrap:wrap; gap:6px 16px; margin:14px 0 0; font-size:14px; }
-  .cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; margin-top:14px; }
-  .card { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px 14px; min-width:0; }
-  .card .k { color:var(--mut); font-size:12px; text-transform:uppercase; letter-spacing:.04em; }
-  .card .v { font-size:22px; font-weight:650; margin-top:2px; font-variant-numeric:tabular-nums; }
-  .card .v b { font-weight:650; white-space:nowrap; } .card .v small { font-size:13px; font-weight:500; color:var(--mut); margin-left:4px; white-space:nowrap; }
-  .card .n { color:var(--mut); font-size:12.5px; }
-  .card.att { border-top:3px solid var(--att); } .card.hist { border-top:3px solid var(--hist); }
-  .tw { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--line); border-radius:8px; background:var(--card); margin-top:12px; }
-  table { width:100%; border-collapse:collapse; font-size:14px; }
-  th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--line); vertical-align:top; }
-  tr:last-child td { border-bottom:0; }
-  th { font-size:11.5px; color:var(--mut); text-transform:uppercase; letter-spacing:.05em; font-weight:600; white-space:nowrap; }
-  td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; white-space:nowrap; }
-  td.claim { min-width:240px; max-width:420px; }
-  .pos { color:var(--ok); } .neg { color:var(--bad); }
-  .checks span { display:inline-block; margin:0 6px 2px 0; white-space:nowrap; }
-  .links a { margin-right:10px; white-space:nowrap; }
-  dl.kv { display:grid; grid-template-columns:minmax(150px,220px) 1fr; gap:6px 14px; margin:12px 0 0; font-size:14px; }
-  dl.kv dt { color:var(--mut); } dl.kv dd { margin:0; overflow-wrap:anywhere; }
-  @media (max-width:600px) { dl.kv { grid-template-columns:1fr; } dl.kv dd { margin-bottom:6px; } h1 { font-size:25px; } }
-  .panel { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:14px; margin-top:12px; }
-  .calc { display:grid; grid-template-columns:1fr 1fr; gap:22px; } @media (max-width:760px) { .calc { grid-template-columns:1fr; } }
-  label { display:flex; justify-content:space-between; font-size:14px; margin-top:10px; } input[type=range] { width:100%; }
-  .seg { display:inline-flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
-  .seg button { border:0; background:transparent; color:var(--fg); padding:7px 12px; cursor:pointer; font:inherit; font-size:14px; }
-  .seg button[aria-pressed=true] { background:var(--fg); color:var(--bg); }
-  button.pre { border:1px solid var(--line); background:transparent; color:var(--fg); border-radius:6px; padding:6px 10px; cursor:pointer; font:inherit; font-size:14px; margin:0 6px 6px 0; }
-  .out { font-size:14px; } .out div { display:flex; justify-content:space-between; gap:12px; padding:5px 0; border-bottom:1px dashed var(--line); }
-  .verdict { font-weight:650; font-size:17px; margin:4px 0 8px; }
-  svg text { fill:var(--mut); font-size:11px; } .legend { font-size:13px; } .legend span { margin-right:14px; } .sw { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:5px; }
-  #err { color:var(--bad); } footer { color:var(--mut); font-size:13px; margin-top:44px; border-top:1px solid var(--line); padding-top:14px; }
+  html { -webkit-text-size-adjust:100%; scroll-padding-top:72px; }
+  body { margin:0; font:17px/1.55 var(--sans); background:var(--paper); color:var(--ink); font-variant-numeric:lining-nums; }
+  a { color:var(--green); text-decoration-thickness:1px; text-underline-offset:3px; }
+  a:hover { text-decoration-thickness:2px; }
+  :focus-visible { outline:2px solid var(--focus); outline-offset:3px; border-radius:2px; }
+  .skip { position:absolute; left:-999px; top:8px; background:var(--ink); color:var(--paper); padding:8px 12px; z-index:10; }
+  .skip:focus { left:8px; }
+  .wrap { max-width:1160px; margin:0 auto; padding:0 24px; }
+  main.wrap { overflow-x:clip; }  /* the stamp lands scaled up; it must not widen the page */
+  .num, .fig, td.num { font-variant-numeric:lining-nums tabular-nums; }
+  .mono { font-family:var(--mono); font-size:.82em; overflow-wrap:anywhere; }
+  .mut { color:var(--ink2); }
+
+  /* top bar */
+  .bar { position:sticky; top:0; z-index:5; background:color-mix(in srgb, var(--paper) 92%, transparent); backdrop-filter:saturate(1.2) blur(6px); border-bottom:1px solid var(--rule); }
+  .bar .wrap { display:flex; align-items:center; gap:20px; height:58px; }
+  .brand { font:600 21px/1 var(--serif); color:var(--ink); text-decoration:none; letter-spacing:-.01em; white-space:nowrap; }
+  .bar nav { display:flex; gap:18px; font-size:15px; margin-left:auto; overflow-x:auto; scrollbar-width:none; }
+  .bar nav a { color:var(--ink2); text-decoration:none; white-space:nowrap; padding:4px 0; }
+  .bar nav a:hover { color:var(--ink); }
+  #status { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--ink2); min-width:0; }
+  #status .detail { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tag { display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:600; line-height:1; padding:5px 9px; border-radius:999px; white-space:nowrap; color:var(--ink2); background:var(--rule2); }
+  .tag.ok { color:var(--green); background:var(--green-soft); } .tag.bad { color:var(--red); background:var(--red-soft); }
+  .tag.warn { color:var(--amber); background:var(--amber-soft); }
+  .tag.live::before { content:""; width:7px; height:7px; border-radius:50%; background:currentColor; animation:beat 2.4s ease-in-out infinite; }
+  @keyframes beat { 50% { opacity:.25; } }
+  #err { color:var(--red); }
+  #err:not(:empty) { margin-top:20px; padding:12px 14px; border-left:3px solid var(--red); background:var(--red-soft); }
+  #err.warn { color:var(--amber); border-color:var(--amber); background:var(--amber-soft); }
+
+  /* hero */
+  .hero { border-top:0 !important; display:grid; grid-template-columns:minmax(0,7fr) minmax(0,5fr); gap:56px; align-items:start; padding:64px 0 56px; }
+  h1 { font:600 clamp(34px, 4.3vw, 54px)/1.06 var(--serif); letter-spacing:-.018em; margin:0; max-width:21ch; text-wrap:balance; }
+  .lede { font-size:19px; line-height:1.5; margin:22px 0 0; max-width:36em; }
+  .how { color:var(--ink2); margin:14px 0 0; max-width:38em; }
+  .share { margin:30px 0 0; max-width:560px; }
+  .share .track { position:relative; height:14px; background:var(--rule2); border:1px solid var(--rule); border-radius:2px; overflow:hidden; }
+  .share .fill { position:absolute; inset:0 auto 0 0; width:0; background:var(--green); transition:width .9s cubic-bezier(.2,.7,.2,1); }
+  .share .legend { display:flex; justify-content:space-between; gap:16px; margin-top:8px; font-size:14px; color:var(--ink2); }
+  .share .legend b { color:var(--ink); font-weight:600; }
+  .actions { display:flex; flex-wrap:wrap; gap:12px; margin-top:30px; }
+  .btn { display:inline-flex; align-items:center; gap:8px; font:600 15px/1 var(--sans); padding:12px 16px; border-radius:4px; text-decoration:none; border:1px solid var(--ink); color:var(--ink); background:transparent; cursor:pointer; }
+  .btn.primary { background:var(--ink); color:var(--paper); }
+  .btn:hover { background:var(--ink); color:var(--paper); }
+  .btn.primary:hover { background:var(--green); border-color:var(--green); }
+
+  /* the entry slip: the latest snapshot, checked in front of the reader */
+  .slip { position:relative; background:var(--sheet); border:1px solid var(--rule); border-radius:6px; padding:22px 22px 18px; box-shadow:0 1px 0 var(--rule), 0 18px 40px -28px rgba(21,34,28,.35); }
+  .slip h2 { font:600 22px/1.2 var(--serif); margin:0; padding-right:92px; }
+  .slip .sub { font-size:14px; color:var(--ink2); margin:4px 0 0; padding-right:92px; }
+  .checks { list-style:none; margin:18px 0 0; padding:0; border-top:1px solid var(--rule2); }
+  .checks li { display:grid; grid-template-columns:22px 1fr; gap:10px; padding:9px 0; border-bottom:1px solid var(--rule2); font-size:15px; line-height:1.35; }
+  .checks li b { font-weight:600; display:block; }
+  .checks li span.why { color:var(--ink2); font-size:13.5px; }
+  .tick { width:20px; height:20px; margin-top:1px; border-radius:50%; border:1.5px solid var(--rule); display:grid; place-items:center; }
+  .tick svg { width:12px; height:12px; stroke:currentColor; stroke-width:2.6; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  li[data-ok="true"] .tick { background:var(--green); border-color:var(--green); color:var(--sheet); }
+  li[data-ok="false"] .tick { background:var(--red); border-color:var(--red); color:var(--sheet); }
+  li[data-ok="na"] .tick { border-style:dashed; color:var(--ink2); }
+  li[data-ok="pending"] .tick { border-color:var(--ink2); border-right-color:transparent; animation:spin 1s linear infinite; }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .slip.run li[data-ok="true"] .tick, .slip.run li[data-ok="false"] .tick { animation:pop .28s cubic-bezier(.3,1.6,.5,1) both; animation-delay:calc(var(--i) * 110ms); }
+  @keyframes pop { from { transform:scale(.3); opacity:0; } }
+  .verdict { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:4px 12px; margin-top:14px; font-size:15px; }
+  .verdict span { white-space:nowrap; }
+  .verdict strong { font:600 18px/1.2 var(--serif); }
+  .verdict.ok strong { color:var(--green); } .verdict.bad strong { color:var(--red); } .verdict.warn strong { color:var(--amber); }
+  .evidence { display:flex; flex-wrap:wrap; gap:6px 16px; margin-top:12px; font-size:14px; }
+  .stamp { position:absolute; top:-22px; right:-16px; width:118px; height:118px; color:var(--green); opacity:0; transform:rotate(-11deg) scale(1.3); pointer-events:none; }
+  .stamp.on { opacity:.94; transform:rotate(-11deg) scale(1); transition:opacity .2s ease-out, transform .32s cubic-bezier(.2,1.4,.4,1); transition-delay:var(--d, 0ms); }
+  .stamp text { fill:currentColor; font:700 9px/1 var(--sans); }
+  .stamp .big { font:700 17px/1 var(--serif); letter-spacing:.02em; }
+  .stamp .small { font:700 7.5px/1 var(--sans); letter-spacing:.16em; }
+
+  /* sections */
+  main > section { padding:56px 0; border-top:1px solid var(--rule); }
+  .shead { display:flex; flex-wrap:wrap; align-items:baseline; justify-content:space-between; gap:8px 20px; }
+  h2.sec { font:600 32px/1.15 var(--serif); letter-spacing:-.012em; margin:0; }
+  .intro { max-width:44em; margin:12px 0 0; color:var(--ink2); }
+  h3 { font:600 20px/1.25 var(--serif); margin:44px 0 6px; }
+  h3 + .intro { margin-top:4px; }
+
+  /* figures: a ruled row of ledger columns, not cards */
+  .figs { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); margin:28px 0 0; border-top:2px solid var(--ink); }
+  .figs > div { padding:16px 22px 18px; border-bottom:1px solid var(--rule); border-left:1px solid var(--rule); min-width:0; }
+  .figs > div:nth-child(3n+1) { padding-left:0; border-left:0; }
+  .figs dt { font-size:14px; color:var(--ink2); }
+  .figs dd { margin:4px 0 0; }
+  .figs .v { font:600 32px/1.15 var(--serif); font-variant-numeric:lining-nums tabular-nums; letter-spacing:-.01em; white-space:nowrap; }
+  .figs .v small { font:500 14px var(--sans); color:var(--ink2); margin-left:5px; letter-spacing:0; }
+  .figs .n { display:block; font-size:13px; color:var(--ink2); margin-top:4px; line-height:1.4; }
+
+  /* tables */
+  .tw { margin-top:24px; overflow-x:auto; }
+  table { width:100%; border-collapse:collapse; font-size:15px; }
+  th, td { text-align:left; padding:11px 14px 11px 0; border-bottom:1px solid var(--rule); vertical-align:top; }
+  th { font-size:13.5px; font-weight:600; color:var(--ink2); border-bottom:2px solid var(--ink); white-space:nowrap; }
+  th.num, td.num { text-align:right; white-space:nowrap; }
+  td.num:last-child, th.num:last-child { padding-right:0; }
+  .delta-ok { color:var(--green); } .delta-off { color:var(--red); }
+  details.more > summary { cursor:pointer; color:var(--green); font-size:14px; font-weight:600; list-style:none; display:inline-flex; gap:6px; align-items:center; margin-top:6px; }
+  details.more > summary::-webkit-details-marker { display:none; }
+  details.more > summary::before { content:""; width:6px; height:6px; border-right:1.5px solid currentColor; border-bottom:1.5px solid currentColor; transform:rotate(-45deg); transition:transform .15s; }
+  details.more[open] > summary::before { transform:rotate(45deg); }
+  details.more .checks { margin-top:8px; }
+  #att-table td.checks .tag { margin-right:8px; }
+
+  /* predictions */
+  #preds { margin-top:28px; border-top:2px solid var(--ink); }
+  .pred { display:grid; grid-template-columns:96px minmax(0,1fr) 250px; gap:8px 28px; padding:22px 0; border-bottom:1px solid var(--rule); }
+  .pred .id { font:600 30px/1 var(--serif); }
+  .pred .id small { display:block; font:400 12.5px/1.3 var(--sans); color:var(--ink2); margin-top:6px; white-space:nowrap; }
+  .pred .claim { font-size:17px; margin:0; max-width:40em; }
+  .pred .rule { margin:8px 0 0; font-size:14px; color:var(--ink2); }
+  .pred .rule code { font-family:var(--mono); font-size:13px; color:var(--ink); background:var(--rule2); padding:2px 6px; border-radius:3px; overflow-wrap:anywhere; }
+  .pred .side { font-size:14px; }
+  .pred .when { font:600 19px/1.2 var(--serif); margin:10px 0 2px; }
+  .pred .today { color:var(--ink2); margin:8px 0 0; line-height:1.45; }
+
+  /* verify */
+  .steps { list-style:none; counter-reset:s; display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:0; margin:28px 0 0; padding:0; border-top:2px solid var(--ink); }
+  .steps li { counter-increment:s; padding:16px 22px 18px 0; border-bottom:1px solid var(--rule); }
+  .steps li + li { padding-left:22px; border-left:1px solid var(--rule); }
+  .steps li::before { content:counter(s); font:600 30px/1 var(--serif); color:var(--green); display:block; margin-bottom:10px; }
+  .steps b { display:block; font-weight:600; margin-bottom:4px; }
+  .steps p { margin:0; color:var(--ink2); font-size:15px; }
+  .proves { display:grid; grid-template-columns:1fr 1fr; gap:40px; margin-top:8px; }
+  .proves ul { margin:8px 0 0; padding-left:20px; } .proves li { margin:6px 0; }
+  .cmd { display:flex; align-items:stretch; margin-top:12px; border:1px solid var(--rule); border-radius:4px; background:var(--sheet); max-width:860px; }
+  .cmd pre { margin:0; padding:12px 14px; font:13.5px/1.5 var(--mono); overflow-x:auto; flex:1; white-space:pre; }
+  .cmd button { border:0; border-left:1px solid var(--rule); background:transparent; color:var(--green); font:600 14px var(--sans); padding:0 14px; cursor:pointer; min-width:74px; }
+  .cmd button:hover { background:var(--green-soft); }
+  dl.kv { display:grid; grid-template-columns:minmax(150px, 230px) 1fr; margin:24px 0 0; border-top:2px solid var(--ink); font-size:15px; }
+  dl.kv dt, dl.kv dd { margin:0; padding:11px 0; border-bottom:1px solid var(--rule); }
+  dl.kv dt { color:var(--ink2); padding-right:18px; } dl.kv dd { overflow-wrap:anywhere; }
+
+  /* history */
+  .notatt { margin-top:14px; max-width:52em; padding:12px 14px; border-left:3px solid var(--series2); background:var(--sheet); font-size:15px; color:var(--ink2); }
+  .chart { margin-top:20px; position:relative; }
+  .chart svg { display:block; width:100%; height:auto; overflow:visible; }
+  .chart svg text { fill:var(--ink2); font:12px var(--sans); font-variant-numeric:tabular-nums; }
+  .readout { min-height:22px; font-size:14px; color:var(--ink2); margin-top:6px; }
+  .readout b { color:var(--ink); font-weight:600; }
+  .key { display:flex; flex-wrap:wrap; gap:6px 22px; font-size:14px; color:var(--ink2); margin-top:14px; }
+  .key i { display:inline-block; width:22px; height:0; vertical-align:middle; margin-right:8px; border-top:3px solid var(--green); }
+  .key i.dl { border-top:8px solid var(--series2); opacity:.4; border-radius:4px; }
+  .source { font-size:13.5px; color:var(--ink2); margin-top:10px; }
+  .calc { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:48px; margin-top:20px; }
+  .calc label { display:flex; justify-content:space-between; gap:12px; font-size:15px; margin-top:18px; }
+  .calc label b { font-variant-numeric:tabular-nums; }
+  input[type=range] { width:100%; accent-color:var(--green); margin:8px 0 0; }
+  .seg { display:inline-flex; border:1px solid var(--ink); border-radius:4px; overflow:hidden; margin-top:8px; }
+  .seg button { border:0; background:transparent; color:var(--ink); padding:9px 14px; cursor:pointer; font:inherit; font-size:15px; }
+  .seg button + button { border-left:1px solid var(--ink); }
+  .seg button[aria-pressed=true] { background:var(--ink); color:var(--paper); }
+  .presets { display:flex; flex-wrap:wrap; gap:8px; }
+  button.pre { border:1px solid var(--rule); background:var(--sheet); color:var(--ink); border-radius:999px; padding:7px 13px; cursor:pointer; font:inherit; font-size:14px; }
+  button.pre:hover { border-color:var(--ink); }
+  .out .big { font:600 30px/1.15 var(--serif); margin:0 0 14px; }
+  .out .big.pos { color:var(--green); } .out .big.neg { color:var(--ink); }
+  .out dl { margin:0; border-top:2px solid var(--ink); }
+  .out dl div { display:flex; justify-content:space-between; gap:16px; padding:9px 0; border-bottom:1px solid var(--rule); font-size:15px; }
+  .out dt { color:var(--ink2); } .out dd { margin:0; font-weight:600; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap; }
+  .out p { color:var(--ink2); font-size:14px; }
+  footer { border-top:1px solid var(--rule); padding:28px 0 56px; color:var(--ink2); font-size:14px; }
+  footer p { max-width:60em; margin:0 0 8px; }
+
+  @media (max-width:980px) {
+    .figs { grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .figs > div:nth-child(3n+1) { padding-left:22px; border-left:1px solid var(--rule); }
+    .figs > div:nth-child(2n+1) { padding-left:0; border-left:0; }
+    .hero { grid-template-columns:1fr; gap:40px; padding-top:44px; }
+    .slip { max-width:560px; }
+    .pred { grid-template-columns:84px minmax(0,1fr); }
+    .pred .side { grid-column:2; }
+    .calc, .proves { grid-template-columns:1fr; gap:28px; }
+  }
+  @media (max-width:720px) {
+    body { font-size:16px; }
+    .wrap { padding:0 18px; }
+    .bar .wrap { gap:12px; }
+    .bar nav { display:none; }
+    #status { margin-left:auto; }
+    #status .detail { display:none; }
+    .lede { font-size:17px; }
+    h2.sec { font-size:27px; }
+    main > section { padding:44px 0; }
+    .steps { grid-template-columns:1fr; }
+    .steps li + li { padding-left:0; border-left:0; }
+    .figs { grid-template-columns:1fr; }
+    .figs > div:nth-child(n) { padding:14px 0 16px; border-left:0; }
+    .figs .v { font-size:28px; }
+    dl.kv { grid-template-columns:1fr; }
+    dl.kv dt { padding-bottom:0; border-bottom:0; }
+    .stamp { width:92px; height:92px; top:-22px; right:-8px; }
+    .slip h2, .slip .sub { padding-right:70px; }
+    /* ledger tables become stacked entries on phones */
+    table.stack thead { display:none; }
+    table.stack tr { display:block; padding:12px 0; border-bottom:1px solid var(--rule); }
+    table.stack tbody tr:first-child { border-top:2px solid var(--ink); }
+    table.stack td { display:flex; justify-content:space-between; gap:14px; border:0; padding:4px 0; text-align:right; white-space:normal; }
+    table.stack td::before { content:attr(data-label); color:var(--ink2); text-align:left; flex:none; }
+    table.stack td.checks, table.stack td.full { display:block; text-align:left; }
+    table.stack td.checks::before, table.stack td.full::before { display:block; margin-bottom:4px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation:none !important; transition:none !important; }
+  }
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <h1>NEAR Books</h1>
-    <p class="lede">NEAR Intents revenue, buybacks and issuance. Mainnet numbers attested on-chain by a pinned worker in a TEE, next to a reproducible pipeline that rebuilds and reconciles the history.</p>
-    <div id="status" class="status" role="status"><span class="tag mut">loading</span> reading the mainnet contract</div>
-    <nav aria-label="Sections"><a href="#attested">Attested snapshots</a><a href="#predictions">Predictions</a><a href="#contract">Contract and trust</a><a href="#pipeline">Pipeline results</a></nav>
-  </header>
-  <div id="err"></div>
+<a class="skip" href="#main">Skip to content</a>
+<header class="bar">
+  <div class="wrap">
+    <a class="brand" href="#top">NEAR Books</a>
+    <div id="status" role="status"><span class="tag">loading</span><span class="detail">Reading nearbooks.near on NEAR mainnet</span></div>
+    <nav aria-label="Sections"><a href="#ledger">Ledger</a><a href="#predictions">Predictions</a><a href="#verify">Verify it</a><a href="#history">History</a><a href="https://github.com/IhorMuliar/nearbooks" rel="noopener">Source</a></nav>
+  </div>
+</header>
 
-  <section id="attested">
-    <div class="shead"><h2>Attested on-chain</h2><span class="tag att" id="att-tag">attested</span></div>
-    <p class="note">NEAR mainnet state at the first block of each UTC day and at the first block 28 days earlier, read by the pinned worker inside OutLayer's Intel TDX enclave and stored by the contract. A row is <b>verified</b> only if, checked in this browser: the worker hash is one this repository vouches for, it is the contract's pin for that date, OutLayer's public attestation matches the snapshot's wasm, input and output hashes, and the attested transaction called this contract. The TDX quote and Intel signature are checked by <span class="mono">contract/scripts/verify_attestation.py</span>.</p>
-    <div class="cards" id="att-cards"></div>
-    <div class="tw"><table id="att-table"><thead><tr><th>Date</th><th class="num">Mainnet block</th><th>Worker sha256</th><th>Checks (this browser)</th><th>Evidence</th></tr></thead><tbody></tbody></table></div>
+<main id="main" class="wrap">
+  <div id="err" role="alert"></div>
+  <section class="hero" id="top" aria-labelledby="headline">
+    <div>
+      <h1 id="headline">NEAR's token economics, written on-chain and re-checked in your browser.</h1>
+      <p class="lede" id="lede">Reading today's attested numbers from the contract.</p>
+      <p class="how">Every day a pinned worker reads NEAR mainnet inside an Intel TDX enclave and writes what it finds to the <a href="https://nearblocks.io/address/nearbooks.near" rel="noopener">nearbooks.near</a> contract. This page reads those numbers straight from the chain and checks the proof as you watch.</p>
+      <div class="share" id="share" hidden>
+        <div class="track" role="img" id="share-bar"><div class="fill" id="share-fill"></div></div>
+        <div class="legend"><span>Kept by the revenue wallets <b id="share-kept"></b></span><span>New supply <b id="share-new"></b></span></div>
+      </div>
+      <div class="actions"><a class="btn primary" href="#verify">Verify it yourself</a><a class="btn" href="#predictions">See the open predictions</a></div>
+    </div>
+    <article class="slip" id="entry" aria-live="polite">
+      <svg class="stamp" id="stamp" viewBox="0 0 120 120" aria-hidden="true">
+        <defs><path id="ring" d="M60,60 m-44,0 a44,44 0 1,1 88,0 a44,44 0 1,1 -88,0"/></defs>
+        <circle cx="60" cy="60" r="56" fill="none" stroke="currentColor" stroke-width="2.5"/>
+        <circle cx="60" cy="60" r="34" fill="none" stroke="currentColor" stroke-width="1.2"/>
+        <text><textPath href="#ring" id="stamp-ring" textLength="268" lengthAdjust="spacing">NEARBOOKS.NEAR ✦ ATTESTED ✦</textPath></text>
+        <text class="big" x="60" y="62" text-anchor="middle" id="stamp-n">7 OF 7</text>
+        <text class="small" x="60" y="76" text-anchor="middle">CHECKED</text>
+      </svg>
+      <h2 id="entry-title">Latest entry</h2>
+      <p class="sub" id="entry-sub">Waiting for the contract</p>
+      <ul class="checks" id="entry-checks"></ul>
+      <div class="verdict" id="entry-verdict"></div>
+      <div class="evidence" id="entry-links"></div>
+    </article>
   </section>
 
-  <section id="predictions">
-    <div class="shead"><h2>Predictions</h2><span class="tag att" id="pred-tag">on-chain</span></div>
-    <p class="note">Registered in the contract with a future date and never edited. Only the attested snapshot for exactly <i>resolve after</i> decides: confirmed or refuted if it has the metric, void if not. Anyone can call <span class="mono">resolve_prediction</span>.</p>
-    <div class="tw"><table id="preds"><thead><tr><th>ID</th><th>Claim</th><th>Rule</th><th>Decided by</th><th>Status</th><th class="num">Observed</th></tr></thead><tbody></tbody></table></div>
+  <section id="ledger" aria-labelledby="ledger-h">
+    <div class="shead"><h2 class="sec" id="ledger-h">The ledger</h2><span class="tag" id="att-tag">attested</span></div>
+    <p class="intro">NEAR mainnet at the first block of each UTC day, compared with the first block 28 days earlier. One entry per day; the first valid one wins and it is never edited.</p>
+    <dl class="figs" id="att-cards"></dl>
+    <h3>Daily entries</h3>
+    <p class="intro">An entry counts as verified only if every check below passes in this browser. The TDX quote and Intel's signature are checked separately by <span class="mono">verify_attestation.py</span>.</p>
+    <div class="tw"><table id="att-table" class="stack"><thead><tr><th>Date</th><th class="num">First block</th><th>Worker build</th><th>Checked in this browser</th><th>Evidence</th></tr></thead><tbody></tbody></table></div>
   </section>
 
-  <section id="contract">
-    <div class="shead"><h2>Contract and trust</h2><span class="tag att" id="cfg-tag">on-chain</span></div>
-    <p class="note">Re-pinning the worker or changing the OutLayer contract is timelocked. A re-pin only governs dates that start after it is applied, so a waiting proposal can never touch a date that has already begun. The contract account still has its full-access key, so the code can still be upgraded; deleting that key, which freezes the code, is the last step before submission.</p>
+  <section id="predictions" aria-labelledby="pred-h">
+    <div class="shead"><h2 class="sec" id="pred-h">Open predictions</h2><span class="tag" id="pred-tag">on-chain</span></div>
+    <p class="intro">Each claim was written to the contract with its resolve date and can't be edited. Only the attested entry for that exact date decides it: confirmed or refuted, or void if the entry lacks the metric. Anyone can call <span class="mono">resolve_prediction</span>.</p>
+    <div id="preds"></div>
+  </section>
+
+  <section id="verify" aria-labelledby="verify-h">
+    <div class="shead"><h2 class="sec" id="verify-h">How to check it</h2><span class="tag" id="cfg-tag">on-chain</span></div>
+    <p class="intro">Three parties touch each number. You don't need to trust this page: every step leaves something you can check.</p>
+    <ol class="steps">
+      <li><b>The enclave reads mainnet</b><p>A worker whose sha256 is pinned in the contract runs inside OutLayer's Intel TDX enclave. It reads total supply, the three Intents revenue wallets and an intents.near reserves check.</p></li>
+      <li><b>The contract stores it</b><p>nearbooks.near accepts output only from the configured OutLayer contract, for the pinned build, answering its own request. Changing the pin waits out a timelock.</p></li>
+      <li><b>Your browser re-checks it</b><p>This page compares the worker hash, the pin, OutLayer's attestation and the transaction. The Python script also verifies the TDX quote against Intel.</p></li>
+    </ol>
+    <div class="proves">
+      <div><h3>What verified tells you</h3><ul>
+        <li>The numbers came from the build this repository publishes, and the contract had pinned that build for the date.</li>
+        <li>OutLayer attests that the build ran on that exact input and produced exactly these bytes.</li>
+        <li>The run was requested through nearbooks.near, not supplied by someone else.</li>
+      </ul></div>
+      <div><h3>What it doesn't tell you</h3><ul>
+        <li>That Intel TDX and OutLayer are honest. This page trusts their attestation; the TDX quote itself is checked only by the script.</li>
+        <li>That the RPC answers were true mainnet state. The worker reads over JSON-RPC without state proofs; the evidence hash commits to the raw responses.</li>
+        <li>That the predictions are right. They are claims waiting for a date.</li>
+      </ul></div>
+    </div>
+    <h3>Re-run it on your machine</h3>
+    <p class="intro">Rebuild every historical finding offline, then check today's attestation, including the TDX quote.</p>
+    <div class="cmd"><pre id="cmd1">git clone https://github.com/IhorMuliar/nearbooks
+cd nearbooks && make verify</pre><button type="button" data-copy="cmd1">Copy</button></div>
+    <div class="cmd"><pre id="cmd2">python3 -I contract/scripts/verify_attestation.py nearbooks.near</pre><button type="button" data-copy="cmd2">Copy</button></div>
+    <h3>Contract and pin</h3>
     <dl class="kv" id="cfg"></dl>
   </section>
 
-  <section id="pipeline">
-    <div class="shead"><h2>Pipeline results</h2><span class="tag hist" id="hist-tag">pipeline · historical</span></div>
-    <p class="note" id="hist-note">Computed by <span class="mono">pipeline/compute.py</span> from the committed raw data. <span class="mono">make verify</span> re-checks every finding offline. These numbers are not attested and do not change until the snapshot is re-pulled.</p>
-    <div class="cards" id="cards"></div>
-    <h3>Reconciliation: rebuilt from the chain vs DefiLlama</h3>
-    <div class="tw"><table id="recon"><thead><tr><th>Item</th><th class="num">On-chain rebuild</th><th class="num">DefiLlama</th><th class="num">Delta</th></tr></thead><tbody></tbody></table></div>
-    <h3>Cumulative captured revenue (USD)</h3>
-    <div class="panel"><div class="legend"><span><i class="sw" style="background:var(--a)"></i>on-chain inflows to the three revenue wallets</span><span><i class="sw" style="background:var(--b)"></i>DefiLlama dailyRevenue</span></div><div id="chart"></div></div>
-    <div class="tw"><table id="monthly"><thead><tr><th>Month</th><th class="num">On-chain</th><th class="num">DefiLlama</th><th class="num">Delta</th></tr></thead><tbody></tbody></table></div>
-    <h3>Deflation calculator</h3>
-    <p class="note">Net-deflationary means NEAR bought back per day exceeds net NEAR issued per day. Defaults are the measured pipeline values; the sliders test scenarios.</p>
-    <div class="panel calc">
+  <section id="history" aria-labelledby="hist-h">
+    <div class="shead"><h2 class="sec" id="hist-h">History, rebuilt from the chain</h2><span class="tag" id="hist-tag">pipeline</span></div>
+    <div class="notatt" id="hist-note">These numbers are not attested. <span class="mono">pipeline/compute.py</span> computes them from raw data committed to the repository, and <span class="mono">make verify</span> re-checks every finding offline. They change only when the data is re-pulled.</div>
+    <dl class="figs" id="cards"></dl>
+    <h3>Captured revenue, on-chain vs DefiLlama</h3>
+    <p class="intro">Cumulative USD inflows to the three Intents revenue wallets, rebuilt from raw transfers, drawn over DefiLlama's dailyRevenue. The two lines all but coincide. Hover or tap the chart to read a day.</p>
+    <div class="key"><span><i></i>On-chain rebuild</span><span><i class="dl"></i>DefiLlama</span></div>
+    <div class="chart" id="chart"></div>
+    <div class="readout" id="readout" aria-live="polite"></div>
+    <p class="source">Source: FastNear transfers API and archival RPC, DefiLlama. <a id="csv" download="nearbooks-daily-revenue.csv" href="#">Download the daily series (CSV)</a></p>
+    <div class="tw"><table id="recon" class="stack"><thead><tr><th>Item</th><th class="num">On-chain rebuild</th><th class="num">DefiLlama</th><th class="num">Difference</th></tr></thead><tbody></tbody></table></div>
+    <details class="more"><summary>Month by month</summary>
+      <div class="tw"><table id="monthly" class="stack"><thead><tr><th>Month</th><th class="num">On-chain</th><th class="num">DefiLlama</th><th class="num">Difference</th></tr></thead><tbody></tbody></table></div>
+    </details>
+    <h3>What would make supply shrink?</h3>
+    <p class="intro">Supply shrinks only if the NEAR bought back each day is burned and exceeds the NEAR issued each day. The defaults are today's measured values; move the sliders to test a scenario.</p>
+    <div class="calc">
       <div>
-        <div id="presets"></div>
-        <label><span>NEAR price</span><b id="vPrice"></b></label><input type="range" id="sPrice" min="1" max="20" step="0.05" aria-label="NEAR price">
-        <label><span>Intents volume per day</span><b id="vVol"></b></label><input type="range" id="sVol" min="20" max="2000" step="5" aria-label="Intents volume per day">
-        <label><span>Take (captured revenue / volume)</span><b id="vTake"></b></label><input type="range" id="sTake" min="1" max="20" step="0.05" aria-label="Take rate">
-        <label><span>Max issuance rate (protocol cap)</span><b id="vIss"></b></label><input type="range" id="sIss" min="0.5" max="3" step="0.05" aria-label="Issuance cap">
-        <label style="margin-top:14px"><span>What happens to the bought-back NEAR</span></label>
-        <div class="seg" id="mode"><button data-m="burn" aria-pressed="false">Burn</button><button data-m="hold" aria-pressed="true">Hold in multisig</button></div>
+        <div class="presets" id="presets"></div>
+        <label for="sPrice"><span>NEAR price</span><b id="vPrice"></b></label><input type="range" id="sPrice" min="1" max="20" step="0.05">
+        <label for="sVol"><span>Intents volume per day</span><b id="vVol"></b></label><input type="range" id="sVol" min="20" max="2000" step="5">
+        <label for="sTake"><span>Take: captured revenue over volume</span><b id="vTake"></b></label><input type="range" id="sTake" min="1" max="20" step="0.05">
+        <label for="sIss"><span>Maximum issuance rate (protocol cap)</span><b id="vIss"></b></label><input type="range" id="sIss" min="0.5" max="3" step="0.05">
+        <label><span>What happens to the NEAR that is bought back</span></label>
+        <div class="seg" id="mode"><button type="button" data-m="burn" aria-pressed="false">Burn it</button><button type="button" data-m="hold" aria-pressed="true">Hold it in the multisig</button></div>
       </div>
-      <div class="out" id="out"></div>
+      <div class="out" id="out" aria-live="polite"></div>
     </div>
   </section>
-
-  <footer id="foot"></footer>
 </main>
+<footer><div class="wrap" id="foot"></div></footer>
 <script>
 "use strict";
 const Q = new URLSearchParams(location.search);
@@ -143,18 +366,22 @@ const $ = (id) => document.getElementById(id);
 const fmt = (x, d = 0) => Number(x).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
 const usd = (x) => "$" + (Math.abs(x) >= 1e9 ? fmt(x / 1e9, 2) + "B" : Math.abs(x) >= 1e6 ? fmt(x / 1e6, 2) + "M" : fmt(x));
 const pct = (x) => (x >= 0 ? "+" : "") + fmt(x, 2) + "%";
-const cmpSym = { gt: ">", gte: ">=", lt: "<", lte: "<=" };
+const cmpSym = { gt: ">", gte: "≥", lt: "<", lte: "≤" };
+const cmpFn = { gt: (a, b) => a > b, gte: (a, b) => a >= b, lt: (a, b) => a < b, lte: (a, b) => a <= b };
 const micro = (s) => Number(BigInt(s)) / 1e6;  // contract values are integers x 1e6 (strings)
 const short = (h, n = 8) => h.length > 2 * n ? h.slice(0, n) + "…" + h.slice(-4) : h;
+const longDate = (d) => new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
 function el(tag, text, cls) { const e = document.createElement(tag); if (text !== undefined && text !== null) e.textContent = text; if (cls) e.className = cls; return e; }
 function link(href, text) { const a = el("a", text); a.href = href; a.rel = "noopener"; a.target = "_blank"; return a; }
-function td(content, cls) { const c = el("td", undefined, cls); (Array.isArray(content) ? content : [content]).forEach((x) => c.append(x instanceof Node ? x : document.createTextNode(x ?? ""))); return c; }
-function row(tb, cells) { const tr = el("tr"); cells.forEach(([t, c]) => tr.appendChild(td(t, c))); tb.appendChild(tr); }
-// "1,234 NEAR/day" renders as a number that never breaks plus a smaller unit
-function card(box, k, v, n, cls) {
-  const x = el("div", undefined, "card " + (cls || "")), val = el("div", undefined, "v"), m = String(v).match(/^(\S+)\s(.+)$/);
-  if (m) val.append(el("b", m[1]), el("small", m[2])); else val.append(el("b", v));
-  x.append(el("div", k, "k"), val, el("div", n, "n")); box.appendChild(x);
+function td(content, cls, label) { const c = el("td", undefined, cls); if (label) c.dataset.label = label; (Array.isArray(content) ? content : [content]).forEach((x) => c.append(x instanceof Node ? x : document.createTextNode(x ?? ""))); return c; }
+function row(tb, cells, labels) { const tr = el("tr"); cells.forEach(([t, c], i) => tr.appendChild(td(t, c, labels && labels[i]))); tb.appendChild(tr); }
+// One ledger column: label, a figure that never breaks plus a smaller unit, and where it comes from
+function fig(box, k, v, n) {
+  const d = el("div"), dd = el("dd"), val = el("span", undefined, "v"), m = String(v).match(/^(\S+)\s(.+)$/);
+  if (m) val.append(m[1], el("small", m[2])); else val.append(v);
+  dd.append(val); if (n) dd.append(el("span", n, "n"));
+  d.append(el("dt", k), dd); box.appendChild(d);
 }
 const timeout = (ms) => (typeof AbortSignal !== "undefined" && AbortSignal.timeout ? AbortSignal.timeout(ms) : undefined);
 
@@ -179,12 +406,19 @@ async function listAll(method) {
   let out = [], i = 0, last;
   for (;;) { last = await view(method, { from_index: i, limit: 100 }); out = out.concat(last.value); if (last.value.length < 100) return [out, last]; i += 100; }
 }
+// Whether the contract account can still be upgraded: any full-access key means its code can change.
+async function fullAccessKeys() {
+  try {
+    const { result } = await rpc("query", { request_type: "view_access_key_list", finality: "final", account_id: CONTRACT }, (r) => Array.isArray(r.keys));
+    return result.keys.filter((k) => k.access_key && k.access_key.permission === "FullAccess").length;
+  } catch (e) { return null; }
+}
 async function liveState() {
   const [attested, meta] = await listAll("list_attested_snapshots");
   const [predictions] = await listAll("list_predictions");
   const [cfg, delay, pins, proposal, earliest] = await Promise.all(["get_config", "get_pin_delay_secs", "list_pins", "get_pin_proposal", "get_earliest_date"].map((m) => view(m)));
   return { contract: CONTRACT, rpc: meta.rpc, block_height: meta.height, fetched_at: new Date().toISOString(), owner_id: cfg.value[0], reporter_id: cfg.value[1],
-           pin_delay_secs: delay.value, pins: pins.value, pin_proposal: proposal.value, earliest_date: earliest.value, attested, predictions };
+           pin_delay_secs: delay.value, pins: pins.value, pin_proposal: proposal.value, earliest_date: earliest.value, attested, predictions, full_access_keys: await fullAccessKeys() };
 }
 async function getJSON(path) { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) throw new Error(path + ": HTTP " + r.status); return r.json(); }
 
@@ -217,67 +451,149 @@ async function checkAttestation(s) {
   c.verified = Object.entries(c).every(([k, v]) => k === "transaction_hash" || v === true);
   return c;
 }
+// The seven checks as a reader sees them. "Attestation link" also requires the attested request id to match.
+const CHECKS = [
+  ["known_worker", "Published build", "The worker's sha256 is one this repository vouches for.", (c) => c.known_worker],
+  ["pin_for_date_matches", "Pinned for the date", "The contract had pinned this exact build for the entry's date.", (c) => c.pin_for_date_matches],
+  ["tx_targets_contract", "Requested by the contract", "The attested run was a snapshot request sent to nearbooks.near.", (c) => c.tx_targets_contract],
+  ["attestation_url_matches", "Attestation link", "The stored link and request id match the run OutLayer attests.", (c) => c.request_id_matches === undefined ? c.attestation_url_matches : c.attestation_url_matches && c.request_id_matches],
+  ["wasm_hash_matches", "Code that ran", "OutLayer's attestation names the same wasm hash.", (c) => c.wasm_hash_matches],
+  ["input_hash_matches", "Input", "The date, blocks and nonce hash to the attested input.", (c) => c.input_hash_matches],
+  ["output_hash_matches", "Output", "The stored numbers hash to the attested output.", (c) => c.output_hash_matches],
+];
+const TICK = '<svg viewBox="0 0 12 12"><path d="M2.2 6.4l2.4 2.3 5.2-5.4"/></svg>', CROSS = '<svg viewBox="0 0 12 12"><path d="M3 3l6 6M9 3l-6 6"/></svg>';
+// c: undefined while checking, {error} if OutLayer could not be reached, else the check results
+function verdictOf(c) {
+  if (c === undefined) return "pending";
+  if (!c || c.error) return "unreachable";
+  if (c.verified === true) return "verified";
+  return CHECKS.some(([, , , f]) => f(c) === false) ? "mismatch" : "unverified";
+}
+function checkList(c) {
+  const ul = el("ul", undefined, "checks");
+  CHECKS.forEach(([key, name, why, f], i) => {
+    const ok = c === undefined ? "pending" : !c || c.error ? "na" : f(c) === true ? "true" : f(c) === false ? "false" : "na";
+    const li = el("li"); li.dataset.check = key; li.dataset.ok = ok; li.style.setProperty("--i", i);
+    const t = el("span", undefined, "tick"); t.innerHTML = ok === "true" ? TICK : ok === "false" ? CROSS : "";  // fixed markup only
+    const txt = el("span"); txt.append(el("b", name), el("span", why, "why"));
+    li.append(t, txt); ul.appendChild(li);
+  });
+  return ul;
+}
+const VERDICT = { pending: ["Checking", "tag"], verified: ["Verified", "tag ok"], mismatch: ["Mismatch", "tag bad"], unverified: ["Not verified", "tag warn"], unreachable: ["Attestation unreachable", "tag warn"] };
+const passed = (c) => (c && !c.error ? CHECKS.filter(([, , , f]) => f(c) === true).length : 0);
 
-// ------------------------------------------------------------ rendering: attested
+// ------------------------------------------------------------ rendering: hero, figures, ledger
 const LABELS = {
   supply_total_near: ["Total NEAR supply", (v) => fmt(v) + " NEAR"],
   buyback_wallet_near: ["Buyback wallet", (v) => fmt(v) + " NEAR"],
-  net_issuance_near_per_day: ["Net issuance, 28 days", (v) => fmt(v) + " NEAR/day"],
-  revenue_wallets_gain_near_28d: ["Revenue wallets kept, 28 days", (v) => fmt(v) + " NEAR"],
-  revenue_wallets_gain_over_net_issuance: ["Kept / new supply, 28 days", (v) => fmt(v * 100, 1) + "%"],
+  net_issuance_near_per_day: ["New supply per day", (v) => fmt(v) + " NEAR/day"],
+  revenue_wallets_gain_near_28d: ["Revenue wallets, 28 days", (v) => "+" + fmt(v) + " NEAR"],
+  revenue_wallets_gain_over_net_issuance: ["Revenue over new supply", (v) => fmt(v * 100, 1) + "%"],
 };
 function metricText(key, v) { if (v === null || v === undefined) return "-"; if (LABELS[key]) return LABELS[key][1](v); if (key.endsWith("_near")) return fmt(v) + " NEAR"; return fmt(v, Math.abs(v) < 10 ? 3 : 0); }
+const metricsOf = (s) => Object.fromEntries(s.metrics.map((m) => [m.key, micro(m.value)]));
+function renderHero(last) {
+  const M = metricsOf(last), net = M.net_issuance_near_per_day, r = M.revenue_wallets_gain_over_net_issuance;
+  const growth = M.supply_total_near - M.supply_total_near_28d_ago, kept = M.revenue_wallets_gain_near_28d;
+  if (net > 0 && r >= 0) {
+    $("headline").textContent = `NEAR's supply grows by ${fmt(net)}\u00a0NEAR a\u00a0day. Intents revenue covers ${fmt(r * 100, 0)}% of\u00a0it.`;
+    $("lede").textContent = `In the 28 days to ${longDate(last.date)}, total supply grew by ${fmt(growth)} NEAR while the three NEAR Intents revenue wallets took in ${fmt(kept)} NEAR.` +
+      (r < 1 ? " Burning every coin of that revenue would still leave supply growing." : " Burning that revenue would more than offset new supply.");
+    $("share").hidden = false;
+    $("share-kept").textContent = fmt(kept); $("share-new").textContent = fmt(growth);
+    $("share-bar").setAttribute("aria-label", `Revenue wallets kept ${fmt(kept)} NEAR, ${fmt(r * 100, 1)}% of the ${fmt(growth)} NEAR of new supply`);
+    requestAnimationFrame(() => requestAnimationFrame(() => { $("share-fill").style.width = Math.min(100, r * 100) + "%"; }));
+  } else {
+    $("headline").textContent = `NEAR's supply changed by ${fmt(net)} NEAR a day over the 28 days to ${longDate(last.date)}.`;
+    $("lede").textContent = `The three NEAR Intents revenue wallets took in ${fmt(kept)} NEAR over the same 28 days.`;
+  }
+}
+function renderEntry(s, c, live) {
+  const a = s.source.attested;
+  $("entry-title").textContent = `Entry for ${longDate(s.date)}`;
+  $("entry-sub").textContent = `First mainnet block of the day, ${fmt(a.block_height)}`;
+  const v = verdictOf(c), ul = checkList(c); ul.id = "entry-checks"; $("entry-checks").replaceWith(ul);
+  const box = $("entry"), vd = $("entry-verdict"); vd.replaceChildren();
+  vd.className = "verdict " + (v === "verified" ? "ok" : v === "mismatch" ? "bad" : v === "pending" ? "" : "warn");
+  const head = { pending: live ? "Checking in your browser" : "Saved result", verified: live ? "Verified in your browser" : "Verified when saved", mismatch: "A check failed", unverified: "Not verified", unreachable: "OutLayer could not be reached" }[v];
+  vd.append(el("strong", head), el("span", v === "pending" ? "" : `${passed(c)} of ${CHECKS.length} checks passed`, "mut"));
+  if (v !== "pending" && !reduceMotion) { box.classList.remove("run"); void box.offsetWidth; box.classList.add("run"); }
+  const stamp = $("stamp");
+  if (v === "verified" && live) { $("stamp-ring").textContent = `NEARBOOKS.NEAR ✦ ${s.date} ✦`; $("stamp-n").textContent = `${passed(c)} OF ${CHECKS.length}`; stamp.style.setProperty("--d", reduceMotion ? "0ms" : CHECKS.length * 110 + 220 + "ms"); stamp.classList.add("on"); }
+  else stamp.classList.remove("on");
+  const ev = $("entry-links"); ev.replaceChildren();
+  try { ev.append(link(attestationUrl(s), "Attestation report")); } catch (e) { /* no valid request id */ }
+  if (c && c.transaction_hash && /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(c.transaction_hash)) ev.append(link(`${EXPLORER}/txns/${c.transaction_hash}`, "Transaction"));
+  ev.append(link(`${EXPLORER}/blocks/${a.block_height}`, "Block read"));
+  $("cmd2").textContent = `python3 -I contract/scripts/verify_attestation.py nearbooks.near ${s.date}`;
+}
 function renderAttested(st, pipeline, live) {
   const snaps = [...st.attested].sort((a, b) => (a.date < b.date ? -1 : 1));
   const tb = $("att-table").tBodies[0]; tb.replaceChildren();
-  if (!snaps.length) { $("att-cards").append(el("p", "No attested snapshot yet.", "note")); return; }
-  const last = snaps[snaps.length - 1], M = Object.fromEntries(last.metrics.map((m) => [m.key, micro(m.value)])), box = $("att-cards");
-  box.replaceChildren();
+  const box = $("att-cards"); box.replaceChildren();
+  if (!snaps.length) { box.append(el("p", "No attested entry yet. The keeper requests one at 00:20 UTC each day.", "intro")); return; }
+  const last = snaps[snaps.length - 1], M = metricsOf(last);
+  renderHero(last);
   const est = pipeline && pipeline.worker_metrics_estimate;
-  [["supply_total_near", `first block of ${last.date}`], ["buyback_wallet_near", "buybacks.multisignature.near"],
-   ["net_issuance_near_per_day", `supply growth since the first block of the day 28 days earlier`],
+  [["supply_total_near", `at the first block of ${last.date}`],
+   ["net_issuance_near_per_day", "average growth over 28 days"],
    ["revenue_wallets_gain_near_28d", "balance change of the three revenue wallets"],
-   ["revenue_wallets_gain_over_net_issuance", est ? `pipeline estimate from transfers: ${fmt(est.revenue_wallets_gain_over_net_issuance * 100, 1)}%` : ""]]
-    .forEach(([k, n]) => card(box, LABELS[k][0], metricText(k, M[k]), n, "att"));
-  card(box, "Intents reserves", `${fmt(M.intents_reserves_tokens_checked - M.intents_reserves_tokens_in_deficit)} / ${fmt(M.intents_reserves_tokens_checked)} backed`, "top tokens: intents.near mt_supply vs ft_balance_of", "att");
-  for (const s of snaps.reverse()) {
-    const a = s.source.attested, tr = el("tr");
-    tr.append(td(s.date), td(link(`${EXPLORER}/blocks/${a.block_height}`, fmt(a.block_height)), "num"), td(el("span", short(a.wasm_hash), "mono")));
-    const checks = td(el("span", live ? "checking…" : "", "mut"), "checks"), ev = td([], "links");
+   ["revenue_wallets_gain_over_net_issuance", est ? `the pipeline estimates ${fmt(est.revenue_wallets_gain_over_net_issuance * 100, 1)}% from transfers` : "revenue kept over supply growth"],
+   ["buyback_wallet_near", "buybacks.multisignature.near"]]
+    .forEach(([k, n]) => fig(box, LABELS[k][0], metricText(k, M[k]), n));
+  fig(box, "Intents reserves", `${fmt(M.intents_reserves_tokens_checked - M.intents_reserves_tokens_in_deficit)} of ${fmt(M.intents_reserves_tokens_checked)} backed`, "top tokens: intents.near supply vs balance");
+  for (const s of [...snaps].reverse()) {
+    const a = s.source.attested, tr = el("tr"), isLast = s === last;
+    tr.append(td(s.date, "", "Date"), td(link(`${EXPLORER}/blocks/${a.block_height}`, fmt(a.block_height)), "num", "First block"), td(el("span", short(a.wasm_hash), "mono"), "", "Worker build"));
+    const checks = td([], "checks", "Checked in this browser"), ev = td([], "full", "Evidence");
+    ev.classList.add("evidence-cell");
     let attUrl = null; try { attUrl = attestationUrl(s); } catch (e) { /* shown as unreachable */ }
-    if (attUrl) ev.append(link(attUrl, "attestation"));
-    ev.append(link(`${EXPLORER}/blocks/${s.block_height}`, "stored block"));
+    const evl = el("div", undefined, "evidence"); ev.append(evl);
+    if (attUrl) evl.append(link(attUrl, "Attestation"));
+    evl.append(link(`${EXPLORER}/blocks/${s.block_height}`, "Stored in block"));
     tr.append(checks, ev); tb.appendChild(tr);
     const show = (c) => {
-      checks.replaceChildren();
-      if (!c || c.error) { checks.append(el("span", "attestation unreachable", "tag warn")); return; }
-      // known worker = in this repo's list; pin = the contract's pin for that date; tx = the run was requested from this contract
-      const verified = c.verified === true && KNOWN_WORKERS.includes(a.wasm_hash);
-      const failed = Object.entries(c).some(([k, v]) => k !== "transaction_hash" && k !== "verified" && v === false);
-      checks.append(el("span", verified ? "verified" : failed ? "MISMATCH" : "unverified", "tag " + (verified ? "ok" : failed ? "bad" : "warn")));
-      [["known worker", c.known_worker], ["pin", c.pin_for_date_matches], ["tx", c.tx_targets_contract], ["link", c.attestation_url_matches],
-       ["wasm", c.wasm_hash_matches], ["input", c.input_hash_matches], ["output", c.output_hash_matches]].forEach(([k, ok]) =>
-        checks.append(el("span", `${k} ${ok === null || ok === undefined ? "n/a" : ok ? "ok" : "MISMATCH"}`, "tag " + (ok === null || ok === undefined ? "mut" : ok ? "ok" : "bad"))));
-      if (c.transaction_hash && /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(c.transaction_hash)) ev.prepend(link(`${EXPLORER}/txns/${c.transaction_hash}`, "tx"));
+      const v = verdictOf(c); checks.replaceChildren(); tr.dataset.verdict = v;
+      checks.append(el("span", VERDICT[v][0], VERDICT[v][1]), el("span", v === "pending" ? "" : `${passed(c)} of ${CHECKS.length}`, "mut"));
+      const d = el("details", undefined, "more"); d.append(el("summary", "Show the checks"), checkList(c)); checks.append(d);
+      if (c && c.transaction_hash && /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(c.transaction_hash) && !evl.querySelector("[data-tx]")) { const t = link(`${EXPLORER}/txns/${c.transaction_hash}`, "Transaction"); t.dataset.tx = "1"; evl.prepend(t); }
+      if (isLast) renderEntry(s, c, live);
     };
+    show(undefined);
     if (live) checkAttestation(s).catch(() => new Promise((r) => setTimeout(r, 1500)).then(() => checkAttestation(s)))
       .then(show).catch((e) => { console.warn("attestation check failed", e); show({ error: true }); });
-    else show(s.attestation_checks);
+    else show(s.attestation_checks || { error: true });
   }
 }
 
 // ------------------------------------------------------------ rendering: predictions, config
 function unitOf(metric, v) { return metric.endsWith("_near") || metric.endsWith("_per_day") || metric.endsWith("_28d") ? fmt(v) : fmt(v, 3); }
+const PRED_TAG = { pending: "tag", confirmed: "tag ok", refuted: "tag bad", void: "tag warn" };
 function renderPredictions(st) {
-  const tb = $("preds").tBodies[0]; tb.replaceChildren();
-  const pill = { pending: "mut", confirmed: "ok", refuted: "bad", void: "warn" };
+  const box = $("preds"); box.replaceChildren();
+  const snaps = [...st.attested].sort((a, b) => (a.date < b.date ? -1 : 1)), last = snaps[snaps.length - 1], M = last ? metricsOf(last) : {};
   for (const p of st.predictions) {
     const r = p.resolution, th = micro(p.threshold), obs = r && r.observed !== null && r.observed !== undefined ? micro(r.observed) : null;
-    const tr = el("tr");
-    tr.append(td(String(p.id)), td(p.claim, "claim"), td(el("span", `${p.metric} ${cmpSym[p.comparator]} ${unitOf(p.metric, th)}`, "mono")),
-              td(r ? `attested ${r.snapshot_date}` : `attested ${p.resolve_after}`), td(el("span", p.status, "tag " + (pill[p.status] || "mut"))),
-              td(obs === null ? (p.status === "void" ? "metric absent" : "-") : unitOf(p.metric, obs), "num"));
-    tb.appendChild(tr);
+    const art = el("article", undefined, "pred"); art.dataset.pred = String(p.id); art.dataset.status = p.status;
+    const id = el("div", "P" + (p.id + 1), "id"); id.append(el("small", `contract id ${p.id}`));
+    const mid = el("div"); mid.append(el("p", p.claim, "claim"));
+    const rule = el("p", undefined, "rule"); rule.append("Rule: ", el("code", `${p.metric} ${cmpSym[p.comparator] || p.comparator} ${unitOf(p.metric, th)}`), ` in the attested entry for ${p.resolve_after}`); mid.append(rule);
+    const side = el("div", undefined, "side"); side.append(el("span", p.status === "pending" ? "Pending" : p.status[0].toUpperCase() + p.status.slice(1), PRED_TAG[p.status] || "tag"));
+    if (p.status === "pending") {
+      const days = Math.ceil((Date.parse(p.resolve_after + "T00:00:00Z") - Date.now()) / 864e5);
+      side.append(el("p", days > 0 ? `Decided in ${fmt(days)} day${days === 1 ? "" : "s"}` : "Can be decided now", "when"), el("span", `on ${longDate(p.resolve_after)}`, "mut"));
+      const now = M[p.metric];
+      if (now !== undefined && cmpFn[p.comparator] && last) {
+        const holds = cmpFn[p.comparator](now, th), gap = now - th;
+        const margin = p.metric.endsWith("_near") ? ` (${fmt(Math.abs(gap))} ${gap >= 0 ? "above" : "below"} the line)` : "";
+        side.append(el("p", `Entry for ${last.date}: ${unitOf(p.metric, now)}${margin}. If decided today it would be ${holds ? "confirmed" : "refuted"}.`, "today"));
+      }
+    } else {
+      side.append(el("p", `Decided by the entry for ${r ? r.snapshot_date : p.resolve_after}`, "when"));
+      side.append(el("p", obs === null ? (p.status === "void" ? "The entry did not have this metric." : "") : `Observed: ${unitOf(p.metric, obs)}`, "today"));
+    }
+    art.append(id, mid, side); box.appendChild(art);
   }
 }
 function nsDate(ns) { return ns === "0" ? "the start (covers every earlier date)" : new Date(Number(BigInt(ns) / 1000000n)).toISOString().replace(".000", ""); }
@@ -287,44 +603,68 @@ function renderConfig(st) {
   const cur = st.pins[st.pins.length - 1];
   add("Contract", link(`${EXPLORER}/address/${st.contract}`, st.contract));
   add("Owner", st.owner_id + (st.owner_id === st.contract ? " (the contract account itself)" : ""));
-  const wasm = /^https:\/\/main\.fastfs\.io\//.test(cur.config.wasm_url) ? link(cur.config.wasm_url, "wasm") : el("span", "wasm url: " + cur.config.wasm_url);
-  add("Pinned worker now", [el("span", cur.config.wasm_hash, "mono"), " · ", wasm, ` · ${cur.config.outlayer_id} · time limit ${cur.config.max_execution_seconds} s`]);
-  add("Pin history", st.pins.map((p, i) => `${i ? " · " : ""}#${i} ${short(p.config.wasm_hash)} (${p.config.max_execution_seconds} s) governs dates from ${nsDate(p.from_ns)}`).join(""));
-  add("Re-pin timelock", `${fmt(st.pin_delay_secs)} s (${fmt(st.pin_delay_secs / 3600, 1)} h), fixed at init`);
+  const k = st.full_access_keys;
+  add("Can the code change?", k === undefined || k === null ? "Not checked: the account's keys could not be read" : k > 0
+    ? `Yes. The account still has ${k} full-access key${k === 1 ? "" : "s"}, so the code can be redeployed. Deleting ${k === 1 ? "it" : "them"} freezes the code.`
+    : "No. The account has no full-access key, so the code is frozen.");
+  const wasm = /^https:\/\/main\.fastfs\.io\//.test(cur.config.wasm_url) ? link(cur.config.wasm_url, "download the wasm") : el("span", "wasm url: " + cur.config.wasm_url);
+  add("Pinned worker now", [el("span", cur.config.wasm_hash, "mono"), el("br"), wasm, `, runs on ${cur.config.outlayer_id} with a ${cur.config.max_execution_seconds} s time limit`]);
+  add("Pin history", st.pins.map((p, i) => `#${i} ${short(p.config.wasm_hash)} (${p.config.max_execution_seconds} s) governs dates from ${nsDate(p.from_ns)}`).join("; "));
+  add("Re-pin timelock", `${fmt(st.pin_delay_secs / 3600, 1)} hours, fixed at deploy. A re-pin only governs dates that start after it is applied.`);
   const pr = st.pin_proposal;
-  add("Waiting proposal", pr ? [el("span", short(pr.config.wasm_hash), "mono"), ` (${pr.config.outlayer_id}, ${pr.config.max_execution_seconds} s) can be applied from ${nsDate(pr.apply_after_ns)}; it would govern dates that start after it is applied`] : "none");
-  add("Backfill bound", `attested snapshots can be requested from ${st.earliest_date} (only moves earlier; a pending prediction's date is always requestable)`);
+  add("Waiting re-pin", pr ? [el("span", short(pr.config.wasm_hash), "mono"), ` (${pr.config.outlayer_id}, ${pr.config.max_execution_seconds} s) can be applied from ${nsDate(pr.apply_after_ns)}`] : "None");
+  add("Earliest date", `Entries can be requested from ${st.earliest_date}. This bound only moves earlier, and a pending prediction's date is always requestable.`);
 }
 
 // ------------------------------------------------------------ rendering: pipeline (historical)
 function cards(m) {
   const d = m.deflation, box = $("cards");
-  [["Captured revenue, 2026 YTD", usd(m.revenue.ytd_usd), `${m.window.start} to ${m.window.end}; DefiLlama ${usd(m.revenue.defillama_ytd_usd)}`],
-   ["Last 30 days", usd(m.revenue.last30d_usd), `${usd(m.revenue.last30d_usd / 30)}/day`],
-   ["Buyback wallet balance", fmt(m.buyback.balance_near_rpc) + " NEAR", `${m.buyback.outflow_count} outflows, ${fmt(m.buyback.outflow_near)} NEAR total`],
-   ["Supply growth since Jan 1", "+" + fmt(m.supply.growth_near / 1e6, 2) + "M NEAR", `${m.supply.increasing_intervals}/${m.supply.intervals} sampled intervals up`],
-   ["Net issuance (28d)", fmt(d.net_issuance_near_per_day) + " NEAR/day", `${usd(d.net_issuance_usd_per_day)}/day at $${fmt(d.price_usd, 2)}`],
-   ["Deflation break-even volume", usd(d.breakeven_volume_usd_per_day) + " per day", `${fmt(d.breakeven_over_current_volume, 1)}x today's ${usd(d.volume_usd_per_day_30d)}/day`]]
-    .forEach(([k, v, n]) => card(box, k, v, n, "hist"));
+  [["Captured revenue, 2026", usd(m.revenue.ytd_usd), `${m.window.start} to ${m.window.end}; DefiLlama has ${usd(m.revenue.defillama_ytd_usd)}`],
+   ["Last 30 days", usd(m.revenue.last30d_usd), `${usd(m.revenue.last30d_usd / 30)} a day`],
+   ["Buyback wallet", fmt(m.buyback.balance_near_rpc) + " NEAR", `${m.buyback.outflow_count} outflows totalling ${fmt(m.buyback.outflow_near)} NEAR`],
+   ["Supply growth since 1 January", "+" + fmt(m.supply.growth_near / 1e6, 2) + "M NEAR", `up in ${m.supply.increasing_intervals} of ${m.supply.intervals} sampled intervals`],
+   ["Net issuance, 28 days", fmt(d.net_issuance_near_per_day) + " NEAR/day", `${usd(d.net_issuance_usd_per_day)} a day at $${fmt(d.price_usd, 2)}`],
+   ["Break-even Intents volume", usd(d.breakeven_volume_usd_per_day) + " a day", `${fmt(d.breakeven_over_current_volume, 1)}× today's ${usd(d.volume_usd_per_day_30d)} a day`]]
+    .forEach(([k, v, n]) => fig(box, k, v, n));
 }
 function recon(m) {
-  const tb = $("recon").tBodies[0];
+  const tb = $("recon").tBodies[0], L = ["Item", "On-chain rebuild", "DefiLlama", "Difference"];
   m.reconciliation.rows.forEach((r) => {
     const isPct = r.unit.startsWith("%"), isR = r.unit.startsWith("r over");
     const f = (v) => v === null ? "n/a" : isR ? fmt(v, 4) : isPct ? fmt(v, 1) + "%" : usd(v);
-    row(tb, [[r.item + (isR || isPct ? ` (${r.unit})` : "")], [f(r.onchain), "num"], [f(r.defillama), "num"], [r.delta_pct === null ? "" : pct(r.delta_pct), "num " + (Math.abs(r.delta_pct || 0) < 1 ? "pos" : "neg")]]);
+    row(tb, [[r.item + (isR || isPct ? ` (${r.unit})` : ""), "full"], [f(r.onchain), "num"], [f(r.defillama), "num"], [r.delta_pct === null ? "" : pct(r.delta_pct), "num " + (Math.abs(r.delta_pct || 0) < 1 ? "delta-ok" : "delta-off")]], L);
   });
   const mb = $("monthly").tBodies[0];
-  m.reconciliation.monthly.forEach((r) => row(mb, [[r.month], [usd(r.onchain_usd), "num"], [usd(r.defillama_usd), "num"], [pct(r.delta_pct), "num"]]));
-  const D = m.revenue.daily, W = 960, H = 230, P = { l: 56, r: 10, t: 8, b: 22 };
+  m.reconciliation.monthly.forEach((r) => row(mb, [[r.month], [usd(r.onchain_usd), "num"], [usd(r.defillama_usd), "num"], [pct(r.delta_pct), "num"]], ["Month", "On-chain", "DefiLlama", "Difference"]));
+  chart(m.revenue.daily);
+}
+function chart(D) {
+  const W = 1000, H = 300, P = { l: 64, r: 8, t: 10, b: 28 };
   let a = 0, b = 0; const A = D.map((d) => (a += d.onchain_usd)), B = D.map((d) => (b += d.defillama_usd));
-  const mx = Math.max(a, b), X = (i) => P.l + (i / (D.length - 1)) * (W - P.l - P.r), Y = (v) => H - P.b - (v / mx) * (H - P.t - P.b);
+  const raw = Math.max(a, b) / 4, mag = 10 ** Math.floor(Math.log10(raw)), step = [1, 2, 2.5, 5, 10].map((k) => k * mag).find((k) => k >= raw), ticks = Math.ceil(Math.max(a, b) / step);
+  const mx = step * ticks, X = (i) => P.l + (i / (D.length - 1)) * (W - P.l - P.r), Y = (v) => H - P.b - (v / mx) * (H - P.t - P.b);
   const path = (S) => S.map((v, i) => (i ? "L" : "M") + X(i).toFixed(1) + " " + Y(v).toFixed(1)).join("");
   let g = "";
-  for (let k = 0; k <= 4; k++) { const v = (mx * k) / 4; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v)}" y2="${Y(v)}" stroke="var(--line)"/><text x="${P.l - 6}" y="${Y(v) + 4}" text-anchor="end">${usd(v)}</text>`; }
-  [0, Math.floor(D.length / 2), D.length - 1].forEach((i) => (g += `<text x="${X(i)}" y="${H - 6}" text-anchor="${i ? (i === D.length - 1 ? "end" : "middle") : "start"}">${D[i].date}</text>`));
+  for (let k = 0; k <= ticks; k++) { const v = step * k; g += `<line x1="${P.l}" x2="${W - P.r}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}" stroke="var(--rule)" stroke-width="${k ? 1 : 1.5}"/><text x="${P.l - 10}" y="${(Y(v) + 4).toFixed(1)}" text-anchor="end">${v ? "$" + fmt(v / 1e6, step < 1e6 ? 1 : 0) + "M" : "$0"}</text>`; }
+  const months = []; D.forEach((d, i) => { if (d.date.endsWith("-01")) months.push(i); });
+  months.forEach((i) => { const lab = new Date(D[i].date + "T00:00:00Z").toLocaleDateString("en-GB", { month: "short", timeZone: "UTC" }); g += `<text x="${X(i).toFixed(1)}" y="${H - 8}" text-anchor="middle">${lab}</text>`; });
   // Only numbers and dates from the local metrics.json reach this markup; contract data is rendered with textContent.
-  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Cumulative captured revenue, on-chain rebuild vs DefiLlama">${g}<path d="${path(B)}" fill="none" stroke="var(--b)" stroke-width="3" opacity=".55"/><path d="${path(A)}" fill="none" stroke="var(--a)" stroke-width="1.6"/></svg>`;
+  $("chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cumulative captured revenue in 2026: on-chain rebuild ${usd(a)}, DefiLlama ${usd(b)}">${g}` +
+    `<path d="${path(B)}" fill="none" stroke="var(--series2)" stroke-width="9" stroke-linejoin="round" stroke-linecap="round" opacity=".4"/><path d="${path(A)}" fill="none" stroke="var(--green)" stroke-width="2.5" stroke-linejoin="round"/>` +
+    `<line id="cx" y1="${P.t}" y2="${H - P.b}" stroke="var(--ink)" stroke-width="1" opacity="0"/><circle id="cd" r="4.5" fill="var(--green)" stroke="var(--sheet)" stroke-width="2" opacity="0"/>` +
+    `<rect id="hit" x="${P.l}" y="0" width="${W - P.l - P.r}" height="${H}" fill="transparent"/></svg>`;
+  const svg = $("chart").querySelector("svg"), cx = $("cx"), cd = $("cd"), out = $("readout");
+  const idle = () => { out.replaceChildren(el("span", `Through ${D[D.length - 1].date}: on-chain `), el("b", usd(a)), el("span", ", DefiLlama "), el("b", usd(b))); };
+  const at = (i) => {
+    cx.setAttribute("x1", X(i)); cx.setAttribute("x2", X(i)); cx.setAttribute("opacity", ".35"); cd.setAttribute("cx", X(i)); cd.setAttribute("cy", Y(A[i])); cd.setAttribute("opacity", "1");
+    out.replaceChildren(el("b", D[i].date), el("span", ": on-chain "), el("b", usd(A[i])), el("span", ", DefiLlama "), el("b", usd(B[i])), el("span", `, that day ${usd(D[i].onchain_usd)}`));
+  };
+  const move = (e) => { const r = svg.getBoundingClientRect(), x = ((e.clientX - r.left) / r.width) * W; at(Math.max(0, Math.min(D.length - 1, Math.round(((x - P.l) / (W - P.l - P.r)) * (D.length - 1))))); };
+  svg.addEventListener("pointermove", move); svg.addEventListener("pointerdown", move);
+  svg.addEventListener("pointerleave", () => { cx.setAttribute("opacity", "0"); cd.setAttribute("opacity", "0"); idle(); });
+  idle();
+  const csv = "date,onchain_usd,defillama_usd\n" + D.map((d) => `${d.date},${d.onchain_usd},${d.defillama_usd}`).join("\n") + "\n";
+  $("csv").href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
 }
 function calc(m) {
   const d = m.deflation, supply = m.supply.last_near, S = { price: d.price_usd, vol: d.volume_usd_per_day_30d / 1e6, take: d.take_rate_bps, iss: d.issuance_cap_pct, mode: "hold" };
@@ -333,34 +673,49 @@ function calc(m) {
     const issuance = (supply * S.iss) / 100 / 365 - feeBurn, buyback = (S.vol * 1e6 * S.take / 1e4) / S.price, be = (issuance * S.price) / (S.take / 1e4) / 1e6;
     const supplyDelta = S.mode === "burn" ? issuance - buyback : issuance, floatDelta = issuance - buyback;
     const o = $("out"); o.replaceChildren();
-    const defl = supplyDelta < 0; o.appendChild(el("div", defl ? "Total supply shrinks" : "Total supply still grows", "verdict " + (defl ? "pos" : "neg")));
-    [["Net issuance (after fee burn estimate)", fmt(issuance) + " NEAR/day"], ["Buyback at this volume and take", fmt(buyback) + " NEAR/day"],
-     ["Change in total supply", (supplyDelta >= 0 ? "+" : "") + fmt(supplyDelta) + " NEAR/day"], ["Change in freely held NEAR (supply minus multisig holdings)", (floatDelta >= 0 ? "+" : "") + fmt(floatDelta) + " NEAR/day"],
-     ["Break-even volume for these inputs", "$" + fmt(be) + "M/day"], ["Break-even vs today's volume", fmt(be / (d.volume_usd_per_day_30d / 1e6), 2) + "x"]].forEach(([k, val]) => { const r = el("div"); r.append(el("span", k), el("b", val)); o.appendChild(r); });
-    o.appendChild(el("p", S.mode === "burn" ? "Burn mode assumes the bought-back NEAR is destroyed. On-chain evidence says it is not (finding F2)." : "Hold mode matches today's behaviour: bought-back NEAR sits in buybacks.multisignature.near, so total supply is unaffected.", "note"));
+    const defl = supplyDelta < 0; o.appendChild(el("p", defl ? "Total supply shrinks" : "Total supply still grows", "big " + (defl ? "pos" : "neg")));
+    const dl = el("dl");
+    [["New NEAR per day, after the fee burn estimate", fmt(issuance) + " NEAR"], ["Bought back per day at this volume and take", fmt(buyback) + " NEAR"],
+     ["Change in total supply per day", (supplyDelta >= 0 ? "+" : "") + fmt(supplyDelta) + " NEAR"], ["Change in NEAR held outside the multisig per day", (floatDelta >= 0 ? "+" : "") + fmt(floatDelta) + " NEAR"],
+     ["Break-even volume for these inputs", "$" + fmt(be) + "M a day"], ["Break-even over today's volume", fmt(be / (d.volume_usd_per_day_30d / 1e6), 2) + "×"]].forEach(([k, val]) => { const r = el("div"); r.append(el("dt", k), el("dd", val)); dl.appendChild(r); });
+    o.appendChild(dl);
+    o.appendChild(el("p", S.mode === "burn" ? "Burn assumes the bought-back NEAR is destroyed. On-chain evidence says it is not (finding F2)." : "Hold matches what happens today: bought-back NEAR sits in buybacks.multisignature.near, so total supply is unaffected."));
   }
   Object.entries(T).forEach(([k, [sid, vid, f]]) => { const s = $(sid); s.value = S[k]; s.oninput = () => { S[k] = parseFloat(s.value); $(vid).textContent = f(S[k]); render(); }; $(vid).textContent = f(S[k]); });
   const sync = () => Object.entries(T).forEach(([k, [sid, vid, f]]) => { $(sid).value = S[k]; $(vid).textContent = f(S[k]); });
-  [["Today (measured)", () => Object.assign(S, { price: d.price_usd, vol: d.volume_usd_per_day_30d / 1e6, take: d.take_rate_bps, iss: d.issuance_cap_pct })],
-   ["HSP-029 target (1.6%)", () => Object.assign(S, { iss: d.target_issuance_pct })],
-   ["Break-even volume", () => Object.assign(S, { vol: Math.min(2000, d.breakeven_volume_usd_per_day / 1e6) })]].forEach(([t, fn]) => { const b = el("button", t, "pre"); b.onclick = () => { fn(); sync(); render(); }; $("presets").appendChild(b); });
+  [["Today, as measured", () => Object.assign(S, { price: d.price_usd, vol: d.volume_usd_per_day_30d / 1e6, take: d.take_rate_bps, iss: d.issuance_cap_pct })],
+   ["HSP-029 target, 1.6%", () => Object.assign(S, { iss: d.target_issuance_pct })],
+   ["Break-even volume", () => Object.assign(S, { vol: Math.min(2000, d.breakeven_volume_usd_per_day / 1e6) })]].forEach(([t, fn]) => { const b = el("button", t, "pre"); b.type = "button"; b.onclick = () => { fn(); sync(); render(); }; $("presets").appendChild(b); });
   document.querySelectorAll("#mode button").forEach((b) => (b.onclick = () => { S.mode = b.dataset.m; document.querySelectorAll("#mode button").forEach((x) => x.setAttribute("aria-pressed", x === b)); render(); }));
   render();
 }
 
 // ------------------------------------------------------------ main
+document.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () => {
+  try { await navigator.clipboard.writeText($(b.dataset.copy).textContent); b.textContent = "Copied"; } catch (e) { b.textContent = "Select it"; }
+  setTimeout(() => (b.textContent = "Copy"), 1600);
+}));
 async function loadPipeline() {
   for (const p of ["metrics.json", "../data/snapshot-2026-10-20/metrics.json"]) { try { return await getJSON(p); } catch (e) { /* next */ } }
   throw new Error("metrics.json not found. Serve the repository over HTTP (make site) instead of opening the file directly.");
 }
 function setStatus(mode, st, reason) {
-  const s = $("status"); s.replaceChildren(); s.className = "status" + (mode === "live" ? "" : " offline");
+  const s = $("status"); s.replaceChildren();
+  const detail = el("span", undefined, "detail");
   if (mode === "live") {
-    s.append(el("span", "live", "tag ok"), `Attested data and predictions read just now from `, link(`${EXPLORER}/address/${st.contract}`, st.contract), ` (NEAR mainnet, block ${fmt(st.block_height)}, via ${new URL(st.rpc).host}).`);
+    s.append(el("span", "live", "tag ok live"), detail);
+    detail.append(`${st.contract}, read just now at block ${fmt(st.block_height)}`);
+    s.title = `Read from ${st.contract} on NEAR mainnet via ${new URL(st.rpc).host}`;
   } else {
-    s.append(el("span", "offline data", "tag warn"), `The NEAR RPC could not be reached${reason ? " (" + reason.slice(0, 120) + ")" : ""}. Showing the committed copy of the contract state from ${st.fetched_at} (block ${fmt(st.block_height)}). Reload to retry.`);
+    s.append(el("span", "offline data", "tag warn"), detail);
+    detail.append(`${st.contract}, saved copy from block ${fmt(st.block_height)}`);
+    s.title = `The NEAR RPC could not be reached${reason ? " (" + reason.slice(0, 160) + ")" : ""}. Showing the copy of ${st.contract} saved at ${st.fetched_at}. Reload to retry.`;
+    $("err").textContent = `Showing a saved copy of ${st.contract} from ${st.fetched_at} (block ${fmt(st.block_height)}) because the NEAR RPC could not be reached. Reload to try again.`;
+    $("err").className = "warn";
   }
-  ["att-tag", "pred-tag", "cfg-tag"].forEach((id) => { $(id).textContent = mode === "live" ? "attested · live" : "attested · offline copy"; $(id).className = "tag " + (mode === "live" ? "att" : "warn"); });
+  [["att-tag", "Live from nearbooks.near"], ["pred-tag", "Live from nearbooks.near"], ["cfg-tag", "Live from nearbooks.near"]].forEach(([id, t]) => {
+    $(id).textContent = mode === "live" ? t : "Saved copy, offline"; $(id).className = "tag " + (mode === "live" ? "ok" : "warn");
+  });
 }
 (async () => {
   let pipeline = null;
@@ -368,13 +723,15 @@ function setStatus(mode, st, reason) {
   let st, mode = "live", reason = "";
   try { st = await liveState(); } catch (e) {
     mode = "offline"; reason = e.message;
-    try { st = await getJSON("contract-cache.json"); } catch (e2) { $("err").textContent = "No live contract data and no cached copy: " + e2.message; }
+    try { st = await getJSON("contract-cache.json"); } catch (e2) { $("err").textContent = "No live contract data and no saved copy: " + e2.message; }
   }
   if (st) { setStatus(mode, st, reason); renderAttested(st, pipeline, mode === "live"); renderPredictions(st); renderConfig(st); }
   if (pipeline) {
     cards(pipeline); recon(pipeline); calc(pipeline);
-    $("hist-tag").textContent = `pipeline · snapshot ${pipeline.as_of}`;
-    $("foot").textContent = `Pipeline data as of ${pipeline.as_of} (mainnet head ${fmt(pipeline.head_height)}; sources FastNear transfers API, archival RPC, DefiLlama). Attested data: contract ${CONTRACT} on NEAR mainnet. Reproduce with "make verify"; check an attestation with contract/scripts/verify_attestation.py. Not financial advice.`;
+    $("hist-tag").textContent = `Pipeline snapshot, ${pipeline.as_of}`;
+    const f = $("foot"); f.replaceChildren();
+    f.append(el("p", `Pipeline data as of ${pipeline.as_of}, mainnet head ${fmt(pipeline.head_height)}. Sources: FastNear transfers API, archival RPC, DefiLlama. Attested data: the ${CONTRACT} contract on NEAR mainnet, read in your browser.`));
+    const p2 = el("p"); p2.append(link("https://github.com/IhorMuliar/nearbooks", "Source code and data on GitHub"), ". Not financial advice."); f.append(p2);
   }
 })();
 </script>

@@ -1,7 +1,7 @@
 // Headless check of site/index.html (optional; needs node and playwright-core with a Chromium build).
 //   make site &   then   PLAYWRIGHT_CORE=/path/to/playwright-core/index.mjs [CHROME=/path/to/chrome] \
 //                          node tests/browser_check.mjs [http://127.0.0.1:8000/site/] [screenshot.png]
-// 1. live: the status badge says live, every attested row is verified (seven browser checks), predictions render.
+// 1. live: the status badge says live, every attested row is verified (seven browser checks), the stamp is on, predictions render.
 // 2. offline: with every RPC request aborted, the page shows the "offline data" badge and the cached contract state.
 // 3. allowlist: ?rpc=https://evil.example is ignored and no request leaves for a non-allowlisted origin.
 // 4. mobile: at 390 px wide the page has no horizontal overflow outside the scrollable tables.
@@ -22,7 +22,7 @@ async function open(url, opts = {}) {
   if (opts.offline) await page.route(/rpc\.(mainnet\.)?(near\.org|fastnear\.com)/, (r) => r.abort());
   await page.goto(url);
   await page.waitForFunction(() => !document.querySelector("#status .tag")?.textContent.includes("loading"), null, { timeout: 30000 });
-  if (!opts.offline) await page.waitForFunction(() => [...document.querySelectorAll("#att-table td.checks")].every((c) => !c.textContent.includes("checking")), null, { timeout: 30000 });
+  if (!opts.offline) await page.waitForFunction(() => document.querySelector("#att-table tbody tr") && !document.querySelector('#att-table tr[data-verdict="pending"]'), null, { timeout: 30000 });
   return { page, ctx, hosts };
 }
 
@@ -30,10 +30,13 @@ async function open(url, opts = {}) {
   const { page, ctx } = await open(BASE);
   const badge = await page.textContent("#status .tag");
   badge === "live" ? pass(`live badge: ${(await page.textContent("#status")).trim()}`) : fail(`badge is ${badge}`);
-  const rows = await page.$$eval("#att-table tbody tr", (trs) => trs.map((t) => t.innerText.replace(/\s+/g, " ")));
-  const ok = rows.length > 0 && rows.every((r) => ["verified", "known worker ok", "pin ok", "tx ok", "link ok", "wasm ok", "input ok", "output ok"].every((k) => r.toLowerCase().includes(k)) && !r.includes("MISMATCH") && r.includes("tx"));
-  ok ? pass(`${rows.length} attested row(s), verified (all seven checks ok): ${rows.join(" | ")}`) : fail(`attested rows: ${rows.join(" | ")}`);
-  const preds = await page.$$eval("#preds tbody tr", (trs) => trs.map((t) => t.cells[0].innerText + ":" + t.cells[4].innerText));
+  const rows = await page.$$eval("#att-table tbody tr", (trs) => trs.map((t) => ({ text: t.innerText.replace(/\s+/g, " "), verdict: t.dataset.verdict,
+    checks: [...t.querySelectorAll("[data-check]")].map((c) => c.dataset.check + "=" + c.dataset.ok), tx: !!t.querySelector("a[data-tx]") })));
+  const ok = rows.length > 0 && rows.every((r) => r.verdict === "verified" && r.checks.length === 7 && r.checks.every((c) => c.endsWith("=true")) && r.tx);
+  ok ? pass(`${rows.length} attested row(s), verified (all seven checks ok, tx linked): ${rows.map((r) => r.text.slice(0, 60) + " [" + r.checks.join(" ") + "]").join(" | ")}`) : fail(`attested rows: ${JSON.stringify(rows)}`);
+  const entry = await page.evaluate(() => ({ stamp: document.getElementById("stamp").classList.contains("on"), ticks: document.querySelectorAll('#entry-checks [data-ok="true"]').length, h1: document.getElementById("headline").textContent }));
+  entry.stamp && entry.ticks === 7 ? pass(`latest entry stamped, 7 ticks; headline: ${entry.h1}`) : fail(`latest entry: ${JSON.stringify(entry)}`);
+  const preds = await page.$$eval("#preds [data-pred]", (ps) => ps.map((p) => p.dataset.pred + ":" + p.dataset.status));
   preds.length ? pass(`predictions: ${preds.join(" ")}`) : fail("no predictions");
   const tags = await page.$$eval(".shead .tag", (t) => t.map((x) => x.textContent));
   pass(`section tags: ${tags.join(" / ")}`);
