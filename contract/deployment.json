@@ -232,5 +232,26 @@
       "nearbooks-v4.okf-kill-1792497882.testnet",
       "BYQQAY8QnDRiPaLEXYQXFe7oTmdWRciytwJzLdwx7LQt"
     ]
+  ],
+  "superseded_designs": [
+    {
+      "design": "first attested design",
+      "tx": "FgnM1JhaTnuZUuuhDBRwZLKm2CxX5WZk6cC6Lix6Eo7t",
+      "log_commit": "770990b",
+      "account": "deleted"
+    },
+    {
+      "design": "canonical-block design before the storage fix",
+      "tx": "D315fRtRDtk4FJfyLPfWUpTCvJVRfxdrwBZt5khcuX1Y",
+      "log_commit": "474734d",
+      "account": "deleted"
+    },
+    {
+      "design": "untimelocked v4 contract, 2026-10-20 attested snapshot",
+      "contract": "nearbooks-v4.okf-kill-1792497882.testnet",
+      "tx": "CmYRyYdp6ZNeoCLe3ecJDs4VD2aDGZvRr7N6r7edSjGe",
+      "log_commit": "290311b",
+      "account": "deleted (tx BYQQAY8QnDRiPaLEXYQXFe7oTmdWRciytwJzLdwx7LQt)"
+    }
   ]
 }

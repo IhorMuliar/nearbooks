@@ -1,0 +1,77 @@
+now 2026-10-21T00:25:14Z; contract nearbooks-v5.okf-kill-1792497882.testnet; current pin: {"attestation_api":"https://testnet-api.outlayer.ai","max_execution_seconds":60,"max_instructions":200000000,"outlayer_id":"outlayer.testnet","wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm"}
+-- owner applies the re-pin (event worker_pinned, from_ns = this block's time, which is after 2026-10-21 00:00 UTC)
+HKnHjVrcroW4c9S69WE6ASXfLUw3LvJXNWNHYu4srEZc
+EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"worker_pinned","data":{"outlayer_id":"outlayer.testnet","wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm","previous_wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","previous_outlayer_id":"outlayer.testnet","from_ns":"1792542315070768095"}}
+pin for 2026-10-21: {"attestation_api":"https://testnet-api.outlayer.ai","max_execution_seconds":60,"max_instructions":200000000,"outlayer_id":"outlayer.testnet","wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm"}
+pin for 2026-10-22: {"attestation_api":"https://testnet-api.outlayer.ai","max_execution_seconds":90,"max_instructions":200000000,"outlayer_id":"outlayer.testnet","wasm_hash":"bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963","wasm_url":"https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm"}
+-- okf-kill-1792497882.testnet requests the attested snapshot of 2026-10-21 (blocks 220871336, 216835292); it must run under the old entry (60 s)
+HA7ZpS6v3QnTpXXhxg5np5BKdjXD6CnPWs1n2KRr2VPy
+Execution completed successfully. Output: Json(565 bytes), Resources: { instructions: 17573458, time_ms: 3046 }, Cost: 1304601700000000000000 yoctoNEAR, Refund: 8695398300000000000000 yoctoNEAR, Cached WASM from 2026-10-20T15:59:10.928501+00:00
+EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"storage_settled","data":{"nonce":2,"bytes":1085,"kept":"10850000000000000000000","refunded":"9150000000000000000000"}}
+"stored attested snapshot 2026-10-21"
+Traceback (most recent call last):
+  File "<stdin>", line 3, in <module>
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 429: Too Many Requests
+-- anyone resolves the predictions that wait for 2026-10-21
+prediction 4: 24r5UjDCZEEvnrvewEfHagRYT6QLUxPNvH6NPaDPDbU4 EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"prediction_resolved","data":{"id":4,"status":"confirmed"}}
+prediction 5: JBMuF7RLxKRLENZ7R4Sw8cbrsYcXav1SCHfJTMNT8msr EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"prediction_resolved","data":{"id":5,"status":"refuted"}}
+prediction 6: 5rSX7oh6MFjb6ZSCTEz5UjjRwPUa6UDTkPBUAArZeaeE EVENT_JSON:{"standard":"nearbooks","version":"1.2.0","event":"prediction_resolved","data":{"id":6,"status":"void"}}
+-- NEGATIVE: P1 (resolve_after 2026-12-31) cannot be resolved from any other day's snapshot
+Smart contract panicked: no attested snapshot for resolve_after yet (anyone can request it)
+-- predictions now
+0 2026-12-31 supply_total_near gt 1309454856544252 -> pending observed None from None
+1 2026-12-31 buyback_wallet_near gte 2024301607122 -> pending observed None from None
+2 2027-01-31 net_issuance_near_per_day gt 0 -> pending observed None from None
+3 2027-01-31 revenue_wallets_gain_over_net_issuance lt 500000 -> pending observed None from None
+4 2026-10-21 net_issuance_near_per_day gt 80000000000 -> confirmed observed 87636933174 from 2026-10-21
+5 2026-10-21 buyback_wallet_near lt 2000000000000 -> refuted observed 2033718030159 from 2026-10-21
+6 2026-10-21 breakeven_over_current_volume gt 2000000 -> void observed None from 2026-10-21
+-- third-party verification of the deciding snapshot
+Traceback (most recent call last):
+  File "/root/Projects/nearbooks/contract/scripts/verify_attestation.py", line 181, in <module>
+    sys.exit(main(sys.argv))
+             ^^^^^^^^^^^^^^
+  File "/root/Projects/nearbooks/contract/scripts/verify_attestation.py", line 82, in main
+    snap = view(contract, "get_attested_snapshot", {"date": argv[2]})
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Projects/nearbooks/contract/scripts/verify_attestation.py", line 42, in view
+    r = post(RPC, {"jsonrpc": "2.0", "id": 1, "method": "query", "params": {
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/root/Projects/nearbooks/contract/scripts/verify_attestation.py", line 37, in post
+    with urllib.request.urlopen(req, timeout=30) as r:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 521, in open
+    response = meth(req, response)
+               ^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 630, in http_response
+    response = self.parent.error(
+               ^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 559, in error
+    return self._call_chain(*args)
+           ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 639, in http_error_default
+    raise HTTPError(req.full_url, code, msg, hdrs, fp)
+urllib.error.HTTPError: HTTP Error 429: Too Many Requests

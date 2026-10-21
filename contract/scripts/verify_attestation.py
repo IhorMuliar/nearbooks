@@ -19,7 +19,7 @@ calls), fetches the public OutLayer attestation it links to, then checks:
 Optionally, independently: the observation block is the first mainnet block of DATE (worker/scripts/first_block.py).
 Exit code 0 only if every check that ran passes.
 """
-import base64, hashlib, json, os, struct, subprocess, sys, tempfile, urllib.error, urllib.request
+import base64, hashlib, json, os, struct, subprocess, sys, tempfile, time, urllib.error, urllib.request
 
 RPC = "https://rpc.testnet.near.org"
 ARCHIVAL_RPC = "https://archival-rpc.testnet.near.org"  # the regular RPC drops transactions after a few days
@@ -32,10 +32,21 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         raise urllib.error.HTTPError(req.full_url, code, f"redirect to {newurl!r} refused", headers, fp)
 
 
-def post(url, payload):
-    req = urllib.request.Request(url, data=json.dumps(payload).encode(), headers={"content-type": "application/json"})
-    with urllib.request.urlopen(req, timeout=30) as r:
-        return json.load(r)
+FALLBACK_RPC = {RPC: "https://rpc.testnet.fastnear.com"}  # the public RPC answers 429 under load
+
+
+def post(url, payload, tries=4):
+    body = json.dumps(payload).encode()
+    for i in range(tries):
+        u = url if i % 2 == 0 else FALLBACK_RPC.get(url, url)
+        try:
+            req = urllib.request.Request(u, data=body, headers={"content-type": "application/json"})
+            with urllib.request.urlopen(req, timeout=30) as r:
+                return json.load(r)
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or i == tries - 1:
+                raise
+            time.sleep(2 * (i + 1))
 
 
 def view(contract, method, args):

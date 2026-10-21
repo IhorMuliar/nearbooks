@@ -170,7 +170,7 @@ def placeholders(txt):
     return list(dict.fromkeys(m.group(0) for m in PLACEHOLDER.finditer(txt)))
 
 
-DOCS = ("findings.md", "deployment.md")
+DOCS = ("findings.md", "deployment.md", "attestation.md")
 
 
 def doc_paths(readme):
