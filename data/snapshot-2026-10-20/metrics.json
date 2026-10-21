@@ -2141,6 +2141,7 @@
  "predictions": [
   {
    "id": "P1",
+   "odds": "above 95%",
    "claim": "Total NEAR supply at the first mainnet block of 2026-12-31 is higher than at the as-of snapshot (no net burn at the protocol level).",
    "metric": "supply_total_near",
    "comparator": "gt",
@@ -2152,6 +2153,7 @@
   },
   {
    "id": "P2",
+   "odds": "about 90%",
    "claim": "The buyback wallet holds at least as much NEAR at the first block of 2026-12-31 as at the as-of snapshot (revenue is accumulated, not spent or burned from it).",
    "metric": "buyback_wallet_near",
    "comparator": "gte",
@@ -2163,6 +2165,7 @@
   },
   {
    "id": "P3",
+   "odds": "above 95%",
    "claim": "Net issuance over the 28 days to the first block of 2027-01-31 is still positive (total supply grew).",
    "metric": "net_issuance_near_per_day",
    "comparator": "gt",
@@ -2174,6 +2177,7 @@
   },
   {
    "id": "P4",
+   "odds": "about 90%",
    "claim": "In the 28 days to the first block of 2027-01-31 the three Intents revenue wallets gain less than half as much NEAR as total supply grows (burning all revenue would offset under 50% of issuance).",
    "metric": "revenue_wallets_gain_over_net_issuance",
    "comparator": "lt",
@@ -2185,6 +2189,7 @@
   },
   {
    "id": "P5",
+   "odds": "about 60%",
    "claim": "Net issuance over the 28 days to the first block of 2026-11-05 is at least 87,500 NEAR a day (dilution is not slowing).",
    "metric": "net_issuance_near_per_day",
    "comparator": "gte",
@@ -2196,6 +2201,7 @@
   },
   {
    "id": "P6",
+   "odds": "about 55%",
    "claim": "In the 28 days to the first block of 2026-11-15 the three Intents revenue wallets gain less than 17% as much NEAR as total supply grows (their accumulation eases from its September-October high).",
    "metric": "revenue_wallets_gain_over_net_issuance",
    "comparator": "lt",

@@ -260,12 +260,12 @@ Without RPC access the page shows an "offline data" badge and the committed copy
 $ make site    # first terminal
 $ npm install --prefix /tmp/pw playwright-core && npx --prefix /tmp/pw playwright-core install chromium-headless-shell
 $ PLAYWRIGHT_CORE=/tmp/pw/node_modules/playwright-core/index.mjs node tests/browser_check.mjs http://127.0.0.1:8000/site/
-PASS live badge: livenearbooks.nearblock 220,949,655
+PASS live badge: livenearbooks.nearblock 220,957,095
 PASS 1 attested row(s), verified (all seven checks ok, tx linked): 2026-10-21 220,871,336 bbed939a…7963 verified, 7 of 7 transa [known_worker=true pin_for_date_matches=true tx_targets_contract=true attestation_url_matches=true wasm_hash_matches=true input_hash_matches=true output_hash_matches=true]
 PASS latest entry verified, 7 of 7 marked; title: NEAR's Supply Still Outruns Intents Revenue
-PASS predictions: 0:pending 1:pending 2:pending 3:pending
+PASS predictions: 0:pending 1:pending 2:pending 3:pending 4:pending 5:pending
 PASS main claims, each marked with its source: attested / attested / attested / pipeline / pipeline
-PASS offline: offline datanearbooks.nearsaved at block 220,931,505
+PASS offline: offline datanearbooks.nearsaved at block 220,955,736
 PASS ?contract= is ignored
 PASS hosts contacted: 127.0.0.1, free.rpc.fastnear.com, api.outlayer.ai, archival-rpc.mainnet.fastnear.com
 PASS 390 px wide: no page-level horizontal overflow

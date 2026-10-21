@@ -78,6 +78,21 @@
   #err:not(:empty) { margin:28px 0 0; font:14px/1.5 var(--mono); color:var(--red); }
   #err.warn { color:var(--amber); }
 
+  /* the thesis: one dated position, with what would prove it wrong */
+  .thesis { margin:2.2em 0 0; padding:18px 0 4px 20px; border-left:3px solid var(--mint); }
+  .thesis .meta-line { font:12.5px var(--mono); color:var(--ink2); margin:0 0 8px; }
+  .thesis .claim { font-size:21px; line-height:1.45; margin:0 0 .8em; }
+  .thesis ul { margin:.2em 0 .8em; padding-left:1.2em; } .thesis li { margin-bottom:.3em; }
+  /* public claims, graded */
+  ol.graded { list-style:none; padding:0; margin:1.4em 0; }
+  ol.graded > li { padding:16px 0 18px; border-top:1px solid var(--rule); }
+  ol.graded > li:last-child { border-bottom:1px solid var(--rule); }
+  ol.graded .verdict-line { font-weight:600; margin:0; }
+  ol.graded .who { font:12.5px var(--mono); color:var(--ink2); margin:4px 0 8px; }
+  ol.graded .said { margin:0 0 6px; }
+  ol.graded .said.quote { font-style:italic; }
+  ol.graded .shows { margin:0; color:var(--ink2); font-size:16px; }
+  ol.graded li[data-ok="false"] .verdict-line { color:var(--red); }
   /* figures: black line art with one mint mark, captioned like a paper */
   figure { margin:2.2em 0; }
   figure svg { display:block; width:100%; height:auto; overflow:visible; }
@@ -221,10 +236,11 @@
   <p class="gap mut" id="checked-at"></p>
   <ol id="contents">
     <li><a href="#entry"><span>1</span>Latest entry</a></li>
-    <li><a href="#predictions"><span>2</span>Predictions</a></li>
-    <li><a href="#verify"><span>3</span>How to check it</a></li>
-    <li><a href="#history"><span>4</span>History</a></li>
-    <li><a href="#shrink"><span>5</span>What would flip it</a></li>
+    <li><a href="#checked"><span>2</span>Claims checked</a></li>
+    <li><a href="#predictions"><span>3</span>Predictions</a></li>
+    <li><a href="#verify"><span>4</span>How to check it</a></li>
+    <li><a href="#history"><span>5</span>History</a></li>
+    <li><a href="#shrink"><span>6</span>What would change it</a></li>
     <li class="gap"><a href="https://github.com/IhorMuliar/nearbooks" rel="noopener"><span>↗</span>Source</a></li>
   </ol>
 </aside>
@@ -240,13 +256,25 @@
   <div class="standfirst">
     <p id="lede">Every day a pinned worker running inside an Intel TDX enclave reads NEAR mainnet at the first block of the UTC day and writes what it finds to the <a href="https://nearblocks.io/address/nearbooks.near" rel="noopener">nearbooks.near</a> contract. This page reads those entries from the chain and re-checks each one in your browser while you read.</p>
     <p id="lede2"></p>
+    <div class="thesis" id="thesis">
+      <p class="meta-line">Our thesis, version 1, 21 October 2026</p>
+      <p class="claim">NEAR Intents earns real and growing revenue, but it does not shrink NEAR's supply, and at today's volume it is far from offsetting dilution. Holding NEAR today is a bet on Intents growing several times over, not on scarcity.</p>
+      <p>What would prove it wrong:</p>
+      <ul>
+        <li>The revenue wallets take in half of new supply in two 28-day windows in a row.</li>
+        <li>Total supply shrinks.</li>
+        <li>Issuance is cut before 2027.</li>
+      </ul>
+      <p>Six predictions on chain score it, two of them before judging. <a href="https://github.com/IhorMuliar/nearbooks/blob/main/THESIS.md" rel="noopener">Read the full thesis</a></p>
+    </div>
     <p class="lead-in">This page contains the following sections:</p>
     <ol class="toc">
       <li><a href="#entry"><b>The Latest Entry</b><span>What did the enclave record, and does it check out?</span></a></li>
-      <li><a href="#predictions"><b>Open Predictions</b><span>What does the contract expect by the end of January?</span></a></li>
+      <li><a href="#checked"><b>Public Claims, Checked</b><span>Which widely shared numbers hold up against the chain?</span></a></li>
+      <li><a href="#predictions"><b>Open Predictions</b><span>What does the contract expect, and when is each claim decided?</span></a></li>
       <li><a href="#verify"><b>How to Check It</b><span>What does "verified" prove, and what doesn't it?</span></a></li>
       <li><a href="#history"><b>History, Rebuilt From the Chain</b><span>Does the on-chain rebuild agree with DefiLlama?</span></a></li>
-      <li><a href="#shrink"><b>What Would Make Supply Shrink</b><span>Which inputs flip the answer?</span></a></li>
+      <li><a href="#shrink"><b>What Would Make Supply Shrink</b><span>Which inputs would change the answer?</span></a></li>
     </ol>
     <p class="lead-in">Main claims:</p>
     <ol class="claims" id="claims"><li class="mut">Reading the latest attested entry.</li></ol>
@@ -263,12 +291,20 @@
     <div class="links" id="entry-links"></div>
     <h3>Every entry so far</h3>
     <div class="tw"><table id="att-table" class="stack"><thead><tr><th>Date</th><th class="num">First block</th><th>Worker</th><th>Checks</th><th>Evidence</th></tr></thead><tbody></tbody></table></div>
-    <p class="note">The TDX quote and Intel's signature are not checked here. <code>verify_attestation.py</code> checks them; see section 3.</p>
+    <p class="note">The TDX quote and Intel's signature are not checked here. <code>verify_attestation.py</code> checks them; see section 4.</p>
+  </section>
+
+  <section id="checked" aria-labelledby="checked-h">
+    <h2 id="checked-h">Public Claims, Checked</h2>
+    <p>NEAR's buybacks and issuance are argued about in public, and the published numbers seem to disagree. These are the most widely shared claims, as published, each graded against the same data this page verifies. Most hold once their dates and inputs are lined up.</p>
+    <ol class="graded" id="graded"><li class="mut">Reading the graded claims.</li></ol>
+    <p>The three break-even figures ($177M, $795M and $1.13B a day) use the same arithmetic, the NEAR minted per day times the NEAR price over the take rate. They differ mainly in the price used, and put on the same price they land within about 25% of each other. All three describe a burn that is not happening: the NEAR bought back is held, so under today's policy total supply grows at any volume.</p>
+    <p class="note">Claims are kept in <code>pipeline/claims.json</code> with their source and date, and graded by <code>pipeline/verify.py</code>; <code>make verify</code> fails if a verdict stops following from the data. <a href="https://github.com/IhorMuliar/nearbooks/blob/main/docs/claims.md" rel="noopener">The same table in the repository</a>.</p>
   </section>
 
   <section id="predictions" aria-labelledby="pred-h">
     <h2 id="pred-h">Open Predictions</h2>
-    <p>Four claims were written to the contract with a resolve date and can't be edited. Only the attested entry for that exact date decides each one: confirmed, refuted, or void if the entry lacks the metric. Anyone can call <code>resolve_prediction</code> once the date has an entry.</p>
+    <p id="pred-intro">Each claim was written to the contract with a resolve date and can't be edited. Only the attested entry for that exact date decides it: confirmed, refuted, or void if the entry lacks the metric. Anyone can call <code>resolve_prediction</code> once the date has an entry.</p>
     <figure id="fig2" hidden><div id="fig2-svg"></div><figcaption>Figure 2. When each prediction is decided. The mint line covers the dates that already have an attested entry.<span class="src">Source: nearbooks.near, list_predictions and list_attested_snapshots</span></figcaption></figure>
     <ol class="preds" id="preds"></ol>
   </section>
@@ -279,17 +315,17 @@
     <ol class="steps">
       <li><b>The enclave reads mainnet.</b> A worker whose sha256 is pinned in the contract runs inside OutLayer's Intel TDX enclave. It reads total supply, the three Intents revenue wallets and a reserves check on <code>intents.near</code>, and prints JSON.</li>
       <li><b>The contract stores it.</b> <code>nearbooks.near</code> accepts output only from the configured OutLayer contract, for the pinned build, answering a request it made. Changing the pin waits out a timelock and never touches a date that has already begun.</li>
-      <li><b>Your browser re-checks it.</b> This page runs the seven checks in section 1. The Python script below also verifies the TDX quote against Intel's root of trust.</li>
+      <li><b>Your browser re-checks it.</b> This page runs the seven checks in section 1. The Python script below also checks the TDX quote, and with <code>--dcap</code> Intel's signature chain.</li>
     </ol>
     <h3>What "verified" tells you</h3>
     <p>The numbers came from the build this repository publishes, and the contract had pinned that build for the date. OutLayer attests that it ran on exactly that input and produced exactly these bytes. The run was requested through <code>nearbooks.near</code> rather than handed in by someone else.</p>
     <h3>What it doesn't tell you</h3>
     <p>It doesn't tell you that Intel TDX and OutLayer are honest: this page trusts their attestation, and only the script checks the quote itself. Nor does it tell you that the RPC answers were true mainnet state. The worker reads over JSON-RPC without state proofs, though the evidence hash commits to the raw responses. And it says nothing about whether the predictions are right; they are claims waiting for a date.</p>
     <h3>Re-run it on your machine</h3>
-    <p>The first command rebuilds every historical finding offline. The second checks an attested entry, including the TDX quote.</p>
+    <p>The first command rebuilds every historical finding offline. The second checks an attested entry and its TDX quote; <code>--dcap</code> adds Intel's signature chain and needs <code>dcap-qvl</code> (<code>cargo install dcap-qvl-cli</code>).</p>
     <div class="cmd"><pre id="cmd1">git clone https://github.com/IhorMuliar/nearbooks
 cd nearbooks && make verify</pre><button class="pill" type="button" data-copy="cmd1">Copy</button></div>
-    <div class="cmd"><pre id="cmd2">python3 -I contract/scripts/verify_attestation.py nearbooks.near</pre><button class="pill" type="button" data-copy="cmd2">Copy</button></div>
+    <div class="cmd"><pre id="cmd2">python3 -I contract/scripts/verify_attestation.py nearbooks.near --dcap "$(command -v dcap-qvl)"</pre><button class="pill" type="button" data-copy="cmd2">Copy</button></div>
     <h3>The contract</h3>
     <dl class="facts" id="cfg"></dl>
   </section>
@@ -405,7 +441,8 @@ async function liveState() {
   const [predictions] = await listAll("list_predictions");
   const [cfg, delay, pins, proposal, earliest] = await Promise.all(["get_config", "get_pin_delay_secs", "list_pins", "get_pin_proposal", "get_earliest_date"].map((m) => view(m)));
   return { contract: CONTRACT, rpc: meta.rpc, block_height: meta.height, fetched_at: new Date().toISOString(), owner_id: cfg.value[0], reporter_id: cfg.value[1],
-           pin_delay_secs: delay.value, pins: pins.value, pin_proposal: proposal.value, earliest_date: earliest.value, attested, predictions, full_access_keys: await fullAccessKeys() };
+           pin_delay_secs: delay.value, pins: pins.value, pin_proposal: proposal.value, earliest_date: earliest.value, attested, predictions,
+           keeper: (await view("get_keeper").catch(() => ({ value: null }))).value, full_access_keys: await fullAccessKeys() };
 }
 async function getJSON(path) { const r = await fetch(path, { cache: "no-cache" }); if (!r.ok) throw new Error(path + ": HTTP " + r.status); return r.json(); }
 
@@ -446,7 +483,7 @@ const CHECKS = [
   ["attestation_url_matches", "Attestation link.", "The stored link and request id match the run OutLayer attests.", (c) => c.request_id_matches === undefined ? c.attestation_url_matches : c.attestation_url_matches && c.request_id_matches],
   ["wasm_hash_matches", "Code that ran.", "OutLayer's attestation names the same wasm hash.", (c) => c.wasm_hash_matches],
   ["input_hash_matches", "Input.", "The date, blocks and nonce hash to the attested input.", (c) => c.input_hash_matches],
-  ["output_hash_matches", "Output.", "The stored numbers hash to the attested output.", (c) => c.output_hash_matches],
+  ["output_hash_matches", "Output.", "The contract's hash of the output it stored equals the attested output hash.", (c) => c.output_hash_matches],
 ];
 // c: undefined while checking, {error} if OutLayer could not be reached, else the check results
 function verdictOf(c) {
@@ -486,7 +523,7 @@ function renderOpening(last, pipeline) {
   claim(["The NEAR bought back is held in ", link(`${EXPLORER}/address/buybacks.multisignature.near`, "buybacks.multisignature.near"), `, ${fmt(M.buyback_wallet_near)} NEAR at the latest entry, not burned.`], "attested");
   if (pipeline) {
     const d = pipeline.deflation, y = pipeline.reconciliation.rows[0];
-    claim([`For buybacks to match issuance, Intents would need about ${usd(d.breakeven_volume_usd_per_day)} of volume a day, ${fmt(d.breakeven_over_current_volume, 1)}× the ${usd(d.volume_usd_per_day_30d)} it does today.`], "pipeline");
+    claim([`Even if that NEAR were burned, buybacks would offset issuance only at about ${usd(d.breakeven_volume_usd_per_day)} of Intents volume a day, ${fmt(d.breakeven_over_current_volume, 1)}× the ${usd(d.volume_usd_per_day_30d)} it does today.`], "pipeline");
     claim([`DefiLlama's revenue figure for 2026 reproduces from raw transfers to within ${fmt(Math.abs(y.delta_pct), 2)}%, with a daily correlation of ${fmt(pipeline.reconciliation.pearson_lag0, 4)}.`], "pipeline");
   }
   (FIGS.f1 = () => figure1(last.date, growth, kept, r))();
@@ -526,7 +563,7 @@ function renderEntry(s, c, live) {
   try { ev.append(link(attestationUrl(s), "Attestation report")); } catch (e) { /* no valid request id */ }
   if (c && c.transaction_hash && /^[1-9A-HJ-NP-Za-km-z]{32,64}$/.test(c.transaction_hash)) ev.append(link(`${EXPLORER}/txns/${c.transaction_hash}`, "Transaction"));
   ev.append(link(`${EXPLORER}/blocks/${a.block_height}`, `Block ${fmt(a.block_height)}`));
-  $("cmd2").textContent = `python3 -I contract/scripts/verify_attestation.py nearbooks.near ${s.date}`;
+  $("cmd2").textContent = `python3 -I contract/scripts/verify_attestation.py nearbooks.near ${s.date} --dcap "$(command -v dcap-qvl)"`;
   if (v !== "pending") $("checked-at").replaceChildren(...(live ? [el("span", `checked ${new Date().toISOString().slice(11, 16)} UTC`), el("span", `${passed(c)} of 7 checks hold`)] : [el("span", "saved result"), el("span", "not re-checked")]));
 }
 let RUN = null;  // the latest render inputs, for [V] Re-check
@@ -538,7 +575,7 @@ function renderAttested(st, pipeline, live) {
   const last = snaps[snaps.length - 1], M = metricsOf(last), est = pipeline && pipeline.worker_metrics_estimate;
   renderOpening(last, pipeline);
   [["supply_total_near", `read at the first block of ${last.date}`],
-   ["net_issuance_near_per_day", "supply growth over 28 days, divided by 28"],
+   ["net_issuance_near_per_day", `supply growth over the 28 days to ${last.date}, divided by 28`],
    ["revenue_wallets_gain_near_28d", "balance change of the three Intents revenue wallets"],
    ["revenue_wallets_gain_over_net_issuance", est ? `kept over new supply; the pipeline estimates ${fmt(est.revenue_wallets_gain_over_net_issuance * 100, 1)}% from transfers` : "kept over new supply"],
    ["buyback_wallet_near", "balance of buybacks.multisignature.near"]]
@@ -567,8 +604,11 @@ function renderAttested(st, pipeline, live) {
 
 // ------------------------------------------------------------ rendering: predictions, figure 2, contract
 function unitOf(metric, v) { return metric.endsWith("_near") || metric.endsWith("_per_day") || metric.endsWith("_28d") ? fmt(v) : fmt(v, 3); }
+let ODDS = {};  // claim -> our stated odds, from pipeline/predictions.json via metrics.json
 function renderPredictions(st) {
   const box = $("preds"); box.replaceChildren();
+  const n = st.predictions.length, words = ["No", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten"];
+  $("pred-intro").firstChild.textContent = `${words[n] || n} claim${n === 1 ? " was" : "s were"} written to the contract with a resolve date and can't be edited. Only the attested entry for that exact date decides each one: confirmed, refuted, or void if the entry lacks the metric. Anyone can call `;
   const snaps = sortSnaps(st), last = snaps[snaps.length - 1], M = last ? metricsOf(last) : {};
   for (const p of st.predictions) {
     const r = p.resolution, th = micro(p.threshold), obs = r && r.observed !== null && r.observed !== undefined ? micro(r.observed) : null;
@@ -590,6 +630,7 @@ function renderPredictions(st) {
       state.append(el("b", p.status[0].toUpperCase() + p.status.slice(1)), ` by the entry for ${r ? r.snapshot_date : p.resolve_after}.`);
       if (obs !== null) state.append(` Observed ${unitOf(p.metric, obs)}.`); else if (p.status === "void") state.append(" The entry did not have this metric.");
     }
+    if (ODDS[p.claim]) state.append(el("br"), `Our odds when it was registered: ${ODDS[p.claim]}.`);
     body.append(state); li.append(id, body); box.appendChild(li);
   }
   (FIGS.f2 = () => figure2(st, snaps))();
@@ -599,7 +640,7 @@ function figure2(st, snaps) {
   if (!st.predictions.length || !snaps.length) return;
   const day = (d) => Date.parse(d + "T00:00:00Z"), first = day(snaps[0].date), today = Math.max(first, Math.min(Date.now(), day(snaps[snaps.length - 1].date) + 864e5));
   const t0 = first - 6 * 864e5, t1 = Math.max(...st.predictions.map((p) => day(p.resolve_after))) + 14 * 864e5;
-  const W = colWidth(), H = 150, x = (t) => 8 + ((t - t0) / (t1 - t0)) * (W - 16), y = 92;
+  const W = colWidth(), H = 184, x = (t) => 8 + ((t - t0) / (t1 - t0)) * (W - 16), y = 126;
   const s = svgEl("svg", { viewBox: `0 0 ${W} ${H}`, role: "img", "aria-label": "Timeline of prediction decision dates" });
   s.append(svgEl("line", { x1: 8, x2: W - 8, y1: y, y2: y, stroke: "var(--ink)", "stroke-width": 1.2 }));
   s.append(svgEl("line", { x1: x(first), x2: x(today), y1: y, y2: y, stroke: "var(--mint)", "stroke-width": 7, "stroke-linecap": "round" }));
@@ -610,12 +651,16 @@ function figure2(st, snaps) {
   }
   s.append(svgEl("text", { x: x(today), y: y + 40, "text-anchor": "middle", class: "ink" }, "today"));
   const groups = {}; st.predictions.forEach((p) => (groups[p.resolve_after] = (groups[p.resolve_after] || []).concat(p)));
-  Object.entries(groups).forEach(([d, ps]) => {
-    const xx = x(day(d));
-    s.append(svgEl("line", { x1: xx, x2: xx, y1: y - 46, y2: y, stroke: "var(--ink)", "stroke-width": 1 }));
+  const G = Object.entries(groups).sort(([a], [b]) => (a < b ? -1 : 1));
+  G.forEach(([d, ps], gi) => {
+    const xx = x(day(d)), up = gi % 2 ? 34 : 0;  // neighbouring dates alternate heights so their labels never collide
+    // a low label with a close right-hand neighbour sits left of its own line, clear of the neighbour's taller line
+    const crowded = !up && G[gi + 1] && x(day(G[gi + 1][0])) - xx < 70, ax = crowded ? { x: xx - 6, "text-anchor": "end" } : { x: xx, "text-anchor": "middle" };
+    const label = W < 420 ? new Date(d + "T00:00:00Z").toLocaleDateString("en-GB", { day: "numeric", month: "short", timeZone: "UTC" }) : d;
+    s.append(svgEl("line", { x1: xx, x2: xx, y1: y - 46 - up, y2: y, stroke: "var(--ink)", "stroke-width": 1 }));
     s.append(svgEl("circle", { cx: xx, cy: y, r: 6, fill: ps.every((p) => p.status === "pending") ? "var(--paper)" : "var(--ink)", stroke: "var(--ink)", "stroke-width": 1.4 }));
-    s.append(svgEl("text", { x: xx, y: y - 54, "text-anchor": "middle", class: "ink" }, ps.map((p) => "P" + (p.id + 1)).join(", ")));
-    s.append(svgEl("text", { x: xx, y: y - 68, "text-anchor": "middle" }, d));
+    s.append(svgEl("text", { ...ax, y: y - 54 - up, class: "ink" }, ps.map((p) => "P" + (p.id + 1)).join(", ")));
+    s.append(svgEl("text", { ...ax, y: y - 68 - up }, label));
   });
   $("fig2-svg").replaceChildren(s); $("fig2").hidden = false;
 }
@@ -632,10 +677,30 @@ function renderConfig(st) {
   const wasm = /^https:\/\/main\.fastfs\.io\//.test(cur.config.wasm_url) ? link(cur.config.wasm_url, "download the wasm") : el("span", "wasm url: " + cur.config.wasm_url);
   add("Pinned worker", [el("span", cur.config.wasm_hash, "mono"), el("br"), wasm, `, runs on ${cur.config.outlayer_id} with a ${cur.config.max_execution_seconds} s limit.`]);
   add("Pin history", st.pins.map((p, i) => `#${i} ${short(p.config.wasm_hash)} (${p.config.max_execution_seconds} s) governs dates from ${nsDate(p.from_ns)}`).join("; ") + ".");
-  add("Re-pin timelock", `${fmt(st.pin_delay_secs / 3600, 1)} hours, fixed at deploy. A re-pin only governs dates that start after it is applied.`);
+  const frozen = k === 0 && st.owner_id === st.contract;
+  add("Re-pin timelock", frozen ? "No re-pin is possible any more: the owner is the contract account itself, and it has no key left to sign with."
+    : `${fmt(st.pin_delay_secs / 3600, 1)} hours, fixed at deploy. A re-pin only governs dates that start after it is applied.`);
+  const kp = st.keeper;
+  if (kp && kp.keeper_id) {
+    const yocto = (v) => Number(BigInt(v) / 10n ** 18n) / 1e6, budget = yocto(kp.budget), cost = yocto(kp.request_cost);
+    add("Keeper", [link(`${EXPLORER}/address/${kp.keeper_id}`, kp.keeper_id), ` requests one entry a day, paying ${fmt(cost, 2)} NEAR each from a budget of ${fmt(budget, 2)} NEAR, about ${fmt(Math.floor(budget / cost))} more days. Anyone can add to it with `, el("code", "fund_keeper"), ", and anyone can request a missing day directly."]);
+  }
   const pr = st.pin_proposal;
   add("Waiting re-pin", pr ? [el("span", short(pr.config.wasm_hash), "mono"), ` (${pr.config.outlayer_id}, ${pr.config.max_execution_seconds} s) can be applied from ${nsDate(pr.apply_after_ns)}.`] : "None.");
   add("Earliest date", `Entries can be requested from ${st.earliest_date}. This bound only moves earlier, and a pending prediction's date is always requestable.`);
+}
+
+// ------------------------------------------------------------ rendering: public claims (site/claims.json, written by make verify)
+function renderClaims(j) {
+  const ol = $("graded"); ol.replaceChildren();
+  for (const c of j.claims) {
+    const li = el("li"); li.dataset.claim = c.id; li.dataset.ok = String(c.ok);
+    li.append(el("p", c.ok ? c.verdict : "No longer follows from the data: " + c.verdict, "verdict-line"));
+    li.append(append(el("p", undefined, "who"), [/^https:\/\//.test(c.url) ? link(c.url, c.who) : c.who, `, ${c.date}`]));
+    li.append(el("p", c.kind === "quote" ? `\u201c${c.text}\u201d` : c.text, "said" + (c.kind === "quote" ? " quote" : "")));
+    li.append(el("p", c.data, "shows"));
+    ol.appendChild(li);
+  }
 }
 
 // ------------------------------------------------------------ rendering: pipeline (historical)
@@ -645,8 +710,8 @@ function cards(m) {
    ["Last 30 days", usd(m.revenue.last30d_usd), `${usd(m.revenue.last30d_usd / 30)} a day`],
    ["Buyback wallet", fmt(m.buyback.balance_near_rpc) + " NEAR", `${m.buyback.outflow_count} outflows totalling ${fmt(m.buyback.outflow_near)} NEAR`],
    ["Supply growth since 1 January", "+" + fmt(m.supply.growth_near / 1e6, 2) + "M NEAR", `up in ${m.supply.increasing_intervals} of ${m.supply.intervals} sampled intervals`],
-   ["Net issuance, 28 days", fmt(d.net_issuance_near_per_day) + " NEAR/day", `${usd(d.net_issuance_usd_per_day)} a day at $${fmt(d.price_usd, 2)}`],
-   ["Break-even Intents volume", usd(d.breakeven_volume_usd_per_day) + " a day", `${fmt(d.breakeven_over_current_volume, 1)}× today's ${usd(d.volume_usd_per_day_30d)} a day`]]
+   [`Net issuance, 28 days to ${m.as_of}`, fmt(d.net_issuance_near_per_day) + " NEAR/day", `${usd(d.net_issuance_usd_per_day)} a day at $${fmt(d.price_usd, 2)}; the attested entry above covers a later window`],
+   ["Volume to offset issuance, if burned", usd(d.breakeven_volume_usd_per_day) + " a day", `${fmt(d.breakeven_over_current_volume, 1)}× today's ${usd(d.volume_usd_per_day_30d)} a day; about ${fmt(d.net_issuance_near_per_day)} NEAR of purchases a day at any price`]]
     .forEach(([k, v, n]) => stmt(box, k, v, n));
 }
 function recon(m) {
@@ -708,14 +773,17 @@ function calc(m) {
     $("explore").replaceChildren("At a NEAR price of ", o(T.price[2](S.price)), ", Intents volume of ", o(T.vol[2](S.vol)), " a day and a take of ", o(T.take[2](S.take)),
       `, buybacks bring in ${fmt(buyback)} NEAR a day. With issuance capped at `, o(T.iss[2](S.iss)), `, the protocol mints ${fmt(issuance)} NEAR a day after the fee burn. If the bought-back NEAR is `, hold, " or ", burn,
       `, total supply changes by ${sign(supplyDelta)} NEAR a day.`);
-    $("verdict-big").textContent = supplyDelta < 0 ? `Supply shrinks by ${fmt(-supplyDelta)} NEAR a day.` : `Supply still grows. Break-even needs $${fmt(be)}M of volume a day, ${fmt(be / (d.volume_usd_per_day_30d / 1e6), 2)}× today's.`;
+    const ratio = fmt(be / (d.volume_usd_per_day_30d / 1e6), 2);
+    $("verdict-big").textContent = supplyDelta < 0 ? `Supply shrinks by ${fmt(-supplyDelta)} NEAR a day.`
+      : S.mode === "hold" ? `Supply grows at any volume while the NEAR is held. Burned, buybacks would offset issuance at $${fmt(be)}M of volume a day, ${ratio}× today's.`
+      : `Supply still grows. Burned buybacks would offset issuance at $${fmt(be)}M of volume a day, ${ratio}× today's.`;
     $("mode-note").textContent = S.mode === "burn" ? "Burning assumes the bought-back NEAR is destroyed. On-chain evidence says it is not (finding F2)." : "Holding matches what happens today: bought-back NEAR sits in buybacks.multisignature.near, so total supply is unaffected.";
   }
   Object.entries(T).forEach(([k, [sid, vid, f]]) => { const s = $(sid); s.value = S[k]; s.oninput = () => { S[k] = parseFloat(s.value); $(vid).textContent = f(S[k]); render(); }; $(vid).textContent = f(S[k]); });
   const sync = () => Object.entries(T).forEach(([k, [sid, vid, f]]) => { $(sid).value = S[k]; $(vid).textContent = f(S[k]); });
   [["Today, as measured", () => Object.assign(S, { price: d.price_usd, vol: d.volume_usd_per_day_30d / 1e6, take: d.take_rate_bps, iss: d.issuance_cap_pct, mode: "hold" })],
    ["HSP-029 target, 1.6%", () => Object.assign(S, { iss: d.target_issuance_pct })],
-   ["Break-even volume, burned", () => Object.assign(S, { vol: Math.min(2000, d.breakeven_volume_usd_per_day / 1e6), mode: "burn" })]].forEach(([t, fn]) => { const b = el("button", t, "pill"); b.type = "button"; b.onclick = () => { fn(); sync(); render(); }; $("presets").appendChild(b); });
+   ["Offsetting volume, burned", () => Object.assign(S, { vol: Math.min(2000, d.breakeven_volume_usd_per_day / 1e6), mode: "burn" })]].forEach(([t, fn]) => { const b = el("button", t, "pill"); b.type = "button"; b.onclick = () => { fn(); sync(); render(); }; $("presets").appendChild(b); });
   render();
 }
 
@@ -763,7 +831,9 @@ function setStatus(mode, st, reason) {
     mode = "offline"; reason = e.message;
     try { st = await getJSON("contract-cache.json"); } catch (e2) { $("err").textContent = "No live contract data and no saved copy: " + e2.message; }
   }
+  if (pipeline) (pipeline.predictions || []).forEach((p) => { if (p.odds) ODDS[p.claim] = p.odds; });
   if (st) { setStatus(mode, st, reason); renderAttested(st, pipeline, mode === "live"); renderPredictions(st); renderConfig(st); RUN = [st, pipeline, mode === "live"]; }
+  getJSON("claims.json").then(renderClaims).catch(() => $("graded").replaceChildren(el("li", "The graded claims could not be loaded; they are in docs/claims.md in the repository.", "mut")));
   if (pipeline) {
     cards(pipeline); recon(pipeline); calc(pipeline);
     const f = $("foot"); f.replaceChildren();
