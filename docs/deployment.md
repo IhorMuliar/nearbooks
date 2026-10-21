@@ -52,7 +52,7 @@ Full console output: `contract/mainnet-deploy-2026-10-21.log`. The contract runs
 
 ## Keeper
 
-`keeper/keeper.py` (standard library only) runs once per UTC day, from `.github/workflows/keeper.yml` at 00:20 UTC or by hand:
+`keeper/keeper.py` (standard library only) runs once per UTC day, from `.github/workflows/keeper.yml` at 00:20 UTC or by hand (every run's log: https://github.com/IhorMuliar/nearbooks/actions/workflows/keeper.yml):
 1. It checks its own key on chain and refuses to run unless the key is a function-call key for this contract, limited to `keeper_request_snapshot` and `resolve_prediction`.
 2. For today, and for any earlier resolve date of a Pending prediction, it skips dates that already have an attested snapshot. For each remaining date it finds the first mainnet block at or after 00:00 UTC of the date and of 28 days earlier (binary search over mainnet RPC with backoff). It checks the contract's budget and daily cap, calls `keeper_request_snapshot(date, B, B28)` and waits for the attested result.
 3. It calls `resolve_prediction` for every Pending prediction whose `resolve_after` now has an attested snapshot.
