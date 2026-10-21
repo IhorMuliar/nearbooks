@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NEAR Books: attested NEAR Intents revenue, buyback and issuance numbers</title>
 <meta name="description" content="NEAR's token economics written on-chain by a worker in an Intel TDX enclave, and re-checked in your browser.">
+<script>try { const t = localStorage.getItem("nb-theme"); if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; } catch (e) { /* storage blocked */ }</script>
 <style>
   /* Source Serif 4 (Adobe) and DM Mono, both SIL OFL, served from site/fonts. */
   @font-face { font-family:"Source Serif 4"; src:url("fonts/source-serif-4.woff2") format("woff2"); font-weight:200 900; font-style:normal; font-display:swap; }
@@ -16,7 +17,10 @@
     --serif:"Source Serif 4",Georgia,serif; --mono:"DM Mono",ui-monospace,Menlo,Consolas,monospace;
     --col:650px;
   }
-  @media (prefers-color-scheme: dark) { :root { --paper:#000; --ink:#fff; --ink2:#a6a6a6; --rule:#262626; --chip:#171717; --red:#ff6b61; --amber:#f0b45a; } }
+  /* dark follows the system unless the reader picked a theme with [T] */
+  :root { color-scheme:light; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --paper:#000; --ink:#fff; --ink2:#a6a6a6; --rule:#262626; --chip:#171717; --red:#ff6b61; --amber:#f0b45a; color-scheme:dark; } }
+  :root[data-theme="dark"] { --paper:#000; --ink:#fff; --ink2:#a6a6a6; --rule:#262626; --chip:#171717; --red:#ff6b61; --amber:#f0b45a; color-scheme:dark; }
   * { box-sizing:border-box; }
   html { -webkit-text-size-adjust:100%; scroll-padding-top:24px; }
   body { margin:0; background:var(--paper); color:var(--ink); font:400 18px/1.5 var(--serif); font-optical-sizing:auto; font-variant-numeric:lining-nums; }
@@ -32,7 +36,8 @@
   .mast { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; padding:18px 24px 0; }
   .mast .name { grid-column:2; font-size:23px; letter-spacing:-.01em; text-decoration:none; white-space:nowrap; }
   .mast .name span { color:var(--ink2); }
-  .pill { justify-self:end; font:13px/1 var(--mono); background:var(--chip); color:var(--ink); border:0; border-radius:999px; padding:7px 11px; cursor:pointer; white-space:nowrap; }
+  .acts { justify-self:end; display:flex; gap:8px; }
+  .pill { font:13px/1 var(--mono); background:var(--chip); color:var(--ink); border:0; border-radius:999px; padding:7px 11px; cursor:pointer; white-space:nowrap; }
   .pill:hover { background:var(--rule); } .pill[disabled] { opacity:.5; cursor:default; }
 
   /* the margin: date, live status, contents. Fixed on wide screens, inline above the title otherwise. */
@@ -178,6 +183,7 @@
     body { font-size:17px; }
     .mast { padding:14px 18px 0; grid-template-columns:auto 1fr; }
     .mast .name { grid-column:1; font-size:20px; }
+    .mast .name span { display:none; }
     main, footer { padding-left:18px; padding-right:18px; }
     aside.meta { padding:0 18px; }
     h1 { margin-top:36px; text-align:left; }
@@ -206,7 +212,7 @@
 <a class="skip" href="#main">Skip to content</a>
 <header class="mast">
   <a class="name" href="#top">NEAR Books <span>/ Ledger</span></a>
-  <button class="pill" id="recheck" type="button" title="Run the seven checks again (V)">[V] Re-check</button>
+  <div class="acts"><button class="pill" id="theme" type="button" title="Switch light and dark (T)">[T] Dark</button><button class="pill" id="recheck" type="button" title="Run the seven checks again (V)">[V] Re-check</button></div>
 </header>
 
 <aside class="meta" aria-label="Status and contents">
@@ -718,6 +724,16 @@ document.querySelectorAll("[data-copy]").forEach((b) => (b.onclick = async () =>
   try { await navigator.clipboard.writeText($(b.dataset.copy).textContent); b.textContent = "Copied"; } catch (e) { b.textContent = "Select it"; }
   setTimeout(() => (b.textContent = "Copy"), 1600);
 }));
+// [T] flips between light and dark and remembers the choice; until then the system setting decides
+const isDark = () => (document.documentElement.dataset.theme || (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light")) === "dark";
+const themeLabel = () => ($("theme").textContent = isDark() ? "[T] Light" : "[T] Dark");
+function toggleTheme() {
+  const t = isDark() ? "light" : "dark"; document.documentElement.dataset.theme = t;
+  try { localStorage.setItem("nb-theme", t); } catch (e) { /* storage blocked: the choice lasts for this visit */ }
+  themeLabel();
+}
+$("theme").onclick = toggleTheme; themeLabel();
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", themeLabel);
 // The margin's contents list follows the section being read
 if ("IntersectionObserver" in window) {
   const io = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) document.querySelectorAll("#contents a").forEach((a) => a.setAttribute("aria-current", a.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "-40% 0px -55% 0px" });
@@ -756,7 +772,11 @@ function setStatus(mode, st, reason) {
   }
   const recheck = () => { if (RUN && RUN[2]) renderAttested(...RUN); };
   $("recheck").onclick = recheck;
-  addEventListener("keydown", (e) => { if ((e.key === "v" || e.key === "V") && !e.metaKey && !e.ctrlKey && !e.altKey && !/input|textarea|select|button/i.test(e.target.tagName)) recheck(); });
+  addEventListener("keydown", (e) => {
+    if (e.metaKey || e.ctrlKey || e.altKey || /input|textarea|select|button/i.test(e.target.tagName)) return;
+    if (e.key === "v" || e.key === "V") recheck();
+    if (e.key === "t" || e.key === "T") toggleTheme();
+  });
 })();
 </script>
 </body>
