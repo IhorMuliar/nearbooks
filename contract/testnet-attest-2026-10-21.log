@@ -1,0 +1,20 @@
+$ python3 -I contract/scripts/verify_attestation.py nearbooks-v6.okf-kill-1792497882.testnet 2026-10-21
+snapshot 2026-10-21: nonce 1, OutLayer request 5258, mainnet block 220871336 (ts 1792540800533675965)
+attestation: https://testnet-api.outlayer.ai/attestations/by-request/5258
+PASS  snapshot's attestation link == the allowlisted URL for its request id
+PASS  attestation.request_id == snapshot request_id  5258
+PASS  attestation.wasm_hash == snapshot wasm_hash  bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963
+PASS  attestation.executed_wasm_sha256 == wasm_hash
+PASS  snapshot wasm_hash == the contract's pin for that date  outlayer.testnet
+PASS  wasm_hash is a worker this repo vouches for (contract/known_workers.json)  format 3 (28-day lookback), commit 422a4e6
+INFO  current pin: bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963 (same); waiting proposal: None
+PASS  attestation.input_hash == sha256(contract input)  {"n":"1","d":"2026-10-21","b":"220871336","b28":"216835292"}
+PASS  attestation.output_hash == snapshot output_sha256  d374907f38f35b3153606b3267f43153aa16e4f19f2b4ae1de711ec20ec407a4
+PASS  transaction calls this contract's request_snapshot or keeper_request_snapshot  GtPFDVM4Rf8euXtNN1zmzxK25NmHrV3RDjAMnMojL378 (keeper_request_snapshot)
+PASS  OutLayer receipt returned bytes hashing to output_hash
+PASS  stored metrics == attested output (all 13, incl. the 28-day ones recomputed here)  {"bb":"2033718030159469463819379165396","bb28":"1759835082618218321972652727294","cs":"270875891412420848813311023","cs28":"270776835252430877653311023","d":"2026-10-21","fb":"0","fe":"1920982886911920394173684387446","fe28":"1771064843944309493995788149585","h":"220871336","h28":"216835292","ms":"2768","n":"1","rc":"8","rd":"0","rid":"5258","rk":"8","rm":"0","rt":"","sha":"4c79897407c9d1ff8095d35a3706149c31e62cfd23be85de81f5c472d76fdefb","sup":"1309508415274274499956095578764974","sup28":"1307054581145393964278577254628416","t":"1792540800533675965","v":"3"}
+INFO  TDX quote 5006 bytes, version 4, MRTD 7fe60787222bd394..., RTMR3 f6c4087e601b4300... (= worker_measurement)
+PASS  quote report_data == sha256(task fields): the quote is bound to this run  90c7f4c00cc69c030b526c4621d67843b8a38b54884b621ddec529e03944f703
+PASS  quote MRTD+RTMR0-3 are in worker.outlayer.testnet approved measurements  (110 approved sets)
+SKIP  Intel DCAP signature chain (pass --dcap /path/to/dcap-qvl)
+13/13 checks pass

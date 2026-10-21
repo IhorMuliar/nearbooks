@@ -1,5 +1,5 @@
 {
-  "_comment": "The live testnet deployment. Every value comes from contract/testnet-keeper.log (earlier contract: testnet-attested.log, testnet-resolve.log). `make verify` fails if the README disagrees with this file or if a local `make wasm` / `make worker` build differs from the hashes below; `make verify-deploy` compares them with the chain and rebuilds the contract reproducibly from source_commit.",
+  "_comment": "The live testnet deployment. Every value comes from contract/testnet-keeper.log and the keeper's run logs contract/testnet-keeper-run-*.log (earlier contract: testnet-attested.log, testnet-resolve.log). `make verify` fails if the README disagrees with this file, if `attested_snapshots` or `resolutions` disagree with the run logs or with site/contract-cache.json, or if a local `make wasm` / `make worker` build differs from the hashes below; `make verify-deploy` compares them (including each snapshot, resolution and its transaction) with the chain and rebuilds the contract reproducibly from source_commit.",
   "network": "testnet",
   "contract": "nearbooks-v6.okf-kill-1792497882.testnet",
   "funder": "okf-kill-1792497882.testnet",
@@ -96,7 +96,64 @@
     [
       "keeper/keeper.py: keeper_request_snapshot(2026-10-20, 220726930, 216696053) signed by the function-call key: stored, OutLayer request 5240",
       "BWso6e2mQR5Qmj8tCvxbF9J8SHkoqgVnbV3rWXLFfyi4"
+    ],
+    [
+      "keeper/keeper.py run 2026-10-21 00:10 UTC: keeper_request_snapshot(2026-10-21, 220871336, 216835292) signed by the function-call key: stored, OutLayer request 5258",
+      "GtPFDVM4Rf8euXtNN1zmzxK25NmHrV3RDjAMnMojL378"
+    ],
+    [
+      "keeper/keeper.py run 2026-10-21: resolve_prediction(4) -> confirmed",
+      "4N2SjvD7V15zJt2xHHDH5WWNo5ui2mygsfmftnmGK9wp"
+    ],
+    [
+      "keeper/keeper.py run 2026-10-21: resolve_prediction(5) -> refuted",
+      "8JPLwNDiriem9qkMCaV9kBCYpetAfoQZ7HAYxRtHQoHQ"
+    ],
+    [
+      "keeper/keeper.py run 2026-10-21: resolve_prediction(6) -> void",
+      "3NFVHrZQ5wJ34uwUXdXzhkpsw6UND2pN8RN6zNZwQoHU"
     ]
+  ],
+  "attested_snapshots": [
+    {
+      "date": "2026-10-20",
+      "block_height": 220726930,
+      "block_height_28d": 216696053,
+      "outlayer_request_id": 5240,
+      "tx": "BWso6e2mQR5Qmj8tCvxbF9J8SHkoqgVnbV3rWXLFfyi4",
+      "log": "contract/testnet-keeper.log"
+    },
+    {
+      "date": "2026-10-21",
+      "block_height": 220871336,
+      "block_height_28d": 216835292,
+      "outlayer_request_id": 5258,
+      "tx": "GtPFDVM4Rf8euXtNN1zmzxK25NmHrV3RDjAMnMojL378",
+      "log": "contract/testnet-keeper-run-2026-10-21.log"
+    }
+  ],
+  "resolutions": [
+    {
+      "id": 4,
+      "status": "confirmed",
+      "snapshot_date": "2026-10-21",
+      "tx": "4N2SjvD7V15zJt2xHHDH5WWNo5ui2mygsfmftnmGK9wp",
+      "log": "contract/testnet-keeper-run-2026-10-21.log"
+    },
+    {
+      "id": 5,
+      "status": "refuted",
+      "snapshot_date": "2026-10-21",
+      "tx": "8JPLwNDiriem9qkMCaV9kBCYpetAfoQZ7HAYxRtHQoHQ",
+      "log": "contract/testnet-keeper-run-2026-10-21.log"
+    },
+    {
+      "id": 6,
+      "status": "void",
+      "snapshot_date": "2026-10-21",
+      "tx": "3NFVHrZQ5wJ34uwUXdXzhkpsw6UND2pN8RN6zNZwQoHU",
+      "log": "contract/testnet-keeper-run-2026-10-21.log"
+    }
   ],
   "previous_deployments": [
     {

@@ -1,0 +1,12 @@
+{"ts":"2026-10-21T00:10:29Z","event":"start","contract":"nearbooks-v6.okf-kill-1792497882.testnet","keeper":"nearbooks-keeper.okf-kill-1792497882.testnet","date":"2026-10-21","dry_run":false}
+{"ts":"2026-10-21T00:10:32Z","event":"key_ok","account":"nearbooks-keeper.okf-kill-1792497882.testnet","public_key":"ed25519:5U6f1VTZ4kb3vRteFjZuNqpy5w9Kd6R1sMDnoJC9fMXi","receiver":"nearbooks-v6.okf-kill-1792497882.testnet","methods":["keeper_request_snapshot","resolve_prediction"],"allowance":"498679548710747900000000"}
+{"ts":"2026-10-21T00:10:46Z","event":"first_blocks","date":"2026-10-21","block_height":220871336,"block_height_28d":216835292}
+{"ts":"2026-10-21T00:10:55Z","event":"tx_sent","method":"keeper_request_snapshot","args":{"date":"2026-10-21","block_height":220871336,"block_height_28d":216835292},"tx":"GtPFDVM4Rf8euXtNN1zmzxK25NmHrV3RDjAMnMojL378"}
+{"ts":"2026-10-21T00:11:11Z","event":"snapshot_result","date":"2026-10-21","tx":"GtPFDVM4Rf8euXtNN1zmzxK25NmHrV3RDjAMnMojL378","ok":true,"value":"stored attested snapshot 2026-10-21","stored":true}
+{"ts":"2026-10-21T00:11:27Z","event":"tx_sent","method":"resolve_prediction","args":{"id":4},"tx":"4N2SjvD7V15zJt2xHHDH5WWNo5ui2mygsfmftnmGK9wp"}
+{"ts":"2026-10-21T00:11:30Z","event":"resolved","id":4,"tx":"4N2SjvD7V15zJt2xHHDH5WWNo5ui2mygsfmftnmGK9wp","ok":true,"status":"confirmed"}
+{"ts":"2026-10-21T00:11:39Z","event":"tx_sent","method":"resolve_prediction","args":{"id":5},"tx":"8JPLwNDiriem9qkMCaV9kBCYpetAfoQZ7HAYxRtHQoHQ"}
+{"ts":"2026-10-21T00:11:42Z","event":"resolved","id":5,"tx":"8JPLwNDiriem9qkMCaV9kBCYpetAfoQZ7HAYxRtHQoHQ","ok":true,"status":"refuted"}
+{"ts":"2026-10-21T00:11:51Z","event":"tx_sent","method":"resolve_prediction","args":{"id":6},"tx":"3NFVHrZQ5wJ34uwUXdXzhkpsw6UND2pN8RN6zNZwQoHU"}
+{"ts":"2026-10-21T00:11:54Z","event":"resolved","id":6,"tx":"3NFVHrZQ5wJ34uwUXdXzhkpsw6UND2pN8RN6zNZwQoHU","ok":true,"status":"void"}
+{"ts":"2026-10-21T00:11:54Z","event":"done","failures":0}
