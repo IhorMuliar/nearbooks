@@ -120,7 +120,7 @@ The owner is the contract account itself: `nearbooks.near` on mainnet (`nearbook
 
 | Power | Effect | Limit / visibility |
 |---|---|---|
-| `propose_pin` / `apply_pin` / `cancel_pin_proposal` | Decides which worker observes future dates | Timelocked (above). Events `pin_proposed`, `worker_pinned`, `pin_proposal_cancelled`. Every snapshot records its `wasm_hash`. The repo publishes the hashes it vouches for in `contract/known_workers.json`. A broken pin only stops new snapshots (liveness): predictions stay Pending, none is decided wrongly. |
+| `propose_pin` / `apply_pin` / `cancel_pin_proposal` | Decides which worker observes future dates | Timelocked (above). Events `pin_proposed`, `worker_pinned`, `pin_proposal_cancelled`. Every snapshot records its `wasm_hash`. The repo publishes the hashes it vouches for in `contract/known_workers.json`. A pinned worker that stops working only stops new snapshots: predictions stay Pending, and none is decided wrongly. A pinned worker that runs but reports wrong numbers is a different risk, which the contract cannot detect. That is why re-pins are timelocked, every snapshot records its `wasm_hash`, and the vouched-for hashes are published with a reproducible build. |
 | `add_prediction` | Registers claims | Only for a future `resolve_after`. Cannot edit, delete or resolve them. |
 | `set_earliest_date` | Widens backfill | Can only move earlier. A Pending prediction's date is always requestable. |
 | `set_reporter` | Rotates the reporter | Reported snapshots never resolve predictions. |
@@ -166,7 +166,7 @@ The deployed contract (`nearbooks.near`, and `nearbooks-v6` on testnet: the same
 
 The worker (`worker/build.sh`) builds byte-identically from another directory with the same toolchain, but it is not built in a pinned image. `make verify` reports a local contract or worker build that differs from `contract/deployment.json`.
 
-The URL in the metadata (`https://github.com/IhorMuliar/nearbooks`) has not been published yet. Until it is, a third party needs a copy of this repository's history to rebuild, and SourceScan-style verification is not possible.
+The URL in the metadata (`https://github.com/IhorMuliar/nearbooks`) is public, so anyone can clone it, check out `source_commit` and rebuild, or verify the contract SourceScan-style from the embedded metadata.
 
 ## What this does not prove
 

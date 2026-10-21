@@ -1,0 +1,111 @@
+{
+ "as_of": "2026-10-20",
+ "read": "2026-10-21",
+ "claims": [
+  {
+   "id": "C1",
+   "who": "revenue.near.org (NEAR Foundation)",
+   "date": "2026-10-21",
+   "url": "https://revenue.near.org",
+   "kind": "quote",
+   "text": "NEAR captures a growing share of fees, feeding buybacks that permanently remove NEAR from circulation.",
+   "data": "The NEAR sits in buybacks.multisignature.near (2,024,302 NEAR), a multisig whose signers can move it; 3 outflows have moved 12,025 NEAR so far, and total supply rose in 42 of 42 sampled intervals. It is out of circulation only while the signers keep it there; the chain does not make that permanent.",
+   "verdict": "Held, not removed",
+   "ok": true
+  },
+  {
+   "id": "C2",
+   "who": "Altcoin Buzz",
+   "date": "2026-10-19",
+   "url": "https://altcoinbuzz.io/near-intents-has-bought-back-6-68m-of-near-using-fees",
+   "kind": "summary",
+   "text": "NearBlocks shows 2,015,496 NEAR in buybacks.multisignature.near while revenue.near.org lists 1,510,411 NEAR, and nothing published explains the difference.",
+   "data": "Both numbers are right. NearBlocks shows the wallet's balance; the dashboard shows the revenue it received from outside, up to 2026-10-17. The 505,086 NEAR gap is 510,068 NEAR moved in from the other revenue wallet, minus 12,025 NEAR sent out, plus 7,043 NEAR of revenue after that date; it closes to -0.026 NEAR (F2f).",
+   "verdict": "Both right, gap explained",
+   "ok": true
+  },
+  {
+   "id": "C3",
+   "who": "SVRN x The Tie, NEAR Protocol report",
+   "date": "2026-03-12",
+   "url": "https://svrn.net/news/near-protocol-report",
+   "kind": "summary",
+   "text": "Buybacks would match issuance (the report's \"deflation threshold\") at about $177M of daily Intents volume, with issuance of 32.2M NEAR a year worth about $39.3M.",
+   "inputs": {
+    "threshold_usd_per_day": 177000000.0,
+    "issuance_near_per_year": 32200000.0,
+    "issuance_usd_per_year": 39300000.0
+   },
+   "data": "The figure is in dollars, so it moves with the NEAR price. The report's own numbers imply $1.22 a NEAR; at today's $4.67 the same inputs give about $677M a day, against our $795M. And \"deflation\" there means purchases match issuance; the NEAR is held, so supply does not fall.",
+   "verdict": "Dated: close to ours once repriced",
+   "ok": true
+  },
+  {
+   "id": "C4",
+   "who": "Latent Equity, \"NEAR: the checkout counter\"",
+   "date": "2026-10-12",
+   "url": "https://latentequity.substack.com/p/near-protocol-near-the-checkout-counter",
+   "kind": "summary",
+   "text": "Buybacks would offset issuance at about $1.13B of daily Intents volume, at a NEAR price of $5.90 and a net take of about 4.6 bps.",
+   "inputs": {
+    "threshold_usd_per_day": 1131000000.0,
+    "price_usd": 5.896,
+    "take_bps": 4.6
+   },
+   "data": "Our formula with their price and take gives $1.12B a day. The gap to our $795M is the inputs: price $5.90 against $4.67, take 4.6 against 5.15 bps.",
+   "verdict": "Holds",
+   "ok": true
+  },
+  {
+   "id": "C5",
+   "who": "Grey Ledger (@Airdrops_one) on X",
+   "date": "2026-10-18",
+   "url": "https://x.com/Airdrops_one/status/2111609433625186404",
+   "kind": "summary",
+   "text": "The chain issues about 90K new NEAR a day, against about $30M a year of fee capture.",
+   "inputs": {
+    "issuance_near_per_day": 90000,
+    "fee_capture_usd_per_year": 30000000.0
+   },
+   "data": "Net issuance is 87,677 NEAR a day over the last 28 days (the 2.5% cap mints a little more; fee burn takes the rest). Captured revenue ran at $28.0M a year over the last 30 days.",
+   "verdict": "Holds",
+   "ok": true
+  },
+  {
+   "id": "C6",
+   "who": "SVRN's CEO on Bankless, reported by Stocktwits",
+   "date": "2026-10-06",
+   "url": "https://stocktwits.com/news-articles/markets/cryptocurrency/near-treasury-firm-ceo-says-buybacks-are-still-real-but-issuance-runs-six-times-higher/cZDteDIRBl3",
+   "kind": "quote",
+   "text": "Buybacks are still real, but issuance runs six times higher.",
+   "inputs": {
+    "ratio": 6
+   },
+   "data": "New supply was 5.8x the NEAR the three revenue wallets took in over 28 days, or 8.4x counting only the 69% of revenue that reached the buyback wallet (F2c).",
+   "verdict": "Holds",
+   "ok": true
+  },
+  {
+   "id": "C7",
+   "who": "Bitwise (Ryan Rasmussen), reported by Crypto Briefing",
+   "date": "2026-10-14",
+   "url": "https://cryptobriefing.com/bitwise-head-of-research-says-investors-underestimate-institutional-adoption-of-near-and-hype",
+   "kind": "summary",
+   "text": "Buybacks are not yet enough to offset new issuance.",
+   "data": "Buybacks would match issuance only at 5.3x today's Intents volume, and only if the NEAR were burned (F4a).",
+   "verdict": "Holds",
+   "ok": true
+  },
+  {
+   "id": "C8",
+   "who": "HSP-029 (NEAR governance proposal)",
+   "date": "2026-10-19",
+   "url": "https://gov.near.org/t/hsp-029-establish-a-24-month-issuance-ramp-to-a-1-6-target-rate-of-near-token-emissions/42644",
+   "kind": "summary",
+   "text": "Realised issuance is about 2.45% a year, and the treasury receives about 10.13% of supply growth.",
+   "data": "7d: 10.207%, 28d: 10.180%, 92d: 10.147% vs published 10.13%; 28d net issuance 87,677 NEAR/day = 2.444%/yr vs published 2.45% (F3a, F3b).",
+   "verdict": "Holds",
+   "ok": true
+  }
+ ]
+}

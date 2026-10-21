@@ -2182,6 +2182,28 @@
    "threshold_micro": 500000,
    "current_value": 0.17230420867544954,
    "status": "pending (resolved only on-chain, by anyone, after resolve_after)"
+  },
+  {
+   "id": "P5",
+   "claim": "Net issuance over the 28 days to the first block of 2026-11-05 is at least 87,500 NEAR a day (dilution is not slowing).",
+   "metric": "net_issuance_near_per_day",
+   "comparator": "gte",
+   "threshold": 87500,
+   "resolve_after": "2026-11-05",
+   "threshold_micro": 87500000000,
+   "current_value": 87677.44320989135,
+   "status": "pending (resolved only on-chain, by anyone, after resolve_after)"
+  },
+  {
+   "id": "P6",
+   "claim": "In the 28 days to the first block of 2026-11-15 the three Intents revenue wallets gain less than 17% as much NEAR as total supply grows (their accumulation eases from its September-October high).",
+   "metric": "revenue_wallets_gain_over_net_issuance",
+   "comparator": "lt",
+   "threshold": 0.17,
+   "resolve_after": "2026-11-15",
+   "threshold_micro": 170000,
+   "current_value": 0.17230420867544954,
+   "status": "pending (resolved only on-chain, by anyone, after resolve_after)"
   }
  ],
  "sample": {

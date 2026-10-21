@@ -23,6 +23,7 @@ help:
 verify:
 	$(PY) pipeline/compute.py --data $(SNAPSHOT) --m2 $(SNAPSHOT_M2) --out $(SNAPSHOT)/metrics.json
 	cp $(SNAPSHOT)/metrics.json site/metrics.json
+	$(PY) pipeline/verify.py $(SNAPSHOT)/metrics.json --claims-json site/claims.json
 	$(PY) pipeline/verify.py $(SNAPSHOT)/metrics.json
 	$(PY) pipeline/verify.py $(SNAPSHOT)/metrics.json --check-readme README.md
 

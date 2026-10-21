@@ -72,6 +72,20 @@ class TestPipeline(unittest.TestCase):
         self.assertIn("F3a", failing(lambda x: x["hsp029"]["windows"]["92"].update(treasury_share_pct=12.0)))
         self.assertIn("F4a", failing(lambda x: x["deflation"].update(net_issuance_near_per_day=1.0, breakeven_over_current_volume=0.001)))
 
+    def test_every_public_claim_is_graded_and_its_verdict_follows_from_the_data(self):
+        cs = verify.claims(self.m, verify.findings(self.m))
+        self.assertEqual([c["id"] for c in cs], [c["id"] for c in load_json(verify.CLAIMS)["claims"]])
+        self.assertTrue(all(c["ok"] for c in cs), [c["id"] for c in cs if not c["ok"]])
+        self.assertTrue(all(c["url"].startswith("https://") and c["kind"] in ("quote", "summary") for c in cs))
+        def graded(mutate):
+            x = copy.deepcopy(self.m); mutate(x)
+            return {c["id"]: c["ok"] for c in verify.claims(x, verify.findings(x))}
+        # a different issuance breaks the Latent Equity and Grey Ledger reproductions; a burn-free wallet breaks "held"
+        self.assertFalse(graded(lambda x: x["deflation"].update(net_issuance_near_per_day=60000.0))["C4"])
+        self.assertFalse(graded(lambda x: x["deflation"].update(net_issuance_near_per_day=60000.0))["C5"])
+        self.assertFalse(graded(lambda x: x["buyback"].update(outflow_count=0))["C1"])
+        self.assertFalse(graded(lambda x: x["worker_metrics_estimate"].update(revenue_wallets_gain_over_net_issuance=0.5))["C6"])
+
     def test_snapshot_tampering_is_detected(self):
         tmp = tempfile.mkdtemp(prefix="nbtamper")
         try:
