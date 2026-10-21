@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
-"""Read the nearbooks contract on NEAR testnet over JSON-RPC view calls (standard library only, no keys).
+"""Read the nearbooks contract (NEAR mainnet; NEARBOOKS_NETWORK=testnet for the earlier deployment) over JSON-RPC view calls
+(standard library only, no keys).
 
     python3 mcp/chain.py state            # print the live contract state as JSON
     python3 mcp/chain.py dump OUT.json    # write it (plus attestation tx hashes) as the offline cache
+    python3 mcp/chain.py --network testnet dump site/contract-cache-testnet.json
 
 Used by mcp/server.py (get_attested_snapshots, get_predictions). site/index.html does the same reads from the browser.
 The offline cache (site/contract-cache.json) is what both fall back to when the RPC cannot be reached.
@@ -10,19 +12,38 @@ The offline cache (site/contract-cache.json) is what both fall back to when the 
 import base64, hashlib, ipaddress, json, os, sys, time, urllib.error, urllib.parse, urllib.request
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OFFICIAL_CONTRACT = "nearbooks-v6.okf-kill-1792497882.testnet"
-CONTRACT = os.environ.get("NEARBOOKS_CONTRACT", OFFICIAL_CONTRACT)
-RPCS = [u for u in os.environ.get("NEARBOOKS_RPC", "https://rpc.testnet.near.org,https://rpc.testnet.fastnear.com").split(",") if u]
-CACHE = os.environ.get("NEARBOOKS_CACHE", os.path.join(ROOT, "site", "contract-cache.json"))
-EXPLORER = "https://testnet.nearblocks.io"
+# The official deployment is on mainnet; the testnet one is the earlier test and demo record (contract/deployment-testnet.json).
+# Per network: official contract, RPCs, archival RPCs (transactions: the regular RPCs drop them after a few days),
+# explorer, attestation API, offline cache.
+NETWORKS = {
+    "mainnet": {"contract": "nearbooks.near", "rpcs": ["https://free.rpc.fastnear.com", "https://rpc.mainnet.near.org"],
+                "archival": ["https://archival-rpc.mainnet.fastnear.com", "https://archival-rpc.mainnet.near.org"],
+                "explorer": "https://nearblocks.io", "attestation_api": "https://api.outlayer.ai", "cache": "site/contract-cache.json"},
+    "testnet": {"contract": "nearbooks-v6.okf-kill-1792497882.testnet", "rpcs": ["https://rpc.testnet.near.org", "https://rpc.testnet.fastnear.com"],
+                "archival": ["https://archival-rpc.testnet.near.org", "https://archival-rpc.testnet.fastnear.com"],
+                "explorer": "https://testnet.nearblocks.io", "attestation_api": "https://testnet-api.outlayer.ai", "cache": "site/contract-cache-testnet.json"},
+}
 MICRO = 10**6
 # Network access is limited to these HTTPS hosts. URLs found in contract state are never fetched as given: the
 # attestation URL is rebuilt from an allowlisted base and the snapshot's numeric request id.
-# Transactions are looked up on archival nodes: the regular testnet RPCs drop data after a few days.
-ARCHIVAL_RPCS = ["https://archival-rpc.testnet.near.org", "https://archival-rpc.testnet.fastnear.com"]
-RPC_HOSTS = {"rpc.testnet.near.org", "rpc.testnet.fastnear.com", "test.rpc.fastnear.com", "archival-rpc.testnet.near.org", "archival-rpc.testnet.fastnear.com"}
 ATTESTATION_BASES = {"https://testnet-api.outlayer.ai", "https://api.outlayer.ai"}
-ATTESTATION_API = os.environ.get("NEARBOOKS_ATTESTATION_API", "https://testnet-api.outlayer.ai")
+
+
+def use_network(name):
+    """Point every module-level setting at one network (default: $NEARBOOKS_NETWORK, else mainnet). Env overrides:
+    NEARBOOKS_CONTRACT, NEARBOOKS_RPC (comma-separated), NEARBOOKS_CACHE, NEARBOOKS_ATTESTATION_API."""
+    global NETWORK, OFFICIAL_CONTRACT, CONTRACT, RPCS, ARCHIVAL_RPCS, RPC_HOSTS, EXPLORER, ATTESTATION_API, CACHE
+    n = NETWORKS[name]
+    NETWORK, OFFICIAL_CONTRACT, EXPLORER = name, n["contract"], n["explorer"]
+    CONTRACT = os.environ.get("NEARBOOKS_CONTRACT", OFFICIAL_CONTRACT)
+    RPCS = [u for u in os.environ.get("NEARBOOKS_RPC", ",".join(n["rpcs"])).split(",") if u]
+    ARCHIVAL_RPCS = list(n["archival"])
+    RPC_HOSTS = {urllib.parse.urlsplit(u).hostname for u in n["rpcs"] + n["archival"]}
+    ATTESTATION_API = os.environ.get("NEARBOOKS_ATTESTATION_API", n["attestation_api"])
+    CACHE = os.environ.get("NEARBOOKS_CACHE", os.path.join(ROOT, n["cache"]))
+
+
+use_network(os.environ.get("NEARBOOKS_NETWORK", "mainnet"))
 # Tests run a fake RPC on 127.0.0.1; only this explicit switch lets a loopback http:// RPC through.
 ALLOW_LOOPBACK_RPC = os.environ.get("NEARBOOKS_RPC_ALLOW_LOOPBACK") == "1"
 MAX_RESPONSE_BYTES = 256 * 1024
@@ -192,7 +213,7 @@ def fetch_state(contract=None, with_attestations=False):
     predictions, _, _ = _all("list_predictions", contract)
     owner_reporter, _, _ = view("get_config", {}, contract)
     state = {
-        "contract": contract, "network": "testnet", "rpc": url, "block_height": height, "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        "contract": contract, "network": NETWORK, "rpc": url, "block_height": height, "fetched_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
         "owner_id": owner_reporter[0], "reporter_id": owner_reporter[1],
         "pin_delay_secs": view("get_pin_delay_secs", {}, contract)[0], "pins": view("list_pins", {}, contract)[0],
         "pin_proposal": view("get_pin_proposal", {}, contract)[0], "earliest_date": view("get_earliest_date", {}, contract)[0],
@@ -233,7 +254,7 @@ def snapshot_view(s):
     a = s["source"]["attested"]
     out = {"date": s["date"], "known_worker": s["source"]["attested"]["wasm_hash"] in KNOWN_WORKERS, "metrics": metrics_dict(s), "mainnet_block_height": a["block_height"], "wasm_hash": a["wasm_hash"],
            "outlayer_request_id": a["request_id"], "output_sha256": a["output_sha256"], "evidence_hash": s["evidence_hash"],
-           "attestation_url": _attestation_url_or_none(s), "requested_by": s["submitted_by"], "stored_in_testnet_block": s["block_height"],
+           "attestation_url": _attestation_url_or_none(s), "requested_by": s["submitted_by"], "stored_in_block": s["block_height"],
            "stored_block_url": f"{EXPLORER}/blocks/{s['block_height']}"}
     chk = s.get("attestation_checks")
     if chk:
@@ -259,6 +280,9 @@ def prediction_view(p):
 
 
 def main(argv):
+    if len(argv) >= 3 and argv[1] == "--network":
+        use_network(argv[2])
+        argv = argv[:1] + argv[3:]
     if len(argv) >= 2 and argv[1] == "state":
         print(json.dumps(fetch_state(with_attestations="--attestations" in argv), indent=1))
     elif len(argv) == 3 and argv[1] == "dump":

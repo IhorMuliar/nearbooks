@@ -3,20 +3,21 @@ SNAPSHOT ?= data/snapshot-2026-10-20
 SNAPSHOT_M2 ?= data/snapshot-2026-10-20-m2
 PY       ?= python3 -I
 
-.PHONY: help data verify verify-live verify-deploy cache test test-py test-contract test-worker wasm wasm-local worker keeper-dry readme site clean
+.PHONY: help data verify verify-live verify-deploy verify-deploy-testnet cache cache-testnet test test-py test-contract test-worker wasm wasm-local worker keeper-dry readme site clean
 
 help:
 	@echo "make verify        recompute + assert findings from the committed snapshot, check README numbers, recorded snapshot/prediction outcomes and local builds (offline, ~3 s)"
-	@echo "make verify-deploy compare contract/deployment.json with the testnet contract, check recorded snapshots and resolutions on chain, rebuild it reproducibly (docker) and check local builds (network)"
-	@echo "make cache         re-read the testnet contract into site/contract-cache.json (network; then make readme)"
+	@echo "make verify-deploy compare contract/deployment.json with the mainnet contract, check recorded snapshots and resolutions on chain, rebuild it reproducibly (docker) and check local builds (network)"
+	@echo "make verify-deploy-testnet  the same for the earlier testnet deployment (contract/deployment-testnet.json)"
+	@echo "make cache         re-read the mainnet contract into site/contract-cache.json (network; then make readme); cache-testnet: the testnet one"
 	@echo "make data          fetch fresh raw data into data/live + data/live-m2 (network, ~6 min + ~25 min NEARData block sample)"
 	@echo "make verify-live   make data, then recompute + assert on the fresh data"
 	@echo "make test          python tests (pipeline, MCP) + contract and worker unit tests"
 	@echo "make wasm          reproducible build (docker, cargo-near) of the deployed commit into contract/res/nearbooks.wasm"
 	@echo "make wasm-local    quick non-reproducible build of the working tree into contract/res/nearbooks-local.wasm"
-	@echo "make keeper-dry    plan the keeper's next run against the testnet contract (network, no key, signs nothing)"
+	@echo "make keeper-dry    plan the keeper's next run against the mainnet contract (network, no key, signs nothing)"
 	@echo "make worker        build the OutLayer worker (wasm32-wasip2) and print the sha256 the contract pins"
-	@echo "make site          serve the dashboard at http://127.0.0.1:8000/site/ (reads the testnet contract live)"
+	@echo "make site          serve the dashboard at http://127.0.0.1:8000/site/ (reads the mainnet contract live)"
 
 # --- offline path: committed snapshot -> metrics.json -> assertions
 verify:
@@ -34,8 +35,14 @@ data:
 verify-deploy:
 	$(PY) contract/scripts/check_deployment.py
 
+verify-deploy-testnet:
+	NEARBOOKS_SKIP_REPRO=$${NEARBOOKS_SKIP_REPRO:-1} $(PY) contract/scripts/check_deployment.py --network testnet
+
 cache:
 	$(PY) mcp/chain.py dump site/contract-cache.json
+
+cache-testnet:
+	$(PY) mcp/chain.py --network testnet dump site/contract-cache-testnet.json
 
 verify-live: data
 	$(PY) pipeline/verify.py data/live/metrics.json

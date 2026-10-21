@@ -1,6 +1,7 @@
-"""Compare contract/deployment.json with NEAR testnet and with builds (stdlib only, network, no keys).
+"""Compare a deployment record with the chain and with builds (stdlib only, network, no keys).
 
-    python3 -I contract/scripts/check_deployment.py        # `make verify-deploy`
+    python3 -I contract/scripts/check_deployment.py                     # `make verify-deploy`: contract/deployment.json, mainnet
+    python3 -I contract/scripts/check_deployment.py --network testnet   # `make verify-deploy-testnet`: contract/deployment-testnet.json
 
 Checks: the account's on-chain code_hash is the base58 of `code_sha256`, and a reproducible build of `source_commit`
 (contract/scripts/repro_build.sh: fresh clone, cargo-near reproducible-wasm in the digest-pinned image) has exactly
@@ -55,8 +56,13 @@ def reproducible_build(commit):
         return hashlib.sha256(open(out, "rb").read()).hexdigest(), env.split("=", 1)[-1]
 
 
-def main():
-    d = json.load(open(os.path.join(ROOT, "contract", "deployment.json")))
+def main(argv):
+    network = argv[argv.index("--network") + 1] if "--network" in argv else "mainnet"
+    chain.use_network(network)
+    d = json.load(open(os.path.join(ROOT, "contract", "deployment.json" if network == "mainnet" else f"deployment-{network}.json")))
+    if d["network"] != network:
+        sys.exit(f"the record is for {d['network']}, not {network}")
+    print(f"INFO  {network}: {d['contract']} via {', '.join(chain.RPCS)}")
     known = json.load(open(os.path.join(ROOT, "contract", "known_workers.json")))["worker_sha256"]
     account = lambda a: chain.rpc("query", {"request_type": "view_account", "finality": "final", "account_id": a})
     results = []
@@ -66,6 +72,9 @@ def main():
     want = b58(bytes.fromhex(d["code_sha256"]))
     acc = account(d["contract"])
     check("on-chain code_hash == base58(deployment code_sha256)", acc["code_hash"] == want, f"{acc['code_hash']} vs {want}")
+    ckeys = chain.rpc("query", {"request_type": "view_access_key_list", "finality": "final", "account_id": d["contract"]})["keys"]
+    cfull = sum(1 for x in ckeys if x["access_key"]["permission"] == "FullAccess")
+    print(f"INFO  contract account keys: {len(ckeys)} ({cfull} full-access{'; whoever holds it can redeploy the code' if cfull else '; the code cannot change'})")
     got, how = reproducible_build(d["source_commit"])
     if got is None:
         print(f"SKIP  reproducible build of {d['source_commit'][:7]} ({how})")
@@ -131,4 +140,4 @@ def main():
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv))

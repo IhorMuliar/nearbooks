@@ -9,7 +9,7 @@ const { chromium } = await import(process.env.PLAYWRIGHT_CORE || "playwright-cor
 
 const BASE = process.argv[2] || "http://127.0.0.1:8000/site/";
 const SHOT = process.argv[3];
-const ALLOWED = ["127.0.0.1", "rpc.testnet.near.org", "rpc.testnet.fastnear.com", "test.rpc.fastnear.com", "archival-rpc.testnet.near.org", "archival-rpc.testnet.fastnear.com", "testnet-api.outlayer.ai"];
+const ALLOWED = ["127.0.0.1", "free.rpc.fastnear.com", "rpc.mainnet.near.org", "archival-rpc.mainnet.fastnear.com", "archival-rpc.mainnet.near.org", "api.outlayer.ai"];
 const fail = (m) => { console.log("FAIL " + m); process.exitCode = 1; };
 const pass = (m) => console.log("PASS " + m);
 const browser = await chromium.launch({ executablePath: process.env.CHROME || undefined });
@@ -19,7 +19,7 @@ async function open(url, opts = {}) {
   const page = await ctx.newPage();
   const hosts = new Set();
   page.on("request", (r) => hosts.add(new URL(r.url()).hostname));
-  if (opts.offline) await page.route(/rpc\.(testnet\.)?(near\.org|fastnear\.com)|test\.rpc\.fastnear\.com/, (r) => r.abort());
+  if (opts.offline) await page.route(/rpc\.(mainnet\.)?(near\.org|fastnear\.com)/, (r) => r.abort());
   await page.goto(url);
   await page.waitForFunction(() => !document.querySelector("#status .tag")?.textContent.includes("loading"), null, { timeout: 30000 });
   if (!opts.offline) await page.waitForFunction(() => [...document.querySelectorAll("#att-table td.checks")].every((c) => !c.textContent.includes("checking")), null, { timeout: 30000 });
@@ -50,7 +50,7 @@ async function open(url, opts = {}) {
 {
   const { page, ctx, hosts } = await open(BASE + "?rpc=https://evil.example&contract=attacker.testnet");
   const shown = await page.textContent("#status");
-  shown.includes("nearbooks-v6.okf-kill-1792497882.testnet") ? pass("?contract= is ignored") : fail("?contract= changed the contract");
+  shown.includes("nearbooks.near") && !shown.includes("attacker") ? pass("?contract= is ignored") : fail("?contract= changed the contract");
   const bad = [...hosts].filter((h) => !ALLOWED.includes(h));
   bad.length ? fail(`requests to non-allowlisted hosts: ${bad}`) : pass(`hosts contacted: ${[...hosts].join(", ")}`);
   await ctx.close();

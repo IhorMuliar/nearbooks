@@ -146,7 +146,7 @@ class TestMcpContract(unittest.TestCase):
         first = next(x for x in self.cache["attested"] if x["date"] == out["snapshots"][0]["date"])
         sup = next(int(m["value"]) for m in first["metrics"] if m["key"] == "supply_total_near")
         self.assertAlmostEqual(out["snapshots"][0]["metrics"]["supply_total_near"], sup / 1e6)   # micro-units decoded
-        self.assertTrue(out["snapshots"][0]["attestation_url"].startswith("https://testnet-api.outlayer.ai/attestations/by-request/"))
+        self.assertTrue(out["snapshots"][0]["attestation_url"].startswith("https://api.outlayer.ai/attestations/by-request/"))
 
     def test_unreachable_rpc_falls_back_to_the_cache_and_says_so(self):
         out = self.ask(DEAD, "get_attested_snapshots")
@@ -183,7 +183,7 @@ class TestMcpContract(unittest.TestCase):
 
 
     def test_rpc_outside_the_allowlist_is_refused_not_contacted(self):
-        s = McpSession({"NEARBOOKS_RPC": "https://evil.example,http://rpc.testnet.near.org", "NEARBOOKS_CACHE": CACHE})
+        s = McpSession({"NEARBOOKS_RPC": "https://evil.example,http://rpc.mainnet.near.org", "NEARBOOKS_CACHE": CACHE})
         try:
             out = json.loads(s.call("tools/call", {"name": "get_predictions", "arguments": {}})["result"]["content"][0]["text"])
         finally:
@@ -215,22 +215,37 @@ class TestMcpContract(unittest.TestCase):
 
 class TestUrlAllowlist(unittest.TestCase):
     def test_check_url(self):
-        ok = "https://rpc.testnet.near.org"
+        ok = "https://rpc.mainnet.near.org"
         self.assertEqual(chain.check_url(ok, chain.RPC_HOSTS), ok)
-        for bad in ("http://rpc.testnet.near.org", "https://evil.example", "https://rpc.testnet.near.org:8443", "https://u:p@rpc.testnet.near.org",
-                    "https://rpc.testnet.near.org.evil.example", "file:///etc/passwd", "http://127.0.0.1:8080", "https://169.254.169.254/"):
+        for bad in ("http://rpc.mainnet.near.org", "https://evil.example", "https://rpc.mainnet.near.org:8443", "https://u:p@rpc.mainnet.near.org",
+                    "https://rpc.mainnet.near.org.evil.example", "https://rpc.testnet.near.org", "file:///etc/passwd", "http://127.0.0.1:8080", "https://169.254.169.254/"):
             with self.assertRaises(chain.RefusedUrl, msg=bad):
                 chain.check_url(bad, chain.RPC_HOSTS)
         self.assertEqual(chain.check_url("http://127.0.0.1:8080", chain.RPC_HOSTS, loopback_ok=True), "http://127.0.0.1:8080")
         with self.assertRaises(chain.RefusedUrl):
             chain.check_url("http://10.0.0.1", chain.RPC_HOSTS, loopback_ok=True)
 
+    def test_mainnet_is_the_default_and_testnet_switches_every_setting(self):
+        self.assertEqual((chain.NETWORK, chain.OFFICIAL_CONTRACT, chain.ATTESTATION_API), ("mainnet", "nearbooks.near", "https://api.outlayer.ai"))
+        try:
+            chain.use_network("testnet")
+            self.assertEqual((chain.OFFICIAL_CONTRACT, chain.ATTESTATION_API, chain.EXPLORER),
+                             ("nearbooks-v6.okf-kill-1792497882.testnet", "https://testnet-api.outlayer.ai", "https://testnet.nearblocks.io"))
+            self.assertTrue(all(h.endswith(("testnet.near.org", "testnet.fastnear.com")) for h in chain.RPC_HOSTS), chain.RPC_HOSTS)
+            self.assertTrue(chain.CACHE.endswith("contract-cache-testnet.json"))
+        finally:
+            chain.use_network("mainnet")
+        for name, n in chain.NETWORKS.items():
+            with open(os.path.join(ROOT, n["cache"])) as f:
+                c = json.load(f)
+            self.assertEqual((c["contract"], c.get("network", "testnet")), (n["contract"], name), "each network's cache is its official contract")
+
     def test_attestation_url_is_rebuilt_not_taken_from_state(self):
         with open(CACHE) as f:
             snap = json.load(f)["attested"][0]
         snap["source"]["attested"]["attestation"] = "http://169.254.169.254/latest/meta-data/"
         url = chain.attestation_url(snap)
-        self.assertEqual(url, f"https://testnet-api.outlayer.ai/attestations/by-request/{snap['source']['attested']['request_id']}")
+        self.assertEqual(url, f"https://api.outlayer.ai/attestations/by-request/{snap['source']['attested']['request_id']}")
         fetched = []
         saved = (chain._read, chain.view)
         try:

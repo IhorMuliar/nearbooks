@@ -96,10 +96,29 @@ class TestReadmeFacts(unittest.TestCase):
             with open(path) as f:
                 self.assertEqual(readme_facts.hash_problems(path, f.read(), known), [])
 
-    def test_deployment_record_is_consistent(self):
+    def test_mainnet_deployment_record_is_consistent(self):
         d = load_json(os.path.join(ROOT, "contract", "deployment.json"))
+        t = load_json(os.path.join(ROOT, "contract", "deployment-testnet.json"))
+        self.assertEqual((d["network"], d["contract"], t["network"]), ("mainnet", "nearbooks.near", "testnet"))
         self.assertTrue(d["worker_url"].endswith(d["worker_sha256"] + ".wasm"))
+        self.assertEqual((d["code_sha256"], d["source_commit"], d["worker_sha256"]), (t["code_sha256"], t["source_commit"], t["worker_sha256"]),
+                         "mainnet runs the same reproducible build and worker as testnet")
         self.assertEqual(load_json(os.path.join(ROOT, "site", "contract-cache.json"))["contract"], d["contract"])
+        with open(os.path.join(ROOT, "contract", "mainnet-deploy-2026-10-21.log")) as f:
+            log = f.read()
+        self.assertIn(f"deploy contract/res/nearbooks.wasm sha256 {d['code_sha256']} + new(owner={d['contract']}", log, "the logged deploy used this build")
+        self.assertIn(d["worker_url"], log)
+        for rel in sorted({r["log"] for r in d["attested_snapshots"] + d["resolutions"]}):
+            with open(os.path.join(ROOT, rel)) as f:
+                log += f.read()
+        self.assertIn(d["keeper"]["function_call_key"], log)
+        for _, tx in d["transactions"]:
+            self.assertIn(tx, log)
+
+    def test_testnet_deployment_record_is_consistent(self):
+        d = load_json(os.path.join(ROOT, "contract", "deployment-testnet.json"))
+        self.assertTrue(d["worker_url"].endswith(d["worker_sha256"] + ".wasm"))
+        self.assertEqual(load_json(os.path.join(ROOT, "site", "contract-cache-testnet.json"))["contract"], d["contract"])
         with open(os.path.join(ROOT, "contract", "testnet-keeper.log")) as f:
             log = f.read()
         self.assertIn(f"contract {d['contract']} (code sha256 {d['code_sha256']})", log, "the logged deploy used this build")
@@ -121,12 +140,13 @@ class TestReadmeFacts(unittest.TestCase):
             for _, tx in p["transactions"]:
                 self.assertIn(tx, old)
 
-    def _records_in(self, edit_deployment=None, edit_cache=None):
-        """check_records() on a copy of the committed records, after edit_*(dict) changed them."""
+    def _records_in(self, edit_deployment=None, edit_cache=None, network="testnet"):
+        """check_records(network) on a copy of the committed records, after edit_*(dict) changed them."""
+        dep, cache, _ = readme_facts.RECORDS[network]
         tmp = tempfile.mkdtemp()
         try:
-            d = load_json(os.path.join(ROOT, "contract", "deployment.json"))
-            c = load_json(os.path.join(ROOT, "site", "contract-cache.json"))
+            d = load_json(os.path.join(ROOT, dep))
+            c = load_json(os.path.join(ROOT, cache))
             for edit, obj in ((edit_deployment, d), (edit_cache, c)):
                 if edit:
                     edit(obj)
@@ -134,13 +154,13 @@ class TestReadmeFacts(unittest.TestCase):
             os.makedirs(os.path.join(tmp, "site"))
             for rel in {r["log"] for r in d["attested_snapshots"] + d["resolutions"]}:
                 shutil.copy(os.path.join(ROOT, rel), os.path.join(tmp, rel))
-            for rel, obj in (("contract/deployment.json", d), ("site/contract-cache.json", c)):
+            for rel, obj in ((dep, d), (cache, c)):
                 with open(os.path.join(tmp, rel), "w") as f:
                     json.dump(obj, f)
             orig = readme_facts.ROOT
             readme_facts.ROOT = tmp
             try:
-                return readme_facts.check_records()
+                return readme_facts.check_records(network)
             finally:
                 readme_facts.ROOT = orig
         finally:
@@ -148,30 +168,31 @@ class TestReadmeFacts(unittest.TestCase):
 
     def test_recorded_outcomes_match_the_run_logs_and_the_cache(self):
         self.assertEqual(readme_facts.check_records(), [])
-        d = load_json(os.path.join(ROOT, "contract", "deployment.json"))
-        self.assertEqual({r["status"] for r in d["resolutions"]}, {"confirmed", "refuted", "void"}, "all three outcomes are recorded")
+        d = load_json(os.path.join(ROOT, "contract", "deployment-testnet.json"))
+        self.assertEqual({r["status"] for r in d["resolutions"]}, {"confirmed", "refuted", "void"}, "all three outcomes are recorded on testnet")
         self.assertEqual(self._records_in(), [])
+        self.assertEqual(self._records_in(network="mainnet"), [])
 
     def test_a_wrong_recorded_status_is_reported(self):
         def flip(d):
             next(r for r in d["resolutions"] if r["id"] == 6)["status"] = "refuted"
         problems = self._records_in(edit_deployment=flip)
         self.assertTrue(any("prediction 6" in p and "logs status ['void']" in p for p in problems), problems)
-        self.assertTrue(any("prediction 6" in p and "site/contract-cache.json" in p for p in problems), problems)
+        self.assertTrue(any("prediction 6" in p and "site/contract-cache-testnet.json" in p for p in problems), problems)
 
     def test_a_cache_that_disagrees_with_the_records_is_reported(self):
         def flip(c):
             next(p for p in c["predictions"] if p["id"] == 5)["status"] = "confirmed"
-        self.assertTrue(any(p.startswith("prediction 5: site/contract-cache.json") for p in self._records_in(edit_cache=flip)))
+        self.assertTrue(any(p.startswith("prediction 5: site/contract-cache-testnet.json") for p in self._records_in(edit_cache=flip)))
 
         def decide(c):
             p = next(p for p in c["predictions"] if p["id"] == 0)
             p["status"], p["resolution"] = "confirmed", {"snapshot_date": "2026-12-31", "observed": "1", "resolved_by": "x", "block_height": 1}
-        self.assertEqual(self._records_in(edit_cache=decide), ["site/contract-cache.json has prediction 0 confirmed, which contract/deployment.json does not record"])
+        self.assertEqual(self._records_in(edit_cache=decide, network="mainnet"), ["site/contract-cache.json has prediction 0 confirmed, which contract/deployment.json does not record"])
 
         def other_tx(c):
             next(s for s in c["attested"] if s["date"] == "2026-10-21")["attestation_checks"]["transaction_hash"] = "x"
-        self.assertTrue(any(p.startswith("attested snapshot 2026-10-21: site/contract-cache.json has") for p in self._records_in(edit_cache=other_tx)))
+        self.assertTrue(any(p.startswith("attested snapshot 2026-10-21: site/contract-cache.json has") for p in self._records_in(edit_cache=other_tx, network="mainnet")))
 
     def test_a_tx_missing_from_the_run_log_is_reported(self):
         def other(d):

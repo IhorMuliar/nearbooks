@@ -1,6 +1,7 @@
 """README blocks that are facts about the repository rather than about metrics.json: the verify output, test counts,
-the testnet deployment (contract/deployment.json) and the contract state last read from the chain
-(site/contract-cache.json, written by `python3 mcp/chain.py dump`).
+the mainnet deployment (contract/deployment.json), the earlier testnet deployment (contract/deployment-testnet.json)
+and the contract state last read from each chain (site/contract-cache.json and site/contract-cache-testnet.json,
+written by `make cache`).
 
 Each block is a pure function of committed files, so `make verify` (verify.py --check-readme) fails when the README
 drifts from them. `check_builds` also fails when a local build in contract/res or worker/res differs from the
@@ -12,6 +13,9 @@ from common import CONFIG
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 MICRO = 10**6
+# Per network: the deployment record, the cached contract state and the explorer.
+RECORDS = {"mainnet": ("contract/deployment.json", "site/contract-cache.json", "https://nearblocks.io"),
+           "testnet": ("contract/deployment-testnet.json", "site/contract-cache-testnet.json", "https://testnet.nearblocks.io")}
 
 
 def _load(rel):
@@ -31,15 +35,20 @@ def test_counts():
     return {"python": py, "contract": rs("contract/src/tests.rs"), "worker": rs("worker/src/tests.rs")}
 
 
-def summary_block(m, findings):
-    t, c = test_counts(), _load("site/contract-cache.json")
+def _statuses(c):
     st = {}
     for p in c["predictions"]:
         st[p["status"]] = st.get(p["status"], 0) + 1
+    return ", ".join(f"{v} {k}" for k, v in sorted(st.items()))
+
+
+def summary_block(m, findings):
+    t, c, ct = test_counts(), _load(RECORDS["mainnet"][1]), _load(RECORDS["testnet"][1])
     ok = sum(f["ok"] for f in findings)
     return "\n".join([
         f"Status: {ok}/{len(findings)} findings pass offline (`make verify`). "
-        f"The testnet contract holds {len(c['attested'])} attested snapshot(s) and {len(c['predictions'])} predictions ({', '.join(f'{v} {k}' for k, v in sorted(st.items()))}) as of testnet block {c['block_height']:,}. "
+        f"The mainnet contract `{c['contract']}` holds {len(c['attested'])} attested snapshot(s) and {len(c['predictions'])} predictions ({_statuses(c)}) as of mainnet block {c['block_height']:,}; "
+        f"the earlier testnet deployment holds {len(ct['attested'])} and {len(ct['predictions'])} ({_statuses(ct)}). "
         f"{t['python'] + t['contract'] + t['worker']} tests ({t['python']} Python, {t['contract']} contract, {t['worker']} worker).",
     ])
 
@@ -113,22 +122,23 @@ def tests_block(m, findings):
     ]) + "\n```"
 
 
-def deployment_block(m, findings):
-    d = _load("contract/deployment.json")
+def deployment_block(m, findings, network="mainnet"):
+    d = _load(RECORDS[network][0])
     rb, k = d["reproducible_build"], d["keeper"]
     near = lambda y: f"{int(y) / 10**24:g} NEAR"
     rows = ["| Item | Value |", "|---|---|",
-            f"| Contract | `{d['contract']}` ({d['network']}) |",
+            f"| Contract | [`{d['contract']}`]({RECORDS[network][2]}/address/{d['contract']}) ({d['network']}) |",
             f"| Code sha256 | `{d['code_sha256']}` ({d['code_size_bytes']:,} bytes; {d['build']}) |",
             f"| Reproducible build | commit `{d['source_commit']}`, image `{rb['image']}@{rb['image_digest']}`; rebuild: `{rb['rebuild']}` |",
             f"| Pinned worker sha256 | `{d['worker_sha256']}` ([FastFS]({d['worker_url']})) |",
             f"| Re-pin timelock | {d['pin_delay_secs']:,} s |",
+            *([f"| Owner | `{d['owner']}`; its full-access key is {d['owner_full_access_key']} |"] if "owner" in d else []),
             f"| Keeper | `{k['account']}`: function-call key `{k['function_call_key']}` for {', '.join('`' + x + '`' for x in k['key_methods'])}, allowance {near(k['key_allowance_yocto'])}; daily cap {near(k['daily_cap_yocto'])}, budget funded {near(k['funded_yocto'])} |"]
-    rows += [f"| {what} | `{tx}` |" for what, tx in d["transactions"]]
+    rows += [f"| {what} | {_txlink(tx, network)} |" for what, tx in d["transactions"]]
     for p in d.get("previous_deployments", []):
         rows.append(f"| **Earlier contract** `{p['contract']}` | code `{p['code_sha256']}` ({p['build']}); {p['status']} |")
-        rows += [f"| {p['contract'].split('.')[0]}: {what} | `{tx}` |" for what, tx in p["transactions"]]
-    rows += [f"| Deleted superseded account `{a}` (funds returned to the funder) | `{tx}` |" for a, tx in d.get("superseded_accounts_deleted", [])]
+        rows += [f"| {p['contract'].split('.')[0]}: {what} | {_txlink(tx, network)} |" for what, tx in p["transactions"]]
+    rows += [f"| Deleted superseded account `{a}` (funds returned to the funder) | {_txlink(tx, network)} |" for a, tx in d.get("superseded_accounts_deleted", [])]
     return "\n".join(rows)
 
 
@@ -138,8 +148,8 @@ def _num(metric, v):
     return f"{v:,.0f}" if abs(v) >= 100 else f"{v:,.3f}"
 
 
-def attested_block(m, findings):
-    c = _load("site/contract-cache.json")
+def attested_block(m, findings, network="mainnet"):
+    c = _load(RECORDS[network][1])
     rows = ["| Date (first mainnet block) | Supply, NEAR | Buyback wallet, NEAR | Net issuance, 28 d, NEAR/day | Revenue wallets kept / new supply, 28 d | Intents tokens backed | OutLayer request | Checks (known worker, pin, tx, attestation hashes) | Transaction |",
             "|---|---|---|---|---|---|---|---|---|"]
     for s in sorted(c["attested"], key=lambda s: s["date"]):
@@ -148,12 +158,13 @@ def attested_block(m, findings):
         ratio = x.get("revenue_wallets_gain_over_net_issuance")
         rows.append(f"| {s['date']} ({a['block_height']:,}) | {x['supply_total_near']:,.0f} | {x['buyback_wallet_near']:,.0f} | {x['net_issuance_near_per_day']:,.0f} | "
                     f"{'-' if ratio is None else f'{ratio * 100:.1f}%'} | {x['intents_reserves_tokens_checked'] - x['intents_reserves_tokens_in_deficit']:.0f}/{x['intents_reserves_tokens_checked']:.0f} | "
-                    f"{a['request_id']} | {'verified' if chk.get('verified') else 'MISMATCH'} | `{chk.get('transaction_hash', '-')}` |")
-    return "\n".join(rows) + f"\n\nRead from the contract at testnet block {c['block_height']:,} ({c['fetched_at']}); the dashboard and `get_attested_snapshots` read the same views live."
+                    f"{a['request_id']} | {'verified' if chk.get('verified') else 'MISMATCH'} | {_txlink(chk['transaction_hash'], network) if chk.get('transaction_hash') else '-'} |")
+    live = "the dashboard and `get_attested_snapshots` read the same views live" if network == "mainnet" else "`NEARBOOKS_NETWORK=testnet python3 -I mcp/server.py` reads the same views live"
+    return "\n".join(rows) + f"\n\nRead from `{c['contract']}` at {network} block {c['block_height']:,} ({c['fetched_at']}); {live}."
 
 
-def predictions_block(m, findings):
-    c = _load("site/contract-cache.json")
+def predictions_block(m, findings, network="mainnet"):
+    c = _load(RECORDS[network][1])
     ids = {i: f"P{i + 1}" for i in range(4)}
     sym = {"gt": ">", "gte": ">=", "lt": "<", "lte": "<="}
     rows = ["| ID | Claim | Rule | Decided by the attested snapshot of | Status | Observed |", "|---|---|---|---|---|---|"]
@@ -170,23 +181,26 @@ def _rule(p):
     return f"`{p['metric']} {sym[p['comparator']]} {_num(p['metric'], int(p['threshold']) / MICRO)}`"
 
 
-def _txlink(tx):
-    return f"[`{tx}`](https://testnet.nearblocks.io/txns/{tx})"
+def _txlink(tx, network="mainnet"):
+    return f"[`{tx}`]({RECORDS[network][2]}/txns/{tx})"
 
 
-def resolutions_block(m, findings):
-    """The recorded resolutions (contract/deployment.json) joined with the cached contract state; check_records keeps the
-    two in agreement, so this table is what the chain says."""
-    d, c = _load("contract/deployment.json"), _load("site/contract-cache.json")
+def resolutions_block(m, findings, network="mainnet"):
+    """The recorded resolutions (the network's deployment record) joined with the cached contract state; check_records
+    keeps the two in agreement, so this table is what the chain says."""
+    d, c = _load(RECORDS[network][0]), _load(RECORDS[network][1])
+    if not d.get("resolutions"):
+        due = sorted({p["resolve_after"] for p in c["predictions"] if p["status"] == "pending"})
+        return f"No prediction on `{c['contract']}` is decided yet. Its {len(c['predictions'])} predictions resolve from the attested snapshots of {' and '.join(due)}."
     preds, snaps = {p["id"]: p for p in c["predictions"]}, {r["date"]: r for r in d.get("attested_snapshots", [])}
     rows = ["| Prediction | Rule | Observed | Status | Resolution transaction |", "|---|---|---|---|---|"]
     for r in d.get("resolutions", []):
         p = preds[r["id"]]
         obs = (p.get("resolution") or {}).get("observed")
-        rows.append(f"| {r['id']} | {_rule(p)} | {'metric absent' if obs is None else _num(p['metric'], int(obs) / MICRO)} | **{r['status']}** | {_txlink(r['tx'])} |")
+        rows.append(f"| {r['id']} | {_rule(p)} | {'metric absent' if obs is None else _num(p['metric'], int(obs) / MICRO)} | **{r['status']}** | {_txlink(r['tx'], network)} |")
     used = sorted({r["snapshot_date"] for r in d.get("resolutions", [])})
     notes = [f"Decided by the attested snapshot of {x} (first mainnet block {snaps[x]['block_height']:,}, 28-day block {snaps[x]['block_height_28d']:,}, "
-             f"OutLayer request {snaps[x]['outlayer_request_id']}), stored by {_txlink(snaps[x]['tx'])}; run log `{snaps[x]['log']}`." for x in used]
+             f"OutLayer request {snaps[x]['outlayer_request_id']}), stored by {_txlink(snaps[x]['tx'], network)}; run log `{snaps[x]['log']}`." for x in used]
     who = {(preds[r["id"]].get("resolution") or {}).get("resolved_by") for r in d.get("resolutions", [])}
     notes.append(f"Every transaction above was signed by `{', '.join(sorted(map(str, who)))}` with its function-call key `{d['keeper']['function_call_key']}`.")
     return "\n".join(rows) + "\n\n" + " ".join(notes)
@@ -223,12 +237,16 @@ def _sent(events, tx, method, args):
     return any(e.get("event") == "tx_sent" and e.get("tx") == tx and e.get("method") == method and e.get("args") == args for e in events)
 
 
-def check_records():
-    """Problems (strings) if the attested snapshots and prediction resolutions recorded in contract/deployment.json
-    disagree with the keeper run log each one cites, with the transaction list, or with the contract state in
-    site/contract-cache.json. Both directions: a snapshot or a decided prediction in the cache that is not recorded
-    is a problem too."""
-    d, c, out = _load("contract/deployment.json"), _load("site/contract-cache.json"), []
+def check_records(network=None):
+    """Problems (strings) if the attested snapshots and prediction resolutions recorded in a deployment record
+    (contract/deployment.json, contract/deployment-testnet.json) disagree with the keeper run log each one cites, with
+    the transaction list, or with the contract state in the network's cache (site/contract-cache*.json). Both
+    directions: a snapshot or a decided prediction in the cache that is not recorded is a problem too. Default: every
+    network."""
+    if network is None:
+        return [p for n in RECORDS for p in check_records(n)]
+    dep, cache, _ = RECORDS[network]
+    d, c, out = _load(dep), _load(cache), []
     txs = {tx for _, tx in d["transactions"]}
     snaps, preds = {s["date"]: s for s in c["attested"]}, {p["id"]: p for p in c["predictions"]}
     keeper = d["keeper"]["account"]
@@ -245,18 +263,18 @@ def check_records():
             out.append(f"{what}: tx {r['tx']} is not in the transactions list")
         s = snaps.get(r["date"])
         if s is None:
-            out.append(f"{what}: not in site/contract-cache.json")
+            out.append(f"{what}: not in {cache}")
             continue
         a, chk = s["source"]["attested"], s.get("attestation_checks") or {}
         b28 = next((int(m["value"]) // MICRO for m in s["metrics"] if m["key"] == "mainnet_block_height_28d"), None)
         got = (a["block_height"], b28, a["request_id"], chk.get("transaction_hash"))
         want = (r["block_height"], r["block_height_28d"], r["outlayer_request_id"], r["tx"])
         if got != want:
-            out.append(f"{what}: site/contract-cache.json has (block, 28d block, OutLayer request, tx) {got}, recorded {want}")
+            out.append(f"{what}: {cache} has (block, 28d block, OutLayer request, tx) {got}, recorded {want}")
         if not chk.get("verified"):
-            out.append(f"{what}: site/contract-cache.json does not mark it verified")
+            out.append(f"{what}: {cache} does not mark it verified")
     for date in sorted(snaps.keys() - recorded):
-        out.append(f"site/contract-cache.json has attested snapshot {date}, which contract/deployment.json does not record")
+        out.append(f"{cache} has attested snapshot {date}, which {dep} does not record")
     decided = set()
     for r in d.get("resolutions", []):
         what, ev = f"prediction {r['id']}", log_events(r["log"])
@@ -275,19 +293,22 @@ def check_records():
         got = (p and p["status"], res.get("snapshot_date"), p and p["resolve_after"], res.get("resolved_by"))
         want = (r["status"], r["snapshot_date"], r["snapshot_date"], keeper)
         if got != want:
-            out.append(f"{what}: site/contract-cache.json has (status, decided by, resolve date, resolved by) {got}, recorded {want}")
+            out.append(f"{what}: {cache} has (status, decided by, resolve date, resolved by) {got}, recorded {want}")
     for i, p in sorted(preds.items()):
         if p["status"] != "pending" and i not in decided:
-            out.append(f"site/contract-cache.json has prediction {i} {p['status']}, which contract/deployment.json does not record")
+            out.append(f"{cache} has prediction {i} {p['status']}, which {dep} does not record")
     return out
 
 
 def records_line():
     """The `make verify` line that states what check_records checked."""
-    d = _load("contract/deployment.json")
-    snaps = ", ".join(r["date"] for r in d.get("attested_snapshots", []))
-    res = ", ".join(f"{r['id']} {r['status']}" for r in d.get("resolutions", [])) or "none"
-    return f"recorded snapshots ({snaps}) and resolutions ({res}) match the keeper run logs and site/contract-cache.json"
+    parts = []
+    for n, (dep, _, _) in RECORDS.items():
+        d = _load(dep)
+        snaps = ", ".join(r["date"] for r in d.get("attested_snapshots", [])) or "none"
+        res = ", ".join(f"{r['id']} {r['status']}" for r in d.get("resolutions", [])) or "none"
+        parts.append(f"{n}: snapshots {snaps}, resolutions {res}")
+    return f"recorded outcomes ({'; '.join(parts)}) match the keeper run logs and the cached contract state"
 
 
 B58 = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
@@ -305,10 +326,11 @@ def _b58(hexstr):
 
 
 def record_hashes():
-    """Every long hash token in the committed records (deployment.json, the contract cache, the worker list and
-    the testnet logs), plus the base58 form of each hex hash (NEAR shows code_hash in base58)."""
-    txt = "".join(_text(os.path.join(ROOT, rel)) for rel in ("contract/deployment.json", "site/contract-cache.json", "contract/known_workers.json"))
-    txt += "".join(_text(p) for p in sorted(glob.glob(os.path.join(ROOT, "contract", "testnet-*.log"))))
+    """Every long hash token in the committed records (both deployment records, both contract caches, the worker list
+    and the mainnet and testnet logs), plus the base58 form of each hex hash (NEAR shows code_hash in base58)."""
+    rels = [rel for dep, cache, _ in RECORDS.values() for rel in (dep, cache)] + ["contract/known_workers.json"]
+    txt = "".join(_text(os.path.join(ROOT, rel)) for rel in rels)
+    txt += "".join(_text(p) for pat in ("mainnet-*.log", "testnet-*.log") for p in sorted(glob.glob(os.path.join(ROOT, "contract", pat))))
     toks = {t for t in re.findall(r"[0-9A-Za-z]+", txt) if len(t) >= 32}
     return toks | {_b58(h) for h in HEX64.findall(txt)}
 
@@ -319,12 +341,18 @@ def hash_problems(name, doc, known=None):
     known = record_hashes() if known is None else known
     bad = [h for h in HEX64.findall(doc) + TXHASH.findall(doc) if h not in known]
     bad += [f"{a}\u2026{b}" for a, b in SHORT.findall(doc) if not any(t.startswith(a) and t.endswith(b) for t in known)]
-    return [f"{name}: {h} is not in contract/deployment.json, site/contract-cache.json, contract/known_workers.json or contract/testnet-*.log" for h in dict.fromkeys(bad)]
+    return [f"{name}: {h} is not in contract/deployment*.json, site/contract-cache*.json, contract/known_workers.json or contract/{{mainnet,testnet}}-*.log" for h in dict.fromkeys(bad)]
 
 
 def marker(name):
     return (f"<!-- {name}:begin (generated by `make readme`) -->", f"<!-- {name}:end -->")
 
 
+def _testnet(fn):
+    return lambda m, findings: fn(m, findings, "testnet")
+
+
 BLOCKS = {"summary": summary_block, "verify-output": verify_block, "key-findings": key_findings_block, "test-output": tests_block,
-          "deployment": deployment_block, "attested": attested_block, "predictions": predictions_block, "resolutions": resolutions_block}
+          "deployment": deployment_block, "attested": attested_block, "predictions": predictions_block, "resolutions": resolutions_block,
+          "deployment-testnet": _testnet(deployment_block), "attested-testnet": _testnet(attested_block),
+          "predictions-testnet": _testnet(predictions_block), "resolutions-testnet": _testnet(resolutions_block)}

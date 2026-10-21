@@ -4,10 +4,10 @@
     python3 mcp/server.py [path/to/metrics.json]      # default: $NEARBOOKS_METRICS, else newest data/*/metrics.json
 
 Pipeline tools (historical, from metrics.json): get_metrics, get_reconciliation, list_predictions.
-Contract tools (live, NEAR testnet JSON-RPC view calls; no keys): get_attested_snapshots, get_predictions,
-get_contract_config. They fall back to the committed cache (site/contract-cache.json) when the RPC cannot be
-reached, and every answer says which one it used ("mode": "live" or "offline"). Env: NEARBOOKS_CONTRACT,
-NEARBOOKS_RPC (comma-separated), NEARBOOKS_CACHE.
+Contract tools (live, NEAR mainnet JSON-RPC view calls of nearbooks.near; no keys): get_attested_snapshots,
+get_predictions, get_contract_config. They fall back to the committed cache (site/contract-cache.json) when the RPC
+cannot be reached, and every answer says which one it used ("mode": "live" or "offline"). Env: NEARBOOKS_NETWORK
+(testnet = the earlier deployment), NEARBOOKS_CONTRACT, NEARBOOKS_RPC (comma-separated), NEARBOOKS_CACHE.
 """
 import glob, json, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -77,8 +77,8 @@ def _source(state, mode):
 
 def _source_mode(state, mode):
     if mode == "live":
-        return {"mode": "live", "contract": state["contract"], "network": "testnet", "rpc": state["rpc"], "block_height": state["block_height"]}
-    return {"mode": "offline", "contract": state["contract"], "network": "testnet", "cache_fetched_at": state["fetched_at"],
+        return {"mode": "live", "contract": state["contract"], "network": chain.NETWORK, "rpc": state["rpc"], "block_height": state["block_height"]}
+    return {"mode": "offline", "contract": state["contract"], "network": chain.NETWORK, "cache_fetched_at": state["fetched_at"],
             "cache_block_height": state["block_height"], "reason": state.get("offline_reason")}
 
 
@@ -122,11 +122,11 @@ TOOLS = {
     "get_reconciliation": (tool_get_reconciliation, "On-chain-rebuilt revenue vs DefiLlama: summary rows, monthly deltas and correlation by lag.", {"type": "object", "properties": {}}),
     "list_predictions": (tool_list_predictions, "Pipeline view of the dated, falsifiable predictions P1-P4 (claim, metric, comparator, threshold, resolve_after) with each metric's value in the 2026-10-20 snapshot.",
                          {"type": "object", "properties": {"metric": {"type": "string"}}}),
-    "get_attested_snapshots": (tool_get_attested_snapshots, "Attested NEAR mainnet snapshots stored in the nearbooks testnet contract, read live over RPC (falls back to a committed cache, flagged mode=offline). Optional `date` (YYYY-MM-DD), `verify` (fetch the OutLayer attestation and compare hashes), `offline` (use the cache only).",
+    "get_attested_snapshots": (tool_get_attested_snapshots, "Attested NEAR mainnet snapshots stored in the nearbooks contract (nearbooks.near), read live over RPC (falls back to a committed cache, flagged mode=offline). Optional `date` (YYYY-MM-DD), `verify` (fetch the OutLayer attestation and compare hashes), `offline` (use the cache only).",
                                {"type": "object", "properties": {"date": {"type": "string"}, "verify": {"type": "boolean"}, "offline": {"type": "boolean"}}}),
-    "get_predictions": (tool_get_predictions, "Every prediction registered in the nearbooks testnet contract with its on-chain status (pending, confirmed, refuted, void) and the observed value that decided it, read live over RPC (cache fallback, flagged). Optional `status`, `offline`.",
+    "get_predictions": (tool_get_predictions, "Every prediction registered in the nearbooks contract (nearbooks.near) with its on-chain status (pending, confirmed, refuted, void) and the observed value that decided it, read live over RPC (cache fallback, flagged). Optional `status`, `offline`.",
                         {"type": "object", "properties": {"status": {"type": "string", "enum": ["pending", "confirmed", "refuted", "void"]}, "offline": {"type": "boolean"}}}),
-    "get_contract_config": (tool_get_contract_config, "Owner, reporter, pin history, waiting pin proposal, timelock, earliest_date and keeper budget (keeper account, daily cap, budget, spent today) of the nearbooks testnet contract, read live (cache fallback, flagged).",
+    "get_contract_config": (tool_get_contract_config, "Owner, reporter, pin history, waiting pin proposal, timelock, earliest_date and keeper budget (keeper account, daily cap, budget, spent today) of the nearbooks contract (nearbooks.near), read live (cache fallback, flagged).",
                             {"type": "object", "properties": {"offline": {"type": "boolean"}}}),
 }
 

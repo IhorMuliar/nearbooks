@@ -1,0 +1,300 @@
+{
+ "contract": "nearbooks-v6.okf-kill-1792497882.testnet",
+ "network": "testnet",
+ "rpc": "https://rpc.testnet.near.org",
+ "block_height": 274018423,
+ "fetched_at": "2026-10-21T00:13:28Z",
+ "owner_id": "nearbooks-v6.okf-kill-1792497882.testnet",
+ "reporter_id": "nbproto-rep-1696.testnet",
+ "pin_delay_secs": 3600,
+ "pins": [
+  {
+   "config": {
+    "outlayer_id": "outlayer.testnet",
+    "wasm_url": "https://test.fastfs.io/okf-kill-1792497882.testnet/outlayer.testnet/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm",
+    "wasm_hash": "bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963",
+    "attestation_api": "https://testnet-api.outlayer.ai",
+    "max_instructions": 200000000,
+    "max_execution_seconds": 60
+   },
+   "from_ns": "0",
+   "applied_block": 274001060
+  }
+ ],
+ "pin_proposal": null,
+ "earliest_date": "2026-10-20",
+ "keeper": {
+  "keeper_id": "nearbooks-keeper.okf-kill-1792497882.testnet",
+  "daily_cap": "60000000000000000000000",
+  "budget": "107960000000000000000000",
+  "day": "2026-10-21",
+  "spent_today": "30000000000000000000000",
+  "request_cost": "30000000000000000000000"
+ },
+ "attested": [
+  {
+   "date": "2026-10-20",
+   "metrics": [
+    {
+     "key": "supply_total_near",
+     "value": "1309428647101414"
+    },
+    {
+     "key": "buyback_wallet_near",
+     "value": "2022180087915"
+    },
+    {
+     "key": "fefundsadmin_wallet_near",
+     "value": "1916643242806"
+    },
+    {
+     "key": "onecsfundsadmin_wallet_near",
+     "value": "270875891"
+    },
+    {
+     "key": "intents_reserves_tokens_checked",
+     "value": "8000000"
+    },
+    {
+     "key": "intents_reserves_tokens_in_deficit",
+     "value": "0"
+    },
+    {
+     "key": "intents_reserves_max_deficit_ppm",
+     "value": "0"
+    },
+    {
+     "key": "mainnet_block_height",
+     "value": "220726930000000"
+    },
+    {
+     "key": "supply_total_near_28d_ago",
+     "value": "1306946432063617"
+    },
+    {
+     "key": "mainnet_block_height_28d",
+     "value": "216696053000000"
+    },
+    {
+     "key": "net_issuance_near_per_day",
+     "value": "88650537064"
+    },
+    {
+     "key": "revenue_wallets_gain_near_28d",
+     "value": "434174324518"
+    },
+    {
+     "key": "revenue_wallets_gain_over_net_issuance",
+     "value": "174914"
+    }
+   ],
+   "evidence_hash": "875a2965057e9b6d4c6f153b05186aedd30f5025109721b75f42c138dc247ec0",
+   "submitted_by": "nearbooks-keeper.okf-kill-1792497882.testnet",
+   "block_height": 274001258,
+   "block_timestamp_ms": 1792531753814,
+   "source": {
+    "attested": {
+     "nonce": 0,
+     "request_id": 5240,
+     "wasm_hash": "bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963",
+     "block_height": 220726930,
+     "block_timestamp_ns": "1792454400548428142",
+     "output_sha256": "99a4cf8c881ba3fdbef9f26388d9fcfcbf95c177d24f61e589ce570c5bf27251",
+     "attestation": "https://testnet-api.outlayer.ai/attestations/by-request/5240"
+    }
+   },
+   "attestation_checks": {
+    "transaction_hash": "BWso6e2mQR5Qmj8tCvxbF9J8SHkoqgVnbV3rWXLFfyi4",
+    "official_contract": true,
+    "known_worker": true,
+    "pin_for_date_matches": true,
+    "tx_targets_contract": true,
+    "attestation_url_matches": true,
+    "wasm_hash_matches": true,
+    "input_hash_matches": true,
+    "output_hash_matches": true,
+    "request_id_matches": true,
+    "verified": true
+   }
+  },
+  {
+   "date": "2026-10-21",
+   "metrics": [
+    {
+     "key": "supply_total_near",
+     "value": "1309508415274274"
+    },
+    {
+     "key": "buyback_wallet_near",
+     "value": "2033718030159"
+    },
+    {
+     "key": "fefundsadmin_wallet_near",
+     "value": "1920982886911"
+    },
+    {
+     "key": "onecsfundsadmin_wallet_near",
+     "value": "270875891"
+    },
+    {
+     "key": "intents_reserves_tokens_checked",
+     "value": "8000000"
+    },
+    {
+     "key": "intents_reserves_tokens_in_deficit",
+     "value": "0"
+    },
+    {
+     "key": "intents_reserves_max_deficit_ppm",
+     "value": "0"
+    },
+    {
+     "key": "mainnet_block_height",
+     "value": "220871336000000"
+    },
+    {
+     "key": "supply_total_near_28d_ago",
+     "value": "1307054581145393"
+    },
+    {
+     "key": "mainnet_block_height_28d",
+     "value": "216835292000000"
+    },
+    {
+     "key": "net_issuance_near_per_day",
+     "value": "87636933174"
+    },
+    {
+     "key": "revenue_wallets_gain_near_28d",
+     "value": "423801089565"
+    },
+    {
+     "key": "revenue_wallets_gain_over_net_issuance",
+     "value": "172709"
+    }
+   ],
+   "evidence_hash": "4c79897407c9d1ff8095d35a3706149c31e62cfd23be85de81f5c472d76fdefb",
+   "submitted_by": "nearbooks-keeper.okf-kill-1792497882.testnet",
+   "block_height": 274018182,
+   "block_timestamp_ms": 1792541466017,
+   "source": {
+    "attested": {
+     "nonce": 1,
+     "request_id": 5258,
+     "wasm_hash": "bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963",
+     "block_height": 220871336,
+     "block_timestamp_ns": "1792540800533675965",
+     "output_sha256": "d374907f38f35b3153606b3267f43153aa16e4f19f2b4ae1de711ec20ec407a4",
+     "attestation": "https://testnet-api.outlayer.ai/attestations/by-request/5258"
+    }
+   },
+   "attestation_checks": {
+    "transaction_hash": "GtPFDVM4Rf8euXtNN1zmzxK25NmHrV3RDjAMnMojL378",
+    "official_contract": true,
+    "known_worker": true,
+    "pin_for_date_matches": true,
+    "tx_targets_contract": true,
+    "attestation_url_matches": true,
+    "wasm_hash_matches": true,
+    "input_hash_matches": true,
+    "output_hash_matches": true,
+    "request_id_matches": true,
+    "verified": true
+   }
+  }
+ ],
+ "predictions": [
+  {
+   "id": 0,
+   "claim": "Total NEAR supply at the first mainnet block of 2026-12-31 is higher than at the as-of snapshot (no net burn at the protocol level).",
+   "metric": "supply_total_near",
+   "comparator": "gt",
+   "threshold": "1309454856544252",
+   "resolve_after": "2026-12-31",
+   "created_date": "2026-10-20",
+   "status": "pending",
+   "resolution": null
+  },
+  {
+   "id": 1,
+   "claim": "The buyback wallet holds at least as much NEAR at the first block of 2026-12-31 as at the as-of snapshot (revenue is accumulated, not spent or burned from it).",
+   "metric": "buyback_wallet_near",
+   "comparator": "gte",
+   "threshold": "2024301607122",
+   "resolve_after": "2026-12-31",
+   "created_date": "2026-10-20",
+   "status": "pending",
+   "resolution": null
+  },
+  {
+   "id": 2,
+   "claim": "Net issuance over the 28 days to the first block of 2027-01-31 is still positive (total supply grew).",
+   "metric": "net_issuance_near_per_day",
+   "comparator": "gt",
+   "threshold": "0",
+   "resolve_after": "2027-01-31",
+   "created_date": "2026-10-20",
+   "status": "pending",
+   "resolution": null
+  },
+  {
+   "id": 3,
+   "claim": "In the 28 days to the first block of 2027-01-31 the three Intents revenue wallets gain less than half as much NEAR as total supply grows (burning all revenue would offset under 50% of issuance).",
+   "metric": "revenue_wallets_gain_over_net_issuance",
+   "comparator": "lt",
+   "threshold": "500000",
+   "resolve_after": "2027-01-31",
+   "created_date": "2026-10-20",
+   "status": "pending",
+   "resolution": null
+  },
+  {
+   "id": 4,
+   "claim": "Net issuance over the 28 days to the first block of the resolve date is above 80,000 NEAR/day (demo of a resolution; expected confirmed).",
+   "metric": "net_issuance_near_per_day",
+   "comparator": "gt",
+   "threshold": "80000000000",
+   "resolve_after": "2026-10-21",
+   "created_date": "2026-10-20",
+   "status": "confirmed",
+   "resolution": {
+    "snapshot_date": "2026-10-21",
+    "observed": "87636933174",
+    "resolved_by": "nearbooks-keeper.okf-kill-1792497882.testnet",
+    "block_height": 274018219
+   }
+  },
+  {
+   "id": 5,
+   "claim": "The buyback wallet holds less than 2,000,000 NEAR at the first block of the resolve date (demo of a resolution; expected refuted).",
+   "metric": "buyback_wallet_near",
+   "comparator": "lt",
+   "threshold": "2000000000000",
+   "resolve_after": "2026-10-21",
+   "created_date": "2026-10-20",
+   "status": "refuted",
+   "resolution": {
+    "snapshot_date": "2026-10-21",
+    "observed": "2033718030159",
+    "resolved_by": "nearbooks-keeper.okf-kill-1792497882.testnet",
+    "block_height": 274018244
+   }
+  },
+  {
+   "id": 6,
+   "claim": "Volume needed for net deflation exceeds 2x current volume at the first block of the resolve date (the old P4 metric, which the worker does not compute; expected void).",
+   "metric": "breakeven_over_current_volume",
+   "comparator": "gt",
+   "threshold": "2000000",
+   "resolve_after": "2026-10-21",
+   "created_date": "2026-10-20",
+   "status": "void",
+   "resolution": {
+    "snapshot_date": "2026-10-21",
+    "observed": null,
+    "resolved_by": "nearbooks-keeper.okf-kill-1792497882.testnet",
+    "block_height": 274018268
+   }
+  }
+ ]
+}

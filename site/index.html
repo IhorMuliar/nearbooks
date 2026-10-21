@@ -74,7 +74,7 @@
   <header>
     <h1>NEAR Books</h1>
     <p class="lede">NEAR Intents revenue, buybacks and issuance. Mainnet numbers attested on-chain by a pinned worker in a TEE, next to a reproducible pipeline that rebuilds and reconciles the history.</p>
-    <div id="status" class="status" role="status"><span class="tag mut">loading</span> reading the testnet contract</div>
+    <div id="status" class="status" role="status"><span class="tag mut">loading</span> reading the mainnet contract</div>
     <nav aria-label="Sections"><a href="#attested">Attested snapshots</a><a href="#predictions">Predictions</a><a href="#contract">Contract and trust</a><a href="#pipeline">Pipeline results</a></nav>
   </header>
   <div id="err"></div>
@@ -94,7 +94,7 @@
 
   <section id="contract">
     <div class="shead"><h2>Contract and trust</h2><span class="tag att" id="cfg-tag">on-chain</span></div>
-    <p class="note">Re-pinning the worker or changing the OutLayer contract is timelocked. A re-pin only governs dates that start after it is applied, so a waiting proposal can never touch a date that has already begun. The owner can still upgrade the code through the account's full-access key (testnet prototype).</p>
+    <p class="note">Re-pinning the worker or changing the OutLayer contract is timelocked. A re-pin only governs dates that start after it is applied, so a waiting proposal can never touch a date that has already begun. The contract account still has its full-access key, so the code can still be upgraded; deleting that key, which freezes the code, is the last step before submission.</p>
     <dl class="kv" id="cfg"></dl>
   </section>
 
@@ -129,16 +129,16 @@
 "use strict";
 const Q = new URLSearchParams(location.search);
 // Network access is limited to these HTTPS origins; URLs found in contract state are never fetched as given.
-const RPC_ALLOWED = ["https://rpc.testnet.near.org", "https://rpc.testnet.fastnear.com", "https://test.rpc.fastnear.com"];
-const ATTESTATION_API = "https://testnet-api.outlayer.ai";
-// Transactions are looked up on archival nodes: the regular testnet RPCs drop data after a few days.
-const ARCHIVAL_RPCS = ["https://archival-rpc.testnet.near.org", "https://archival-rpc.testnet.fastnear.com"];
+const RPC_ALLOWED = ["https://free.rpc.fastnear.com", "https://rpc.mainnet.near.org"];
+const ATTESTATION_API = "https://api.outlayer.ai";
+// Transactions are looked up on archival nodes: the regular RPCs drop data after a few days.
+const ARCHIVAL_RPCS = ["https://archival-rpc.mainnet.fastnear.com", "https://archival-rpc.mainnet.near.org"];
 // The one contract this page reads (no override: a link must not be able to dress up another contract as attested).
-const CONTRACT = "nearbooks-v6.okf-kill-1792497882.testnet";
+const CONTRACT = "nearbooks.near";
 // Worker builds this repo vouches for; identical to contract/known_workers.json (tests/test_mcp.py checks).
 const KNOWN_WORKERS = ["bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963"];
 const RPCS = ((Q.get("rpc") || "").split(",").filter((u) => RPC_ALLOWED.includes(u)).concat(RPC_ALLOWED)).filter((u, i, a) => a.indexOf(u) === i);
-const EXPLORER = "https://testnet.nearblocks.io", MAINNET_EXPLORER = "https://nearblocks.io";
+const EXPLORER = "https://nearblocks.io";
 const $ = (id) => document.getElementById(id);
 const fmt = (x, d = 0) => Number(x).toLocaleString("en-US", { maximumFractionDigits: d, minimumFractionDigits: d });
 const usd = (x) => "$" + (Math.abs(x) >= 1e9 ? fmt(x / 1e9, 2) + "B" : Math.abs(x) >= 1e6 ? fmt(x / 1e6, 2) + "M" : fmt(x));
@@ -242,7 +242,7 @@ function renderAttested(st, pipeline, live) {
   card(box, "Intents reserves", `${fmt(M.intents_reserves_tokens_checked - M.intents_reserves_tokens_in_deficit)} / ${fmt(M.intents_reserves_tokens_checked)} backed`, "top tokens: intents.near mt_supply vs ft_balance_of", "att");
   for (const s of snaps.reverse()) {
     const a = s.source.attested, tr = el("tr");
-    tr.append(td(s.date), td(link(`${MAINNET_EXPLORER}/blocks/${a.block_height}`, fmt(a.block_height)), "num"), td(el("span", short(a.wasm_hash), "mono")));
+    tr.append(td(s.date), td(link(`${EXPLORER}/blocks/${a.block_height}`, fmt(a.block_height)), "num"), td(el("span", short(a.wasm_hash), "mono")));
     const checks = td(el("span", live ? "checking…" : "", "mut"), "checks"), ev = td([], "links");
     let attUrl = null; try { attUrl = attestationUrl(s); } catch (e) { /* shown as unreachable */ }
     if (attUrl) ev.append(link(attUrl, "attestation"));
@@ -287,7 +287,7 @@ function renderConfig(st) {
   const cur = st.pins[st.pins.length - 1];
   add("Contract", link(`${EXPLORER}/address/${st.contract}`, st.contract));
   add("Owner", st.owner_id + (st.owner_id === st.contract ? " (the contract account itself)" : ""));
-  const wasm = /^https:\/\/test\.fastfs\.io\//.test(cur.config.wasm_url) ? link(cur.config.wasm_url, "wasm") : el("span", "wasm url: " + cur.config.wasm_url);
+  const wasm = /^https:\/\/main\.fastfs\.io\//.test(cur.config.wasm_url) ? link(cur.config.wasm_url, "wasm") : el("span", "wasm url: " + cur.config.wasm_url);
   add("Pinned worker now", [el("span", cur.config.wasm_hash, "mono"), " · ", wasm, ` · ${cur.config.outlayer_id} · time limit ${cur.config.max_execution_seconds} s`]);
   add("Pin history", st.pins.map((p, i) => `${i ? " · " : ""}#${i} ${short(p.config.wasm_hash)} (${p.config.max_execution_seconds} s) governs dates from ${nsDate(p.from_ns)}`).join(""));
   add("Re-pin timelock", `${fmt(st.pin_delay_secs)} s (${fmt(st.pin_delay_secs / 3600, 1)} h), fixed at init`);
@@ -356,9 +356,9 @@ async function loadPipeline() {
 function setStatus(mode, st, reason) {
   const s = $("status"); s.replaceChildren(); s.className = "status" + (mode === "live" ? "" : " offline");
   if (mode === "live") {
-    s.append(el("span", "live", "tag ok"), `Attested data and predictions read just now from `, link(`${EXPLORER}/address/${st.contract}`, st.contract), ` (NEAR testnet, block ${fmt(st.block_height)}, via ${new URL(st.rpc).host}).`);
+    s.append(el("span", "live", "tag ok"), `Attested data and predictions read just now from `, link(`${EXPLORER}/address/${st.contract}`, st.contract), ` (NEAR mainnet, block ${fmt(st.block_height)}, via ${new URL(st.rpc).host}).`);
   } else {
-    s.append(el("span", "offline data", "tag warn"), `The testnet RPC could not be reached${reason ? " (" + reason.slice(0, 120) + ")" : ""}. Showing the committed copy of the contract state from ${st.fetched_at} (block ${fmt(st.block_height)}). Reload to retry.`);
+    s.append(el("span", "offline data", "tag warn"), `The NEAR RPC could not be reached${reason ? " (" + reason.slice(0, 120) + ")" : ""}. Showing the committed copy of the contract state from ${st.fetched_at} (block ${fmt(st.block_height)}). Reload to retry.`);
   }
   ["att-tag", "pred-tag", "cfg-tag"].forEach((id) => { $(id).textContent = mode === "live" ? "attested · live" : "attested · offline copy"; $(id).className = "tag " + (mode === "live" ? "att" : "warn"); });
 }
@@ -374,7 +374,7 @@ function setStatus(mode, st, reason) {
   if (pipeline) {
     cards(pipeline); recon(pipeline); calc(pipeline);
     $("hist-tag").textContent = `pipeline · snapshot ${pipeline.as_of}`;
-    $("foot").textContent = `Pipeline data as of ${pipeline.as_of} (mainnet head ${fmt(pipeline.head_height)}; sources FastNear transfers API, archival RPC, DefiLlama). Attested data: contract ${CONTRACT} on NEAR testnet. Reproduce with "make verify"; check an attestation with contract/scripts/verify_attestation.py. Not financial advice.`;
+    $("foot").textContent = `Pipeline data as of ${pipeline.as_of} (mainnet head ${fmt(pipeline.head_height)}; sources FastNear transfers API, archival RPC, DefiLlama). Attested data: contract ${CONTRACT} on NEAR mainnet. Reproduce with "make verify"; check an attestation with contract/scripts/verify_attestation.py. Not financial advice.`;
   }
 })();
 </script>
