@@ -117,7 +117,7 @@ All findings, with tolerances and sources, are in [`docs/findings.md`](docs/find
 
 ## Limits
 
-- The contract account still holds its full-access key, so the code can still change. The key will be deleted before submission; `make verify-deploy` lists the account's keys.
+- The contract account's only full-access key was deleted on 2026-11-02 ([`6UGVvm9DLomj4SMezdQNJjBHW1AXgexZh1Lp9pvc7E3Z`](https://nearblocks.io/txns/6UGVvm9DLomj4SMezdQNJjBHW1AXgexZh1Lp9pvc7E3Z)), so the code cannot change; `make verify-deploy` lists the account's keys (0).
 - The contract does not check the TDX quote; `verify_attestation.py` does.
 - The worker reads mainnet over JSON-RPC, without state proofs. The evidence hash commits to the raw responses.
 - F1 is not independent of DefiLlama, because both sum the same wallets.

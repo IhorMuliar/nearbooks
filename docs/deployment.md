@@ -14,7 +14,7 @@ The live contract is [`nearbooks.near`](https://nearblocks.io/address/nearbooks.
 | Reproducible build | commit `30d995d80f931de63cb778d1d8525bda2df2b915`, image `sourcescan/cargo-near:0.21.1-rust-1.96.0@sha256:ccb22bb4e677ed022d8b9d1aa1b32f0af52dd0471ef1c32e48dedbf68ee6ee17`; rebuild: `contract/scripts/repro_build.sh 30d995d80f931de63cb778d1d8525bda2df2b915` |
 | Pinned worker sha256 | `bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963` ([FastFS](https://main.fastfs.io/nearbooks.near/outlayer.near/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm)) |
 | Re-pin timelock | 86,400 s |
-| Owner | `nearbooks.near`; its full-access key is still on the contract account; to be deleted before submission, which freezes the code |
+| Owner | `nearbooks.near`; its full-access key is deleted on 2026-11-02 (tx 6UGVvm9DLomj4SMezdQNJjBHW1AXgexZh1Lp9pvc7E3Z), which froze the code |
 | Keeper | `keeper.nearbooks.near`: function-call key `ed25519:7crc4z7gpNGQ3YuqdWes5f3Q4hMLbFbtbxxk7og9jFqA` for `keeper_request_snapshot`, `resolve_prediction`, allowance 1 NEAR; daily cap 0.06 NEAR, budget funded 0.5 NEAR |
 | Create nearbooks.near (3 NEAR, near.create_account, from the deployer) | [`ERqFP1FCf7xrsxxFfJVprPK9nUmjkkBWZeDJhfVwUMFG`](https://nearblocks.io/txns/ERqFP1FCf7xrsxxFfJVprPK9nUmjkkBWZeDJhfVwUMFG) |
 | Upload the worker to FastFS (receiver outlayer.near) | [`8BZfncC4c1F8zSYLiS6CwvzWfaJsQFSFAKDCBzoCoZfS`](https://nearblocks.io/txns/8BZfncC4c1F8zSYLiS6CwvzWfaJsQFSFAKDCBzoCoZfS) |
@@ -39,7 +39,7 @@ The live contract is [`nearbooks.near`](https://nearblocks.io/address/nearbooks.
 
 Console output: `contract/logs/mainnet-deploy-2026-10-21.log`.
 
-**The contract account still has its full-access key.** Whoever holds it can redeploy the code and bypass every rule, including the timelock. Deleting it, which freezes the code, is the last step before submission; `make verify-deploy` lists the account's keys.
+**The contract account has no keys.** Its full-access key was the only way to redeploy the code or bypass a rule, including the timelock. Deleting it froze the code; `make verify-deploy` lists the account's keys (0). The owner role stays with `nearbooks.near`, which can no longer sign: no new predictions, re-pins, keeper settings or budget withdrawals. Anyone can still call `fund_keeper`.
 
 ## Keeper
 

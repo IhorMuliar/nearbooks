@@ -89,11 +89,11 @@ The owner is the contract account itself: `nearbooks.near` on mainnet (`nearbook
 | `set_keeper` | Names the one account that may spend the keeper budget, and its daily cap | Cap at most 1 NEAR per UTC day (contract rule). Event `keeper_set`. The owner cannot spend the budget itself. |
 | `withdraw_keeper_budget` | Takes unspent budget back to the owner | Only up to the recorded budget. Event `keeper_budget_withdrawn`. |
 | `transfer_ownership` | Hands every power above to another account, for example a multisig | Event `owner_transferred`. |
-| **Code upgrade through the account's full-access key** | **Can change any rule, including the timelock** | **Possible until that key is deleted**, the last step before submission. Until then, check the deployed `code_hash` against the build (`make verify-deploy`, which also lists the account's keys). |
+| **Code upgrade through the account's full-access key** | **Can change any rule, including the timelock** | **Closed on 2026-11-02**, when that key was deleted. `make verify-deploy` lists the account's keys (0) and checks the deployed `code_hash` against the build. |
 
 The owner cannot write or alter attested snapshots, move requesters' funds (OutLayer refunds the run part; the contract returns only a request's own unused reserve) or resolve a prediction except by the public rule.
 
-`nearbooks.near` still has its full-access key. Because it owns itself, deleting that key both freezes the code and ends the owner calls (re-pin, new predictions, keeper settings); the contract then runs only by its public rules, and anyone can still fund the keeper budget.
+`nearbooks.near` has no keys: its only full-access key was deleted on 2026-11-02. Because it owns itself, that froze the code and ended the owner calls (re-pin, new predictions, keeper settings); the contract now runs only by its public rules, and anyone can still fund the keeper budget.
 
 ## Keeper budget
 

@@ -1,0 +1,4 @@
+== 2026-11-02 mainnet: delete the only full-access key of nearbooks.near
+DeleteKey ed25519:3Q5NWXbjjrTo7HivhLT1cHz9ozn1maqCHLis2KUePmER on nearbooks.near, signed by that key
+Transaction ID: 6UGVvm9DLomj4SMezdQNJjBHW1AXgexZh1Lp9pvc7E3Z
+after: access keys on nearbooks.near: 0; code_hash 7kVhxUa6q7DTUGd57V2XWqDzBvqXVGCrq3gFrFWdhNEh (unchanged)

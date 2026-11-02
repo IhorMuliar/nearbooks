@@ -25,7 +25,7 @@
   "worker_url": "https://main.fastfs.io/nearbooks.near/outlayer.near/bbed939a018ae8b35709778b3c539f9e2f6a4e2b1dd37e827d9c70c406637963.wasm",
   "pin_delay_secs": 86400,
   "owner": "nearbooks.near",
-  "owner_full_access_key": "still on the contract account; to be deleted before submission, which freezes the code",
+  "owner_full_access_key": "deleted on 2026-11-02 (tx 6UGVvm9DLomj4SMezdQNJjBHW1AXgexZh1Lp9pvc7E3Z), which froze the code",
   "keeper": {
     "account": "keeper.nearbooks.near",
     "function_call_key": "ed25519:7crc4z7gpNGQ3YuqdWes5f3Q4hMLbFbtbxxk7og9jFqA",
